@@ -266,7 +266,7 @@ function renderPractice() {
       <div class="practice-head">
         <div class="question-kicker">
           <span>${state.currentIndex + 1}/${total}</span>
-          <span class="difficulty-badge difficulty-${difficulty}">${difficulty}</span>
+          <span class="difficulty-badge difficulty-${difficulty}">${formatDifficulty(difficulty)}</span>
         </div>
         <span>${escapeHtml(question.battery.replace(' Battery', ''))} - ${escapeHtml(question.subtest)}</span>
       </div>
@@ -364,7 +364,7 @@ function renderMockPractice() {
       <div class="practice-head">
         <div class="question-kicker">
           <span>Question ${state.currentIndex + 1} of ${total}</span>
-          <span class="difficulty-badge difficulty-${difficulty}">${difficulty}</span>
+          <span class="difficulty-badge difficulty-${difficulty}">${formatDifficulty(difficulty)}</span>
         </div>
         <span>Choose one answer</span>
       </div>
@@ -451,7 +451,7 @@ function selectBalancedMockQuestions(source, count) {
 
   const selectedQuestions = [];
   ['easy', 'medium', 'hard'].forEach((difficulty) => {
-    const bucket = source.filter((question) => getDifficulty(question) === difficulty);
+    const bucket = source.filter((question) => getDifficultyBucket(question) === difficulty);
     selectedQuestions.push(...shuffle(bucket).slice(0, targetCounts[difficulty]));
   });
 
@@ -704,7 +704,7 @@ function renderBankQuestion(question, index) {
       <div class="bank-question-meta">
         <b>${index + 1}</b>
         <span>#${escapeHtml(question.id)}</span>
-        <span class="difficulty-badge difficulty-${difficulty}">${difficulty}</span>
+        <span class="difficulty-badge difficulty-${difficulty}">${formatDifficulty(difficulty)}</span>
         <span>${escapeHtml(question.battery.replace(' Battery', ''))} · ${escapeHtml(question.subtest)}</span>
         <span class="bank-answer">Answer ${escapeHtml(question.correctAnswer)}</span>
       </div>
@@ -790,13 +790,19 @@ function getPracticePool() {
 
 function getDifficulty(question) {
   const explicitDifficulty = String(question.difficulty ?? '').toLowerCase();
-  if (['easy', 'medium', 'hard'].includes(explicitDifficulty)) {
+  if (explicitDifficulty === 'very-hard') {
+    return 'very-hard';
+  }
+  if (explicitDifficulty === 'hard') {
+    return 'medium';
+  }
+  if (['easy', 'medium'].includes(explicitDifficulty)) {
     return explicitDifficulty;
   }
 
   const id = Number(question.id);
   if (id >= 401) {
-    return 'hard';
+    return 'medium';
   }
 
   if (id < 100) {
@@ -805,11 +811,18 @@ function getDifficulty(question) {
   }
 
   if (id >= 300) {
-    return id >= 317 ? 'hard' : 'medium';
+    return 'medium';
   }
 
-  const positionInExtraSet = id % 100;
-  return positionInExtraSet >= 21 ? 'hard' : 'medium';
+  return 'medium';
+}
+
+function getDifficultyBucket(question) {
+  return getDifficulty(question) === 'very-hard' ? 'hard' : getDifficulty(question);
+}
+
+function formatDifficulty(difficulty) {
+  return difficulty.replace('-', ' ');
 }
 
 function getSubtests() {

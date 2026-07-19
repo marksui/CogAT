@@ -698,6 +698,11 @@ button:focus-visible {
   color: #be123c;
 }
 
+.difficulty-very-hard {
+  background: #151515;
+  color: #ffffff;
+}
+
 .meter {
   height: 5px;
   margin: 18px 0 28px;
