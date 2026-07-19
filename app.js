@@ -73,6 +73,10 @@ function render() {
     renderMockPractice();
     return;
   }
+  if (state.view === 'bank') {
+    renderQuestionBank();
+    return;
+  }
   renderSetup();
 }
 
@@ -91,6 +95,7 @@ function renderShell(content) {
               <a href="https://github.com/marksui/CogAT" target="_blank" rel="noopener noreferrer">marksui/CogAT</a>
             </div>
           </details>
+          <button class="bank-link" type="button" data-bank>题库</button>
         </div>
         <span>${allQuestions.length} questions</span>
       </header>
@@ -101,6 +106,14 @@ function renderShell(content) {
   document.querySelector('[data-home]').addEventListener('click', () => {
     stopMockTimer();
     state.view = 'setup';
+    state.examType = 'practice';
+    state.message = '';
+    render();
+  });
+
+  document.querySelector('[data-bank]').addEventListener('click', () => {
+    stopMockTimer();
+    state.view = 'bank';
     state.examType = 'practice';
     state.message = '';
     render();
@@ -611,6 +624,52 @@ function renderMockResults() {
 
   document.querySelector('#again').addEventListener('click', startMockExam);
   document.querySelector('#export-history').addEventListener('click', exportHistory);
+}
+
+function renderQuestionBank() {
+  const bankBatteries = batteries.filter((battery) => battery.key !== 'all');
+
+  renderShell(`
+    <section class="panel question-bank">
+      <div class="bank-head">
+        <h1>题库</h1>
+        <span>${allQuestions.length} questions</span>
+      </div>
+
+      <div class="bank-grid">
+        ${bankBatteries.map((battery) => {
+          const subtests = [...new Set(battery.questions.map((question) => question.subtest))].sort();
+          return `
+            <article class="bank-card">
+              <div class="bank-title">
+                <b>${escapeHtml(battery.label)}</b>
+                <span>${battery.questions.length}</span>
+              </div>
+              ${subtests.map((subtest) => {
+                const count = battery.questions.filter((question) => question.subtest === subtest).length;
+                return `
+                  <button class="bank-row" type="button" data-bank-battery="${battery.key}" data-bank-subtest="${escapeHtml(subtest)}">
+                    <span>${escapeHtml(subtest)}</span>
+                    <b>${count}</b>
+                  </button>
+                `;
+              }).join('')}
+            </article>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `);
+
+  document.querySelectorAll('[data-bank-subtest]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.examType = 'practice';
+      state.battery = button.dataset.bankBattery;
+      state.subtest = button.dataset.bankSubtest;
+      state.mode = 'all';
+      startPractice();
+    });
+  });
 }
 
 function summarizeMockScores() {

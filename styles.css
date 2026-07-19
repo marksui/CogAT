@@ -69,6 +69,17 @@ select {
   letter-spacing: -0.04em;
 }
 
+.bank-link {
+  min-height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .about-menu {
   position: relative;
 }
@@ -177,6 +188,76 @@ h2 {
 .controls {
   display: grid;
   gap: 18px;
+}
+
+.question-bank {
+  padding: 24px;
+}
+
+.bank-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.bank-head h1 {
+  margin: 0;
+  font-size: clamp(38px, 7vw, 72px);
+  letter-spacing: -0.07em;
+}
+
+.bank-head span,
+.bank-title span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.bank-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bank-card {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 14px;
+}
+
+.bank-title,
+.bank-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bank-title {
+  margin-bottom: 10px;
+}
+
+.bank-row {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.bank-row b {
+  color: var(--ink);
+}
+
+.bank-row:hover {
+  color: var(--ink);
 }
 
 .exam-switch {
@@ -704,7 +785,8 @@ button:focus-visible {
   }
 
   .setup-grid,
-  .results {
+  .results,
+  .bank-grid {
     grid-template-columns: 1fr;
   }
 
