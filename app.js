@@ -55,6 +55,8 @@ const state = {
   mockPartIndex: 0,
   mockResults: [],
   mockSecondsRemaining: 0,
+  bankBattery: 'all',
+  bankSubtest: 'all',
 };
 
 const app = document.querySelector('#app');
@@ -627,49 +629,111 @@ function renderMockResults() {
 }
 
 function renderQuestionBank() {
-  const bankBatteries = batteries.filter((battery) => battery.key !== 'all');
+  const selectedBattery = batteryMap.get(state.bankBattery) ?? batteryMap.get('all');
+  const bankSubtests = getBankSubtests(selectedBattery);
+  if (state.bankSubtest !== 'all' && !bankSubtests.includes(state.bankSubtest)) {
+    state.bankSubtest = 'all';
+  }
+  const filteredQuestions = getBankQuestions();
 
   renderShell(`
     <section class="panel question-bank">
       <div class="bank-head">
         <h1>题库</h1>
-        <span>${allQuestions.length} questions</span>
+        <span>${filteredQuestions.length}/${allQuestions.length}</span>
       </div>
 
-      <div class="bank-grid">
-        ${bankBatteries.map((battery) => {
-          const subtests = [...new Set(battery.questions.map((question) => question.subtest))].sort();
-          return `
-            <article class="bank-card">
-              <div class="bank-title">
-                <b>${escapeHtml(battery.label)}</b>
-                <span>${battery.questions.length}</span>
-              </div>
-              ${subtests.map((subtest) => {
-                const count = battery.questions.filter((question) => question.subtest === subtest).length;
-                return `
-                  <button class="bank-row" type="button" data-bank-battery="${battery.key}" data-bank-subtest="${escapeHtml(subtest)}">
-                    <span>${escapeHtml(subtest)}</span>
-                    <b>${count}</b>
-                  </button>
-                `;
-              }).join('')}
-            </article>
-          `;
-        }).join('')}
+      <div class="bank-toolbar">
+        <div class="bank-chips" aria-label="Battery filter">
+          ${batteries.map((battery) => `
+            <button class="bank-chip ${battery.key === state.bankBattery ? 'selected' : ''}" type="button" data-bank-filter="${battery.key}">
+              <span>${escapeHtml(battery.label)}</span>
+              <b>${battery.questions.length}</b>
+            </button>
+          `).join('')}
+        </div>
+
+        <label class="bank-select">
+          <span>Subtest</span>
+          <select id="bank-subtest">
+            <option value="all">All</option>
+            ${bankSubtests.map((subtest) => `
+              <option value="${escapeHtml(subtest)}" ${subtest === state.bankSubtest ? 'selected' : ''}>${escapeHtml(subtest)}</option>
+            `).join('')}
+          </select>
+        </label>
+
+        <button class="ghost bank-practice" type="button" id="bank-start" ${filteredQuestions.length ? '' : 'disabled'}>Practice</button>
+      </div>
+
+      <div class="bank-list">
+        ${filteredQuestions.map((question, index) => renderBankQuestion(question, index)).join('')}
       </div>
     </section>
   `);
 
-  document.querySelectorAll('[data-bank-subtest]').forEach((button) => {
+  document.querySelectorAll('[data-bank-filter]').forEach((button) => {
     button.addEventListener('click', () => {
-      state.examType = 'practice';
-      state.battery = button.dataset.bankBattery;
-      state.subtest = button.dataset.bankSubtest;
-      state.mode = 'all';
-      startPractice();
+      state.bankBattery = button.dataset.bankFilter;
+      state.bankSubtest = 'all';
+      render();
     });
   });
+
+  document.querySelector('#bank-subtest').addEventListener('change', (event) => {
+    state.bankSubtest = event.target.value;
+    render();
+  });
+
+  document.querySelector('#bank-start').addEventListener('click', () => {
+    state.examType = 'practice';
+    state.battery = state.bankBattery;
+    state.subtest = state.bankSubtest;
+    state.mode = 'all';
+    startPractice();
+  });
+}
+
+function renderBankQuestion(question, index) {
+  const difficulty = getDifficulty(question);
+  return `
+    <article class="bank-question" id="question-${question.id}">
+      <div class="bank-question-meta">
+        <b>${index + 1}</b>
+        <span>#${escapeHtml(question.id)}</span>
+        <span class="difficulty-badge difficulty-${difficulty}">${difficulty}</span>
+        <span>${escapeHtml(question.battery.replace(' Battery', ''))} · ${escapeHtml(question.subtest)}</span>
+        <span class="bank-answer">Answer ${escapeHtml(question.correctAnswer)}</span>
+      </div>
+      <div class="bank-question-body">
+        <div class="bank-preview">
+          <div>${question.question}</div>
+          ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
+        </div>
+        <div class="bank-options-mini">
+          ${question.options.map((option) => `
+            <div class="bank-option-mini ${option.label === question.correctAnswer ? 'is-answer' : ''}">
+              <b>${escapeHtml(option.label)}</b>
+              <span>${option.text}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function getBankSubtests(battery) {
+  return [...new Set(battery.questions.map((question) => question.subtest))].sort();
+}
+
+function getBankQuestions() {
+  const battery = batteryMap.get(state.bankBattery) ?? batteryMap.get('all');
+  const questions = state.bankSubtest === 'all'
+    ? battery.questions
+    : battery.questions.filter((question) => question.subtest === state.bankSubtest);
+
+  return [...questions].sort((first, second) => Number(first.id) - Number(second.id));
 }
 
 function summarizeMockScores() {
