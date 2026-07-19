@@ -478,6 +478,36 @@ button:focus-visible {
   letter-spacing: 0;
 }
 
+.number-analogy {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: clamp(10px, 2.3vw, 24px);
+  font-size: clamp(28px, 4.8vw, 46px);
+  line-height: 1.1;
+}
+
+.number-pair {
+  white-space: nowrap;
+}
+
+.number-pair b {
+  font-weight: 950;
+}
+
+.number-pair i {
+  margin: 0 8px;
+  color: #b91c1c;
+  font-style: normal;
+  font-weight: 950;
+}
+
+@media (max-width: 640px) {
+  .number-analogy {
+    flex-wrap: wrap;
+  }
+}
+
 .question-card svg,
 .option svg {
   max-width: 100%;
