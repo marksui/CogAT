@@ -407,6 +407,39 @@ button:focus-visible {
   font-weight: 800;
 }
 
+.question-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.difficulty-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.difficulty-easy {
+  background: #ecfdf3;
+  color: #16803c;
+}
+
+.difficulty-medium {
+  background: #fff7df;
+  color: #9a5b00;
+}
+
+.difficulty-hard {
+  background: #fff1f2;
+  color: #be123c;
+}
+
 .meter {
   height: 5px;
   margin: 18px 0 28px;

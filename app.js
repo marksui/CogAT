@@ -2,17 +2,19 @@ import { verbalQuestions } from './data/verbalQuestions.js';
 import { quantitativeQuestions } from './data/quantitativeQuestions.js';
 import { nonverbalQuestions } from './data/nonverbalQuestions.js';
 import { verbalExtraQuestions } from './data/verbalExtraQuestions.js';
+import { verbalWorkbookQuestions } from './data/verbalWorkbookQuestions.js';
 import { quantitativeExtraQuestions } from './data/quantitativeExtraQuestions.js';
 import { nonverbalExtraQuestions } from './data/nonverbalExtraQuestions.js';
 import { mockExamQuestions } from './data/mockExamQuestions.js';
+import { level10OriginalQuestions } from './data/level10OriginalQuestions.js';
 
 const QUESTION_LIMIT = 30;
 const STORAGE_KEY = 'grade4-cogat-history-v1';
 
 const questionSets = {
-  verbal: [...verbalQuestions, ...verbalExtraQuestions],
-  quantitative: [...quantitativeQuestions, ...quantitativeExtraQuestions],
-  nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions],
+  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalWorkbookQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery')],
+  quantitative: [...quantitativeQuestions, ...quantitativeExtraQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery')],
+  nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Nonverbal Battery')],
 };
 
 const batteries = [
@@ -23,9 +25,15 @@ const batteries = [
 ];
 
 const mockParts = [
-  { key: 'nonverbal', label: 'Shapes & patterns', minutes: 10 },
-  { key: 'quantitative', label: 'Numbers & patterns', minutes: 10 },
-  { key: 'verbal', label: 'Words & sentences', minutes: 10 },
+  { key: 'verbal', battery: 'Verbal Battery', subtest: 'Sentence Completion', label: 'Sentence Completion', minutes: 10, questionCount: 20 },
+  { key: 'verbal', battery: 'Verbal Battery', subtest: 'Verbal Classification', label: 'Verbal Classification', minutes: 10, questionCount: 20 },
+  { key: 'verbal', battery: 'Verbal Battery', subtest: 'Verbal Analogies', label: 'Verbal Analogies', minutes: 10, questionCount: 24 },
+  { key: 'quantitative', battery: 'Quantitative Battery', subtest: 'Number Analogies', label: 'Number Analogies', minutes: 10, questionCount: 18 },
+  { key: 'quantitative', battery: 'Quantitative Battery', subtest: 'Number Series', label: 'Number Series', minutes: 10, questionCount: 18 },
+  { key: 'quantitative', battery: 'Quantitative Battery', subtest: 'Number Puzzles', label: 'Number Puzzles', minutes: 10, questionCount: 16 },
+  { key: 'nonverbal', battery: 'Nonverbal Battery', subtest: 'Figure Matrices', label: 'Figure Matrices', minutes: 10, questionCount: 22 },
+  { key: 'nonverbal', battery: 'Nonverbal Battery', subtest: 'Figure Classification', label: 'Figure Classification', minutes: 10, questionCount: 22 },
+  { key: 'nonverbal', battery: 'Nonverbal Battery', subtest: 'Paper Folding', label: 'Paper Folding', minutes: 10, questionCount: 16 },
 ];
 
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
@@ -121,7 +129,7 @@ function renderSetup() {
               ${mockParts.map((part, index) => `
                 <div class="mock-part">
                   <span>${index + 1}</span>
-                  <div><b>${part.label}</b><small>${part.minutes} minutes · 10 questions</small></div>
+                  <div><b>${part.label}</b><small>${part.minutes} minutes - ${part.questionCount} questions</small></div>
                 </div>
               `).join('')}
             </div>
@@ -233,12 +241,16 @@ function renderPractice() {
   const answer = state.answers[state.currentIndex];
   const total = state.questions.length;
   const isLast = state.currentIndex === total - 1;
+  const difficulty = getDifficulty(question);
 
   renderShell(`
     <section class="panel practice">
       <div class="practice-head">
-        <span>${state.currentIndex + 1}/${total}</span>
-        <span>${escapeHtml(question.battery.replace(' Battery', ''))} · ${escapeHtml(question.subtest)}</span>
+        <div class="question-kicker">
+          <span>${state.currentIndex + 1}/${total}</span>
+          <span class="difficulty-badge difficulty-${difficulty}">${difficulty}</span>
+        </div>
+        <span>${escapeHtml(question.battery.replace(' Battery', ''))} - ${escapeHtml(question.subtest)}</span>
       </div>
 
       <div class="meter" aria-hidden="true"><span style="width:${((state.currentIndex + 1) / total) * 100}%"></span></div>
@@ -319,19 +331,23 @@ function renderMockPractice() {
   const answer = state.answers[state.currentIndex];
   const total = state.questions.length;
   const isLast = state.currentIndex === total - 1;
+  const difficulty = getDifficulty(question);
 
   renderShell(`
     <section class="panel practice mock-practice">
       <div class="mock-topline">
         <div>
-          <span class="eyebrow">Mock exam · Part ${state.mockPartIndex + 1} of ${mockParts.length}</span>
+          <span class="eyebrow">Mock exam - Part ${state.mockPartIndex + 1} of ${mockParts.length}</span>
           <h2>${part.label}</h2>
         </div>
         <div class="timer" id="timer" aria-live="polite">${formatTime(state.mockSecondsRemaining)}</div>
       </div>
 
       <div class="practice-head">
-        <span>Question ${state.currentIndex + 1} of ${total}</span>
+        <div class="question-kicker">
+          <span>Question ${state.currentIndex + 1} of ${total}</span>
+          <span class="difficulty-badge difficulty-${difficulty}">${difficulty}</span>
+        </div>
         <span>Choose one answer</span>
       </div>
       <div class="meter" aria-hidden="true"><span style="width:${((state.currentIndex + 1) / total) * 100}%"></span></div>
@@ -404,13 +420,30 @@ function startMockPart() {
 }
 
 function getMockPartQuestions(part) {
-  const source = questionSets[part.key];
-  if (part.key === 'nonverbal') {
-    const sampleQuestions = shuffle(mockExamQuestions).slice(0, 3);
-    const regularQuestions = shuffle(source.filter((question) => !mockExamQuestions.some((sample) => sample.id === question.id))).slice(0, 7);
-    return [...sampleQuestions, ...regularQuestions];
+  const source = questionSets[part.key].filter((question) => question.subtest === part.subtest);
+  return selectBalancedMockQuestions(source, part.questionCount);
+}
+
+function selectBalancedMockQuestions(source, count) {
+  const targetCounts = {
+    easy: Math.floor(count * 0.2),
+    medium: Math.ceil(count * 0.45),
+  };
+  targetCounts.hard = count - targetCounts.easy - targetCounts.medium;
+
+  const selectedQuestions = [];
+  ['easy', 'medium', 'hard'].forEach((difficulty) => {
+    const bucket = source.filter((question) => getDifficulty(question) === difficulty);
+    selectedQuestions.push(...shuffle(bucket).slice(0, targetCounts[difficulty]));
+  });
+
+  if (selectedQuestions.length < count) {
+    const selectedIds = new Set(selectedQuestions.map((question) => question.id));
+    const remainingQuestions = source.filter((question) => !selectedIds.has(question.id));
+    selectedQuestions.push(...shuffle(remainingQuestions).slice(0, count - selectedQuestions.length));
   }
-  return shuffle(source).slice(0, 10);
+
+  return shuffle(selectedQuestions).slice(0, count);
 }
 
 function startMockTimer() {
@@ -454,9 +487,14 @@ function finishMockPart() {
   });
 
   state.mockResults.push({
+    key: part.key,
+    battery: part.battery,
+    subtest: part.subtest,
     label: part.label,
     correct,
     total: state.questions.length,
+    unanswered: state.answers.filter((answer) => !answer).length,
+    secondsUsed: (part.minutes * 60) - state.mockSecondsRemaining,
   });
 
   if (state.mockPartIndex < mockParts.length - 1) {
@@ -515,7 +553,7 @@ function renderResults() {
             const index = state.questions.indexOf(question);
             return `
               <article>
-                <b>${escapeHtml(question.subtest)} · ${state.answers[index]} → ${question.correctAnswer}</b>
+                <b>${escapeHtml(question.subtest)} - ${state.answers[index]} -> ${question.correctAnswer}</b>
                 <p>${question.explanation}</p>
               </article>
             `;
@@ -536,6 +574,7 @@ function renderMockResults() {
   const total = state.mockResults.reduce((sum, part) => sum + part.total, 0);
   const correct = state.mockResults.reduce((sum, part) => sum + part.correct, 0);
   const percent = Math.round((correct / total) * 100);
+  const batteryScores = summarizeMockScores();
 
   renderShell(`
     <section class="results mock-results">
@@ -550,20 +589,37 @@ function renderMockResults() {
       </div>
 
       <div class="panel summary">
-        <h2>Part scores</h2>
+        <h2>Battery scores</h2>
+        ${Object.entries(batteryScores).map(([battery, score]) => `
+          <div class="row">
+            <span>${escapeHtml(battery.replace(' Battery', ''))}</span>
+            <b>${score.correct}/${score.total} - ${Math.round((score.correct / score.total) * 100)}%</b>
+          </div>
+        `).join('')}
+
+        <h2>Subtest scores</h2>
         ${state.mockResults.map((part) => `
           <div class="row">
             <span>${escapeHtml(part.label)}</span>
-            <b>${part.correct}/${part.total}</b>
+            <b>${part.correct}/${part.total}${part.unanswered ? ` - ${part.unanswered} blank` : ''}</b>
           </div>
         `).join('')}
-        <p class="microcopy mock-result-note">Your correct and missed answers were saved to history.</p>
+        <p class="microcopy mock-result-note">Raw score only. Official CogAT SAS, percentile, and stanine need age norms that are not included here.</p>
       </div>
     </section>
   `);
 
   document.querySelector('#again').addEventListener('click', startMockExam);
   document.querySelector('#export-history').addEventListener('click', exportHistory);
+}
+
+function summarizeMockScores() {
+  return state.mockResults.reduce((summary, part) => {
+    summary[part.battery] ??= { correct: 0, total: 0 };
+    summary[part.battery].correct += part.correct;
+    summary[part.battery].total += part.total;
+    return summary;
+  }, {});
 }
 
 function startPractice() {
@@ -604,6 +660,30 @@ function getPracticePool() {
     return pool.filter((question) => state.history.stats[String(question.id)]?.lastResult === 'correct');
   }
   return pool;
+}
+
+function getDifficulty(question) {
+  const explicitDifficulty = String(question.difficulty ?? '').toLowerCase();
+  if (['easy', 'medium', 'hard'].includes(explicitDifficulty)) {
+    return explicitDifficulty;
+  }
+
+  const id = Number(question.id);
+  if (id >= 401) {
+    return 'hard';
+  }
+
+  if (id < 100) {
+    const positionInSubtest = id % 10 || 10;
+    return positionInSubtest <= 5 ? 'easy' : 'medium';
+  }
+
+  if (id >= 300) {
+    return id >= 317 ? 'hard' : 'medium';
+  }
+
+  const positionInExtraSet = id % 100;
+  return positionInExtraSet >= 21 ? 'hard' : 'medium';
 }
 
 function getSubtests() {
