@@ -321,7 +321,7 @@ h2 {
 
 .bank-question-body {
   display: grid;
-  grid-template-columns: minmax(160px, 0.72fr) minmax(250px, 1fr);
+  grid-template-columns: minmax(220px, 0.9fr) minmax(250px, 1fr);
   gap: 10px;
   align-items: stretch;
 }
@@ -336,12 +336,24 @@ h2 {
   display: grid;
   min-height: 92px;
   place-items: center;
-  overflow: hidden;
+  overflow: visible;
   padding: 10px;
   text-align: center;
   font-size: 17px;
   font-weight: 850;
   line-height: 1.25;
+}
+
+.bank-preview .number-analogy {
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  max-width: 100%;
+  font-size: clamp(18px, 2.4vw, 26px);
+  line-height: 1.15;
+}
+
+.bank-preview .number-pair i {
+  margin: 0 4px;
 }
 
 .bank-preview p {
