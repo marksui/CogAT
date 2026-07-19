@@ -1,16 +1,15 @@
 :root {
   color-scheme: light;
-  --bg: #f0fbff;
-  --ink: #174255;
-  --muted: #5f7c89;
-  --line: #bdeaf4;
-  --soft: #def7fd;
+  --bg: #fafaf8;
+  --ink: #151515;
+  --muted: #70706b;
+  --line: #e6e5df;
+  --soft: #f1f0ea;
   --panel: #ffffff;
-  --yellow: #fff3b0;
-  --green: #13845f;
-  --red: #b93831;
-  --blue: #0d92b8;
-  --shadow: 0 18px 45px rgba(13, 146, 184, 0.16);
+  --green: #18704f;
+  --red: #ad2f25;
+  --blue: #151515;
+  --shadow: 0 24px 70px rgba(23, 23, 23, 0.08);
 }
 
 * {
@@ -20,12 +19,9 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(255, 243, 176, 0.9), transparent 17rem),
-    radial-gradient(circle at 86% 14%, rgba(189, 234, 244, 0.75), transparent 18rem),
-    var(--bg);
+  background: radial-gradient(circle at top left, rgba(0, 0, 0, 0.035), transparent 34rem), var(--bg);
   color: var(--ink);
-  font-family: Nunito, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Inter, Nunito, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 button,
@@ -49,7 +45,7 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: clamp(34px, 7vw, 76px);
+  margin-bottom: clamp(44px, 8vw, 92px);
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
@@ -60,10 +56,10 @@ select {
   background: transparent;
   color: var(--ink);
   padding: 0;
-  font-family: "Baloo 2", Nunito, sans-serif;
-  font-size: 20px;
+  font-family: Inter, Nunito, sans-serif;
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
 }
 
 .setup-grid {
@@ -80,11 +76,11 @@ select {
 .hello-line {
   display: inline-flex;
   margin: 0 0 14px;
-  border: 2px solid rgba(13, 146, 184, 0.22);
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.76);
   padding: 8px 14px;
-  color: var(--blue);
+  color: var(--muted);
   font-size: 15px;
   font-weight: 900;
 }
@@ -92,10 +88,10 @@ select {
 h1 {
   margin: 0;
   max-width: 620px;
-  font-family: "Baloo 2", Nunito, sans-serif;
-  font-size: clamp(52px, 8vw, 92px);
-  line-height: 0.95;
-  letter-spacing: -0.045em;
+  font-family: Inter, Nunito, sans-serif;
+  font-size: clamp(48px, 8vw, 88px);
+  line-height: 0.9;
+  letter-spacing: -0.08em;
 }
 
 h2 {
@@ -113,9 +109,9 @@ h2 {
 .muted {
   max-width: 520px;
   margin: 20px 0 0;
-  font-size: 20px;
-  line-height: 1.55;
-  font-weight: 750;
+  font-size: 18px;
+  line-height: 1.65;
+  font-weight: 650;
 }
 
 .home-facts {
@@ -135,8 +131,8 @@ h2 {
 }
 
 .panel {
-  border: 2px solid rgba(13, 146, 184, 0.18);
-  border-radius: 32px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
   background: var(--panel);
   box-shadow: var(--shadow);
 }
@@ -151,6 +147,77 @@ h2 {
 .controls {
   display: grid;
   gap: 18px;
+}
+
+.exam-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  border-radius: 18px;
+  background: var(--soft);
+  padding: 5px;
+}
+
+.exam-switch button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.exam-switch button.selected {
+  background: white;
+  color: var(--ink);
+  box-shadow: 0 4px 12px rgba(23, 66, 85, 0.1);
+}
+
+.mock-preview {
+  border-radius: 22px;
+  background: var(--bg);
+  padding: 16px;
+}
+
+.mock-parts {
+  display: grid;
+  gap: 10px;
+}
+
+.mock-part {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mock-part > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--blue);
+  color: white;
+  font-weight: 900;
+}
+
+.mock-part b,
+.mock-part small {
+  display: block;
+}
+
+.mock-part b {
+  font-family: Inter, Nunito, sans-serif;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.mock-part small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .step-label {
@@ -170,9 +237,9 @@ h2 {
 
 .battery-card {
   min-height: 106px;
-  border: 2px solid var(--line);
-  border-radius: 22px;
-  background: #f8fdff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel);
   color: var(--ink);
   padding: 15px;
   text-align: left;
@@ -181,18 +248,18 @@ h2 {
 
 .battery-card:hover {
   transform: translateY(-2px);
-  border-color: #70d4e7;
+  border-color: #c9c9c2;
 }
 
 .battery-card.selected {
-  border-color: var(--blue);
+  border-color: var(--muted);
   background: linear-gradient(180deg, #e7fbff, #ffffff);
 }
 
 .battery-card b {
   display: block;
-  font-family: "Baloo 2", Nunito, sans-serif;
-  font-size: 22px;
+  font-family: Inter, Nunito, sans-serif;
+  font-size: 18px;
   line-height: 1;
 }
 
@@ -227,9 +294,9 @@ label small {
 select {
   width: 100%;
   min-height: 54px;
-  border: 2px solid var(--line);
-  border-radius: 18px;
-  background: #f9feff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
   color: var(--ink);
   padding: 0 13px;
   outline: none;
@@ -251,9 +318,9 @@ button:focus-visible {
 
 .primary {
   border: 0;
-  background: linear-gradient(180deg, #13a4c9, #0a7d9f);
+  background: var(--ink);
   color: white;
-  box-shadow: 0 12px 22px rgba(13, 146, 184, 0.24);
+  box-shadow: none;
 }
 
 .primary:disabled {
@@ -262,8 +329,8 @@ button:focus-visible {
 }
 
 .ghost {
-  border: 2px solid var(--line);
-  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--line);
+  background: transparent;
   color: var(--ink);
 }
 
@@ -285,7 +352,7 @@ button:focus-visible {
 }
 
 .data-box {
-  border-top: 2px solid rgba(13, 146, 184, 0.12);
+  border-top: 1px solid var(--line);
   padding-top: 14px;
   color: var(--muted);
   font-size: 13px;
@@ -346,12 +413,12 @@ button:focus-visible {
   display: grid;
   min-height: 160px;
   place-items: center;
-  border: 2px solid rgba(13, 146, 184, 0.12);
-  border-radius: 26px;
-  background: #f8fdff;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--bg);
   padding: clamp(18px, 4vw, 34px);
   text-align: center;
-  font-family: "Baloo 2", Nunito, sans-serif;
+  font-family: Inter, Nunito, sans-serif;
   font-size: clamp(28px, 5vw, 42px);
   font-weight: 800;
   letter-spacing: -0.025em;
@@ -371,6 +438,14 @@ button:focus-visible {
   height: auto;
 }
 
+.question-card img {
+  display: block;
+  width: min(100%, 620px);
+  max-height: 440px;
+  object-fit: contain;
+  border-radius: 14px;
+}
+
 .options {
   display: grid;
   gap: 10px;
@@ -383,8 +458,8 @@ button:focus-visible {
   gap: 12px;
   align-items: center;
   min-height: 64px;
-  border: 2px solid var(--line);
-  border-radius: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
   background: #ffffff;
   color: var(--ink);
   padding: 10px 14px;
@@ -442,6 +517,45 @@ button:focus-visible {
   margin-top: 18px;
 }
 
+.mock-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.mock-topline h2 {
+  margin: 2px 0 0;
+  font-family: Inter, Nunito, sans-serif;
+  font-size: 30px;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.timer {
+  min-width: 94px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: white;
+  padding: 10px 12px;
+  font-family: Inter, Nunito, sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.timer.warning {
+  background: #c44d32;
+}
+
 .footer-actions .primary,
 .result-actions .primary {
   flex: 1;
@@ -455,6 +569,10 @@ button:focus-visible {
 
 .score h1 {
   font-size: clamp(76px, 14vw, 130px);
+}
+
+.mock-result-note {
+  margin-top: 20px;
 }
 
 .score p {
@@ -516,5 +634,14 @@ button:focus-visible {
 
   .battery-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mock-topline {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .timer {
+    width: fit-content;
   }
 }

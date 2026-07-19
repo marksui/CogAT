@@ -4,6 +4,7 @@ import { nonverbalQuestions } from './data/nonverbalQuestions.js';
 import { verbalExtraQuestions } from './data/verbalExtraQuestions.js';
 import { quantitativeExtraQuestions } from './data/quantitativeExtraQuestions.js';
 import { nonverbalExtraQuestions } from './data/nonverbalExtraQuestions.js';
+import { mockExamQuestions } from './data/mockExamQuestions.js';
 
 const QUESTION_LIMIT = 30;
 const STORAGE_KEY = 'grade4-cogat-history-v1';
@@ -11,7 +12,7 @@ const STORAGE_KEY = 'grade4-cogat-history-v1';
 const questionSets = {
   verbal: [...verbalQuestions, ...verbalExtraQuestions],
   quantitative: [...quantitativeQuestions, ...quantitativeExtraQuestions],
-  nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions],
+  nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions],
 };
 
 const batteries = [
@@ -21,12 +22,19 @@ const batteries = [
   { key: 'nonverbal', label: 'Nonverbal', kidLabel: 'Shape clues', description: 'Practice pictures, folds, and patterns.', questions: questionSets.nonverbal },
 ];
 
+const mockParts = [
+  { key: 'nonverbal', label: 'Shapes & patterns', minutes: 10 },
+  { key: 'quantitative', label: 'Numbers & patterns', minutes: 10 },
+  { key: 'verbal', label: 'Words & sentences', minutes: 10 },
+];
+
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
 const allQuestions = batteries[0].questions;
 const questionById = new Map(allQuestions.map((question) => [String(question.id), question]));
 
 const state = {
   view: 'setup',
+  examType: 'practice',
   battery: 'all',
   subtest: 'all',
   mode: 'all',
@@ -36,9 +44,13 @@ const state = {
   checked: false,
   history: loadHistory(),
   message: '',
+  mockPartIndex: 0,
+  mockResults: [],
+  mockSecondsRemaining: 0,
 };
 
 const app = document.querySelector('#app');
+let mockTimerHandle = null;
 
 function render() {
   if (state.view === 'practice') {
@@ -47,6 +59,10 @@ function render() {
   }
   if (state.view === 'results') {
     renderResults();
+    return;
+  }
+  if (state.view === 'mock-practice') {
+    renderMockPractice();
     return;
   }
   renderSetup();
@@ -64,7 +80,9 @@ function renderShell(content) {
   `;
 
   document.querySelector('[data-home]').addEventListener('click', () => {
+    stopMockTimer();
     state.view = 'setup';
+    state.examType = 'practice';
     state.message = '';
     render();
   });
@@ -79,16 +97,34 @@ function renderSetup() {
     <section class="setup-grid">
       <div class="hero-copy">
         <p class="hello-line">Ready when you are.</p>
-        <h1>Choose your brain workout.</h1>
-        <p class="muted">Pick one big box, choose a smaller skill, then start. Your Subtest list changes when you pick a different Battery.</p>
+        <h1>${state.examType === 'mock' ? 'Try the full mock exam.' : 'Choose your brain workout.'}</h1>
+        <p class="muted">${state.examType === 'mock' ? 'Three short parts. One timer for each part. Take your time, then see your score at the end.' : 'Pick one big box, choose a smaller skill, then start. Your Subtest list changes when you pick a different Battery.'}</p>
         <div class="home-facts" aria-label="Practice summary">
           <span>${allQuestions.length} questions</span>
-          <span>30 per round</span>
-          <span>JSON history</span>
+          <span>${state.examType === 'mock' ? '30 minute mock' : '30 per round'}</span>
+          <span>${state.examType === 'mock' ? '3 timed parts' : 'JSON history'}</span>
         </div>
       </div>
 
       <form class="panel controls" id="setup-form">
+        <div class="exam-switch" aria-label="Choose exam type">
+          <button class="${state.examType === 'practice' ? 'selected' : ''}" type="button" data-exam-type="practice">Practice set</button>
+          <button class="${state.examType === 'mock' ? 'selected' : ''}" type="button" data-exam-type="mock">Mock exam</button>
+        </div>
+
+        ${state.examType === 'mock' ? `
+          <div class="mock-preview">
+            <div class="step-label">Three timed parts</div>
+            <div class="mock-parts">
+              ${mockParts.map((part, index) => `
+                <div class="mock-part">
+                  <span>${index + 1}</span>
+                  <div><b>${part.label}</b><small>${part.minutes} minutes · 10 questions</small></div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : `
         <div>
           <div class="step-label">1. Choose a battery</div>
           <div class="battery-grid" aria-label="Battery">
@@ -119,13 +155,14 @@ function renderSetup() {
             <option value="correct" ${state.mode === 'correct' ? 'selected' : ''}>Correct review</option>
           </select>
         </label>
+        `}
 
-        <button class="primary" type="submit" ${pool.length === 0 ? 'disabled' : ''}>Start ${Math.min(pool.length, QUESTION_LIMIT)}</button>
+        <button class="primary" type="submit" ${state.examType === 'practice' && pool.length === 0 ? 'disabled' : ''}>${state.examType === 'mock' ? 'Start mock exam' : `Start ${Math.min(pool.length, QUESTION_LIMIT)}`}</button>
 
         <div class="tiny-stats">
-          <span>${historySummary.correct} correct</span>
-          <span>${historySummary.missed} missed</span>
-          <span>${pool.length} in pool</span>
+          <span>${state.examType === 'mock' ? '10 questions per part' : `${historySummary.correct} correct`}</span>
+          <span>${state.examType === 'mock' ? '10 minutes per part' : `${historySummary.missed} missed`}</span>
+          <span>${state.examType === 'mock' ? '3 parts' : `${pool.length} in pool`}</span>
         </div>
 
         <details class="data-box">
@@ -143,6 +180,26 @@ function renderSetup() {
       </form>
     </section>
   `);
+
+  document.querySelectorAll('[data-exam-type]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.examType = button.dataset.examType;
+      state.message = '';
+      render();
+    });
+  });
+
+  if (state.examType === 'mock') {
+    document.querySelector('#setup-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      startMockExam();
+    });
+    document.querySelector('#export-history').addEventListener('click', exportHistory);
+    document.querySelector('#import-history').addEventListener('click', () => document.querySelector('#history-file').click());
+    document.querySelector('#history-file').addEventListener('change', importHistory);
+    document.querySelector('#clear-history').addEventListener('click', clearHistory);
+    return;
+  }
 
   document.querySelectorAll('[data-battery]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -262,7 +319,174 @@ function renderPractice() {
   });
 }
 
+function renderMockPractice() {
+  const part = mockParts[state.mockPartIndex];
+  const question = state.questions[state.currentIndex];
+  const answer = state.answers[state.currentIndex];
+  const total = state.questions.length;
+  const isLast = state.currentIndex === total - 1;
+
+  renderShell(`
+    <section class="panel practice mock-practice">
+      <div class="mock-topline">
+        <div>
+          <span class="eyebrow">Mock exam · Part ${state.mockPartIndex + 1} of ${mockParts.length}</span>
+          <h2>${part.label}</h2>
+        </div>
+        <div class="timer" id="timer" aria-live="polite">${formatTime(state.mockSecondsRemaining)}</div>
+      </div>
+
+      <div class="practice-head">
+        <span>Question ${state.currentIndex + 1} of ${total}</span>
+        <span>Choose one answer</span>
+      </div>
+      <div class="meter" aria-hidden="true"><span style="width:${((state.currentIndex + 1) / total) * 100}%"></span></div>
+
+      <div class="question-card">
+        <div>${question.question}</div>
+        ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
+      </div>
+
+      <div class="options">
+        ${question.options.map((option) => `
+          <button class="option ${answer === option.label ? 'selected' : ''}" type="button" data-option="${option.label}">
+            <b>${option.label}</b>
+            <span>${option.text}</span>
+          </button>
+        `).join('')}
+      </div>
+
+      <div class="footer-actions">
+        <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+        <button class="primary" type="button" id="mock-next">${isLast ? 'Finish part' : 'Next'}</button>
+      </div>
+    </section>
+  `);
+
+  startMockTimer();
+
+  document.querySelectorAll('[data-option]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.answers[state.currentIndex] = button.dataset.option;
+      renderMockPractice();
+    });
+  });
+
+  document.querySelector('#mock-next').addEventListener('click', () => {
+    if (isLast) {
+      finishMockPart();
+      return;
+    }
+    state.currentIndex += 1;
+    renderMockPractice();
+  });
+
+  document.querySelector('#exit-mock').addEventListener('click', () => {
+    stopMockTimer();
+    state.view = 'setup';
+    state.examType = 'mock';
+    render();
+  });
+}
+
+function startMockExam() {
+  stopMockTimer();
+  state.mockPartIndex = 0;
+  state.mockResults = [];
+  state.examType = 'mock';
+  state.message = '';
+  startMockPart();
+}
+
+function startMockPart() {
+  const part = mockParts[state.mockPartIndex];
+  state.questions = getMockPartQuestions(part);
+  state.answers = new Array(state.questions.length).fill(null);
+  state.currentIndex = 0;
+  state.checked = false;
+  state.mockSecondsRemaining = part.minutes * 60;
+  state.view = 'mock-practice';
+  render();
+}
+
+function getMockPartQuestions(part) {
+  const source = questionSets[part.key];
+  if (part.key === 'nonverbal') {
+    const sampleQuestions = shuffle(mockExamQuestions).slice(0, 3);
+    const regularQuestions = shuffle(source.filter((question) => !mockExamQuestions.some((sample) => sample.id === question.id))).slice(0, 7);
+    return [...sampleQuestions, ...regularQuestions];
+  }
+  return shuffle(source).slice(0, 10);
+}
+
+function startMockTimer() {
+  if (mockTimerHandle) {
+    return;
+  }
+  mockTimerHandle = window.setInterval(() => {
+    state.mockSecondsRemaining -= 1;
+    const timer = document.querySelector('#timer');
+    if (timer) {
+      timer.textContent = formatTime(state.mockSecondsRemaining);
+      timer.classList.toggle('warning', state.mockSecondsRemaining <= 60);
+    }
+    if (state.mockSecondsRemaining <= 0) {
+      finishMockPart();
+    }
+  }, 1000);
+}
+
+function stopMockTimer() {
+  if (mockTimerHandle) {
+    window.clearInterval(mockTimerHandle);
+    mockTimerHandle = null;
+  }
+}
+
+function finishMockPart() {
+  stopMockTimer();
+  const part = mockParts[state.mockPartIndex];
+  let correct = 0;
+
+  state.questions.forEach((question, index) => {
+    const answer = state.answers[index];
+    if (!answer) {
+      return;
+    }
+    if (answer === question.correctAnswer) {
+      correct += 1;
+    }
+    recordAnswer(question, answer);
+  });
+
+  state.mockResults.push({
+    label: part.label,
+    correct,
+    total: state.questions.length,
+  });
+
+  if (state.mockPartIndex < mockParts.length - 1) {
+    state.mockPartIndex += 1;
+    startMockPart();
+    return;
+  }
+
+  state.view = 'results';
+  render();
+}
+
+function formatTime(seconds) {
+  const minutes = Math.floor(Math.max(seconds, 0) / 60);
+  const remainder = Math.max(seconds, 0) % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+}
+
 function renderResults() {
+  if (state.examType === 'mock') {
+    renderMockResults();
+    return;
+  }
+
   const total = state.questions.length;
   const correct = state.answers.reduce((count, answer, index) => (
     answer === state.questions[index].correctAnswer ? count + 1 : count
@@ -311,6 +535,40 @@ function renderResults() {
     state.view = 'setup';
     render();
   });
+  document.querySelector('#export-history').addEventListener('click', exportHistory);
+}
+
+function renderMockResults() {
+  const total = state.mockResults.reduce((sum, part) => sum + part.total, 0);
+  const correct = state.mockResults.reduce((sum, part) => sum + part.correct, 0);
+  const percent = Math.round((correct / total) * 100);
+
+  renderShell(`
+    <section class="results mock-results">
+      <div class="panel score">
+        <span class="eyebrow">Mock exam complete</span>
+        <h1>${percent}%</h1>
+        <p>${correct}/${total} correct</p>
+        <div class="result-actions">
+          <button class="primary" type="button" id="again">Try again</button>
+          <button class="ghost" type="button" id="export-history">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="panel summary">
+        <h2>Part scores</h2>
+        ${state.mockResults.map((part) => `
+          <div class="row">
+            <span>${escapeHtml(part.label)}</span>
+            <b>${part.correct}/${part.total}</b>
+          </div>
+        `).join('')}
+        <p class="microcopy mock-result-note">Your correct and missed answers were saved to history.</p>
+      </div>
+    </section>
+  `);
+
+  document.querySelector('#again').addEventListener('click', startMockExam);
   document.querySelector('#export-history').addEventListener('click', exportHistory);
 }
 
