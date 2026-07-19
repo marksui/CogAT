@@ -1,242 +1,213 @@
 import { verbalQuestions } from './data/verbalQuestions.js';
 import { quantitativeQuestions } from './data/quantitativeQuestions.js';
 import { nonverbalQuestions } from './data/nonverbalQuestions.js';
+import { verbalExtraQuestions } from './data/verbalExtraQuestions.js';
+import { quantitativeExtraQuestions } from './data/quantitativeExtraQuestions.js';
+import { nonverbalExtraQuestions } from './data/nonverbalExtraQuestions.js';
 
 const QUESTION_LIMIT = 30;
+const STORAGE_KEY = 'grade4-cogat-history-v1';
+
+const questionSets = {
+  verbal: [...verbalQuestions, ...verbalExtraQuestions],
+  quantitative: [...quantitativeQuestions, ...quantitativeExtraQuestions],
+  nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions],
+};
 
 const batteries = [
-  {
-    key: 'all',
-    name: 'Mixed practice',
-    shortName: 'Mixed',
-    description: 'A balanced set from every CogAT battery.',
-    questions: [...verbalQuestions, ...quantitativeQuestions, ...nonverbalQuestions],
-  },
-  {
-    key: 'verbal',
-    name: 'Verbal Battery',
-    shortName: 'Verbal',
-    description: 'Words, sentences, and verbal relationships.',
-    questions: verbalQuestions,
-  },
-  {
-    key: 'quantitative',
-    name: 'Quantitative Battery',
-    shortName: 'Quantitative',
-    description: 'Number patterns and simple reasoning.',
-    questions: quantitativeQuestions,
-  },
-  {
-    key: 'nonverbal',
-    name: 'Nonverbal Battery',
-    shortName: 'Nonverbal',
-    description: 'Figures, folding, matrices, and visual logic.',
-    questions: nonverbalQuestions,
-  },
+  { key: 'all', label: 'Mixed', questions: [...questionSets.verbal, ...questionSets.quantitative, ...questionSets.nonverbal] },
+  { key: 'verbal', label: 'Verbal', questions: questionSets.verbal },
+  { key: 'quantitative', label: 'Quantitative', questions: questionSets.quantitative },
+  { key: 'nonverbal', label: 'Nonverbal', questions: questionSets.nonverbal },
 ];
 
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
+const allQuestions = batteries[0].questions;
+const questionById = new Map(allQuestions.map((question) => [String(question.id), question]));
 
 const state = {
   view: 'setup',
-  studentName: '',
-  selectedBattery: 'all',
-  selectedSubtest: 'all',
+  battery: 'all',
+  subtest: 'all',
+  mode: 'all',
   questions: [],
-  currentIndex: 0,
   answers: [],
+  currentIndex: 0,
   checked: false,
+  history: loadHistory(),
+  message: '',
 };
 
 const app = document.querySelector('#app');
 
-function shuffle(items) {
-  const copy = [...items];
-  for (let index = copy.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+function render() {
+  if (state.view === 'practice') {
+    renderPractice();
+    return;
   }
-  return copy;
-}
-
-function getSelectedPool() {
-  const battery = batteryMap.get(state.selectedBattery) ?? batteryMap.get('all');
-  if (state.selectedSubtest === 'all') {
-    return battery.questions;
+  if (state.view === 'results') {
+    renderResults();
+    return;
   }
-  return battery.questions.filter((question) => question.subtest === state.selectedSubtest);
-}
-
-function getAvailableSubtests() {
-  const battery = batteryMap.get(state.selectedBattery) ?? batteryMap.get('all');
-  return [...new Set(battery.questions.map((question) => question.subtest))].sort();
-}
-
-function getPracticeLength() {
-  return Math.min(QUESTION_LIMIT, state.questions.length);
+  renderSetup();
 }
 
 function renderShell(content) {
   app.innerHTML = `
-    <div class="shell">
+    <main class="app-shell">
       <header class="topbar">
-        <div class="brand" aria-label="Grade 4 CogAT Practice">
-          <span class="brand-mark">4</span>
-          <span>CogAT Practice</span>
-        </div>
-        <div class="topbar-meta">Grade 4 · minimal practice</div>
+        <button class="wordmark" type="button" data-home>CogAT 4</button>
+        <span>${allQuestions.length} questions</span>
       </header>
       ${content}
-    </div>
+    </main>
   `;
+
+  document.querySelector('[data-home]').addEventListener('click', () => {
+    state.view = 'setup';
+    state.message = '';
+    render();
+  });
 }
 
 function renderSetup() {
-  const subtests = getAvailableSubtests();
-  const poolCount = getSelectedPool().length;
+  const subtests = getSubtests();
+  const pool = getPracticePool();
+  const historySummary = getHistorySummary();
 
   renderShell(`
-    <main class="hero">
-      <section class="intro">
-        <h1>Practice one thinking skill at a time.</h1>
-        <p class="lede">Choose the CogAT area you want to train, start a short focused set, then review every answer with a clear explanation.</p>
-        <div class="mini-stats" aria-label="Question bank summary">
-          <span class="mini-stat">${verbalQuestions.length} verbal</span>
-          <span class="mini-stat">${quantitativeQuestions.length} quantitative</span>
-          <span class="mini-stat">${nonverbalQuestions.length} nonverbal</span>
-        </div>
-      </section>
+    <section class="setup-grid">
+      <div>
+        <h1>Practice CogAT, quietly.</h1>
+        <p class="muted">Pick a section. Press start. Your correct and missed history stays in this browser, or moves by JSON.</p>
+      </div>
 
-      <section class="panel setup" aria-label="Practice setup">
-        <h2 class="section-title">What do you want to test?</h2>
-        <p class="section-note">Pick a battery, or narrow it down to one exact subtest.</p>
-
-        <div class="field">
-          <label for="student-name">Name</label>
-          <input id="student-name" autocomplete="name" placeholder="Student name" value="${escapeHtml(state.studentName)}">
-        </div>
-
-        <div class="choice-label">Battery</div>
-        <div class="mode-grid">
-          ${batteries.map((battery) => `
-            <button class="mode-card ${state.selectedBattery === battery.key ? 'is-selected' : ''}" type="button" data-battery="${battery.key}">
-              <span class="mode-name">${battery.name}</span>
-              <span class="mode-desc">${battery.description}</span>
-            </button>
-          `).join('')}
-        </div>
-
-        <div class="field">
-          <label for="subtest">Subtest</label>
-          <select id="subtest">
-            <option value="all">All subtests in this battery</option>
-            ${subtests.map((subtest) => `<option value="${escapeHtml(subtest)}" ${state.selectedSubtest === subtest ? 'selected' : ''}>${subtest}</option>`).join('')}
+      <form class="panel controls" id="setup-form">
+        <label>
+          <span>Battery</span>
+          <select id="battery">
+            ${batteries.map((battery) => `<option value="${battery.key}" ${battery.key === state.battery ? 'selected' : ''}>${battery.label}</option>`).join('')}
           </select>
+        </label>
+
+        <label>
+          <span>Subtest</span>
+          <select id="subtest">
+            <option value="all">All subtests</option>
+            ${subtests.map((subtest) => `<option value="${escapeHtml(subtest)}" ${subtest === state.subtest ? 'selected' : ''}>${subtest}</option>`).join('')}
+          </select>
+        </label>
+
+        <label>
+          <span>Mode</span>
+          <select id="mode">
+            <option value="all" ${state.mode === 'all' ? 'selected' : ''}>All questions</option>
+            <option value="new" ${state.mode === 'new' ? 'selected' : ''}>New only</option>
+            <option value="missed" ${state.mode === 'missed' ? 'selected' : ''}>Missed review</option>
+            <option value="correct" ${state.mode === 'correct' ? 'selected' : ''}>Correct review</option>
+          </select>
+        </label>
+
+        <button class="primary" type="submit" ${pool.length === 0 ? 'disabled' : ''}>Start ${Math.min(pool.length, QUESTION_LIMIT)}</button>
+
+        <div class="tiny-stats">
+          <span>${historySummary.correct} correct</span>
+          <span>${historySummary.missed} missed</span>
+          <span>${pool.length} in pool</span>
         </div>
 
-        <div class="actions">
-          <button id="start" class="primary" ${poolCount === 0 ? 'disabled' : ''}>Start ${Math.min(QUESTION_LIMIT, poolCount)} questions</button>
-        </div>
-      </section>
-    </main>
+        <details class="data-box">
+          <summary>JSON history</summary>
+          <div class="data-actions">
+            <button class="ghost" type="button" id="export-history">Export</button>
+            <button class="ghost" type="button" id="import-history">Import</button>
+            <button class="ghost" type="button" id="clear-history">Clear</button>
+            <input id="history-file" type="file" accept="application/json,.json" hidden>
+          </div>
+          <p class="microcopy">Use this to move correct/missed history between browsers or devices.</p>
+        </details>
+
+        ${state.message ? `<p class="message">${escapeHtml(state.message)}</p>` : ''}
+      </form>
+    </section>
   `);
 
-  document.querySelector('#student-name').addEventListener('input', (event) => {
-    state.studentName = event.target.value;
-  });
-
-  document.querySelectorAll('[data-battery]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.selectedBattery = button.dataset.battery;
-      state.selectedSubtest = 'all';
-      renderSetup();
-    });
+  document.querySelector('#battery').addEventListener('change', (event) => {
+    state.battery = event.target.value;
+    state.subtest = 'all';
+    state.message = '';
+    render();
   });
 
   document.querySelector('#subtest').addEventListener('change', (event) => {
-    state.selectedSubtest = event.target.value;
-    renderSetup();
+    state.subtest = event.target.value;
+    state.message = '';
+    render();
   });
 
-  document.querySelector('#start').addEventListener('click', startPractice);
-}
+  document.querySelector('#mode').addEventListener('change', (event) => {
+    state.mode = event.target.value;
+    state.message = '';
+    render();
+  });
 
-function startPractice() {
-  const pool = getSelectedPool();
-  if (pool.length === 0) {
-    return;
-  }
+  document.querySelector('#setup-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    startPractice();
+  });
 
-  state.studentName = state.studentName.trim() || 'Student';
-  state.questions = shuffle(pool).slice(0, QUESTION_LIMIT);
-  state.answers = new Array(state.questions.length).fill(null);
-  state.currentIndex = 0;
-  state.checked = false;
-  state.view = 'practice';
-  renderPractice();
+  document.querySelector('#export-history').addEventListener('click', exportHistory);
+  document.querySelector('#import-history').addEventListener('click', () => document.querySelector('#history-file').click());
+  document.querySelector('#history-file').addEventListener('change', importHistory);
+  document.querySelector('#clear-history').addEventListener('click', clearHistory);
 }
 
 function renderPractice() {
   const question = state.questions[state.currentIndex];
-  const total = getPracticeLength();
   const answer = state.answers[state.currentIndex];
-  const selectedBattery = batteryMap.get(state.selectedBattery);
-  const progress = `${Math.round(((state.currentIndex + 1) / total) * 100)}%`;
+  const total = state.questions.length;
+  const isLast = state.currentIndex === total - 1;
 
   renderShell(`
-    <main class="practice-layout">
-      <aside class="panel side-panel" aria-label="Practice progress">
-        <div class="progress-ring" style="--progress: ${progress}">
-          <span>${state.currentIndex + 1}</span>
-        </div>
-        <div class="side-list">
-          <div><strong>${escapeHtml(state.studentName)}</strong> learner</div>
-          <div><strong>${selectedBattery.shortName}</strong> battery</div>
-          <div><strong>${state.selectedSubtest === 'all' ? 'All subtests' : escapeHtml(state.selectedSubtest)}</strong> focus</div>
-          <div><strong>${total} questions</strong> set length</div>
-        </div>
-      </aside>
+    <section class="panel practice">
+      <div class="practice-head">
+        <span>${state.currentIndex + 1}/${total}</span>
+        <span>${escapeHtml(question.battery.replace(' Battery', ''))} · ${escapeHtml(question.subtest)}</span>
+      </div>
 
-      <section class="panel question-panel" aria-label="Question">
-        <div class="question-head">
-          <span>Question ${state.currentIndex + 1} of ${total}</span>
-          <span>${escapeHtml(question.subtest)}</span>
-        </div>
+      <div class="meter" aria-hidden="true"><span style="width:${((state.currentIndex + 1) / total) * 100}%"></span></div>
 
-        <div class="question-body">
-          <div>
-            <div>${question.question}</div>
-            ${question.questionNote ? `<div class="question-note">${question.questionNote}</div>` : ''}
-          </div>
-        </div>
+      <div class="question-card">
+        <div>${question.question}</div>
+        ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
+      </div>
 
-        <div class="options">
-          ${question.options.map((option) => {
-            const isSelected = answer === option.label;
-            const isCorrect = state.checked && option.label === question.correctAnswer;
-            const isWrong = state.checked && isSelected && option.label !== question.correctAnswer;
-            return `
-              <button class="option-card ${isSelected ? 'is-selected' : ''} ${isCorrect ? 'is-correct' : ''} ${isWrong ? 'is-wrong' : ''}" type="button" data-option="${option.label}">
-                <span class="option-letter">${option.label}</span>
-                <span class="option-text">${option.text}</span>
-              </button>
-            `;
-          }).join('')}
-        </div>
+      <div class="options">
+        ${question.options.map((option) => {
+          const selected = answer === option.label;
+          const correct = state.checked && option.label === question.correctAnswer;
+          const wrong = state.checked && selected && option.label !== question.correctAnswer;
+          return `
+            <button class="option ${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${wrong ? 'wrong' : ''}" type="button" data-option="${option.label}">
+              <b>${option.label}</b>
+              <span>${option.text}</span>
+            </button>
+          `;
+        }).join('')}
+      </div>
 
-        ${state.checked ? `
-          <div class="feedback">
-            <strong>${answer === question.correctAnswer ? 'Correct.' : `Answer: ${question.correctAnswer}.`}</strong>
-            ${question.explanation}
-          </div>
-        ` : ''}
-
-        <div class="actions">
-          <button id="quit" class="ghost" type="button">Change test</button>
-          <button id="check" class="primary" type="button">${state.checked ? (state.currentIndex + 1 === total ? 'See results' : 'Next question') : 'Check answer'}</button>
+      ${state.checked ? `
+        <div class="feedback">
+          <b>${answer === question.correctAnswer ? 'Correct' : `Correct answer: ${question.correctAnswer}`}</b>
+          <span>${question.explanation}</span>
         </div>
-      </section>
-    </main>
+      ` : ''}
+
+      <div class="footer-actions">
+        <button class="ghost" type="button" id="back">Back</button>
+        <button class="primary" type="button" id="check">${state.checked ? (isLast ? 'Results' : 'Next') : 'Check'}</button>
+      </div>
+    </section>
   `);
 
   document.querySelectorAll('[data-option]').forEach((button) => {
@@ -245,44 +216,162 @@ function renderPractice() {
         return;
       }
       state.answers[state.currentIndex] = button.dataset.option;
-      renderPractice();
+      render();
     });
   });
 
   document.querySelector('#check').addEventListener('click', () => {
     if (!state.checked) {
-      if (!state.answers[state.currentIndex]) {
+      if (!answer) {
         return;
       }
       state.checked = true;
-      renderPractice();
+      recordAnswer(question, answer);
+      render();
       return;
     }
 
-    if (state.currentIndex + 1 === total) {
+    if (isLast) {
       state.view = 'results';
-      renderResults();
-      return;
+    } else {
+      state.currentIndex += 1;
+      state.checked = false;
     }
-
-    state.currentIndex += 1;
-    state.checked = false;
-    renderPractice();
+    render();
   });
 
-  document.querySelector('#quit').addEventListener('click', () => {
+  document.querySelector('#back').addEventListener('click', () => {
     state.view = 'setup';
-    renderSetup();
+    state.message = '';
+    render();
   });
 }
 
 function renderResults() {
-  const total = getPracticeLength();
-  const correctCount = state.answers.reduce((sum, answer, index) => (
-    answer === state.questions[index].correctAnswer ? sum + 1 : sum
+  const total = state.questions.length;
+  const correct = state.answers.reduce((count, answer, index) => (
+    answer === state.questions[index].correctAnswer ? count + 1 : count
   ), 0);
-  const percent = Math.round((correctCount / total) * 100);
-  const bySubtest = state.questions.reduce((summary, question, index) => {
+  const percent = Math.round((correct / total) * 100);
+  const missedQuestions = state.questions.filter((question, index) => state.answers[index] !== question.correctAnswer);
+  const bySubtest = summarizeSession();
+
+  renderShell(`
+    <section class="results">
+      <div class="panel score">
+        <h1>${percent}%</h1>
+        <p>${correct}/${total} correct</p>
+        <div class="result-actions">
+          <button class="primary" type="button" id="again">Practice again</button>
+          <button class="ghost" type="button" id="export-history">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="panel summary">
+        <h2>Summary</h2>
+        ${Object.entries(bySubtest).map(([subtest, item]) => `
+          <div class="row">
+            <span>${escapeHtml(subtest)}</span>
+            <b>${item.correct}/${item.total}</b>
+          </div>
+        `).join('')}
+
+        <details class="missed-list">
+          <summary>${missedQuestions.length ? `${missedQuestions.length} missed` : 'No missed questions'}</summary>
+          ${missedQuestions.map((question) => {
+            const index = state.questions.indexOf(question);
+            return `
+              <article>
+                <b>${escapeHtml(question.subtest)} · ${state.answers[index]} → ${question.correctAnswer}</b>
+                <p>${question.explanation}</p>
+              </article>
+            `;
+          }).join('')}
+        </details>
+      </div>
+    </section>
+  `);
+
+  document.querySelector('#again').addEventListener('click', () => {
+    state.view = 'setup';
+    render();
+  });
+  document.querySelector('#export-history').addEventListener('click', exportHistory);
+}
+
+function startPractice() {
+  const pool = getPracticePool();
+  if (!pool.length) {
+    state.message = 'No questions match this filter yet.';
+    render();
+    return;
+  }
+
+  state.questions = shuffle(pool).slice(0, QUESTION_LIMIT);
+  state.answers = new Array(state.questions.length).fill(null);
+  state.currentIndex = 0;
+  state.checked = false;
+  state.view = 'practice';
+  state.message = '';
+  render();
+}
+
+function getBasePool() {
+  const battery = batteryMap.get(state.battery) ?? batteryMap.get('all');
+  const batteryQuestions = battery.questions;
+  if (state.subtest === 'all') {
+    return batteryQuestions;
+  }
+  return batteryQuestions.filter((question) => question.subtest === state.subtest);
+}
+
+function getPracticePool() {
+  const pool = getBasePool();
+  if (state.mode === 'new') {
+    return pool.filter((question) => !state.history.stats[String(question.id)]);
+  }
+  if (state.mode === 'missed') {
+    return pool.filter((question) => state.history.stats[String(question.id)]?.lastResult === 'wrong');
+  }
+  if (state.mode === 'correct') {
+    return pool.filter((question) => state.history.stats[String(question.id)]?.lastResult === 'correct');
+  }
+  return pool;
+}
+
+function getSubtests() {
+  const battery = batteryMap.get(state.battery) ?? batteryMap.get('all');
+  return [...new Set(battery.questions.map((question) => question.subtest))].sort();
+}
+
+function recordAnswer(question, answer) {
+  const id = String(question.id);
+  const previous = state.history.stats[id] ?? {
+    id,
+    battery: question.battery,
+    subtest: question.subtest,
+    attempts: 0,
+    correct: 0,
+    wrong: 0,
+  };
+  const isCorrect = answer === question.correctAnswer;
+
+  state.history.stats[id] = {
+    ...previous,
+    attempts: previous.attempts + 1,
+    correct: previous.correct + (isCorrect ? 1 : 0),
+    wrong: previous.wrong + (isCorrect ? 0 : 1),
+    lastAnswer: answer,
+    correctAnswer: question.correctAnswer,
+    lastResult: isCorrect ? 'correct' : 'wrong',
+    updatedAt: new Date().toISOString(),
+  };
+  state.history.updatedAt = new Date().toISOString();
+  saveHistory();
+}
+
+function summarizeSession() {
+  return state.questions.reduce((summary, question, index) => {
     summary[question.subtest] ??= { correct: 0, total: 0 };
     summary[question.subtest].total += 1;
     if (state.answers[index] === question.correctAnswer) {
@@ -290,53 +379,109 @@ function renderResults() {
     }
     return summary;
   }, {});
+}
 
-  renderShell(`
-    <main class="results-grid">
-      <section class="panel score-card">
-        <h1 class="section-title">Session complete.</h1>
-        <p class="section-note">Nice work, ${escapeHtml(state.studentName)}. Here is the clean readout.</p>
-        <div class="score-number">${percent}</div>
-        <p class="section-note">${correctCount} correct out of ${total} questions.</p>
+function getHistorySummary() {
+  const records = Object.values(state.history.stats);
+  return {
+    correct: records.filter((record) => record.lastResult === 'correct').length,
+    missed: records.filter((record) => record.lastResult === 'wrong').length,
+  };
+}
 
-        <div class="breakdown">
-          ${Object.entries(bySubtest).map(([subtest, stats]) => `
-            <div class="breakdown-row">
-              <span>${escapeHtml(subtest)}</span>
-              <strong>${stats.correct}/${stats.total}</strong>
-            </div>
-          `).join('')}
-        </div>
+function createEmptyHistory() {
+  return {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    stats: {},
+  };
+}
 
-        <div class="actions">
-          <button id="restart" class="primary" type="button">Practice again</button>
-        </div>
-      </section>
+function loadHistory() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? normalizeHistory(JSON.parse(stored)) : createEmptyHistory();
+  } catch {
+    return createEmptyHistory();
+  }
+}
 
-      <section class="panel review-card">
-        <h2 class="section-title">Review</h2>
-        <p class="section-note">Answers and explanations from this set.</p>
-        <div class="review-list">
-          ${state.questions.map((question, index) => {
-            const answer = state.answers[index];
-            const isCorrect = answer === question.correctAnswer;
-            return `
-              <article class="review-item">
-                <strong>${index + 1}. ${escapeHtml(question.subtest)} · ${isCorrect ? 'Correct' : 'Missed'}</strong><br>
-                Your answer: ${answer ?? '—'} · Correct answer: ${question.correctAnswer}<br>
-                ${question.explanation}
-              </article>
-            `;
-          }).join('')}
-        </div>
-      </section>
-    </main>
-  `);
+function normalizeHistory(input) {
+  const next = createEmptyHistory();
+  const stats = input?.stats ?? input?.questions ?? {};
 
-  document.querySelector('#restart').addEventListener('click', () => {
-    state.view = 'setup';
-    renderSetup();
+  Object.entries(stats).forEach(([id, record]) => {
+    if (!questionById.has(String(id)) && !questionById.has(String(record?.id))) {
+      return;
+    }
+    const normalizedId = String(record?.id ?? id);
+    next.stats[normalizedId] = {
+      id: normalizedId,
+      battery: record.battery ?? questionById.get(normalizedId)?.battery ?? '',
+      subtest: record.subtest ?? questionById.get(normalizedId)?.subtest ?? '',
+      attempts: Number(record.attempts ?? 0),
+      correct: Number(record.correct ?? 0),
+      wrong: Number(record.wrong ?? 0),
+      lastAnswer: record.lastAnswer ?? '',
+      correctAnswer: record.correctAnswer ?? questionById.get(normalizedId)?.correctAnswer ?? '',
+      lastResult: record.lastResult === 'wrong' ? 'wrong' : 'correct',
+      updatedAt: record.updatedAt ?? new Date().toISOString(),
+    };
   });
+
+  next.updatedAt = input?.updatedAt ?? new Date().toISOString();
+  return next;
+}
+
+function saveHistory() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.history));
+}
+
+function exportHistory() {
+  const payload = {
+    ...state.history,
+    exportedAt: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'cogat-history.json';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+async function importHistory(event) {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    state.history = normalizeHistory(JSON.parse(text));
+    saveHistory();
+    state.message = 'History imported.';
+  } catch {
+    state.message = 'Could not read that JSON file.';
+  }
+  event.target.value = '';
+  render();
+}
+
+function clearHistory() {
+  state.history = createEmptyHistory();
+  saveHistory();
+  state.message = 'History cleared.';
+  render();
+}
+
+function shuffle(items) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
 }
 
 function escapeHtml(value) {
@@ -348,4 +493,4 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-renderSetup();
+render();
