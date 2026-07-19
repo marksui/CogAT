@@ -91,9 +91,12 @@ function renderShell(content) {
           <details class="about-menu">
             <summary aria-label="About this site">?</summary>
             <div class="about-card">
-              <b>About</b>
+              <b>About CogAT 4</b>
               <span>Updated July 19, 2026.</span>
-              <span>Designed for Grade 4 CogAT practice.</span>
+              <span>Built for Grade 4 CogAT-style practice.</span>
+              <span>Includes verbal, quantitative, nonverbal, question bank, and timed mock exam.</span>
+              <span>Progress stays in your browser and can be imported/exported as JSON.</span>
+              <span>Independent practice site. Not an official CogAT product.</span>
               <a href="https://github.com/marksui/CogAT" target="_blank" rel="noopener noreferrer">marksui/CogAT</a>
             </div>
           </details>
