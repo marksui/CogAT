@@ -51,6 +51,13 @@ select {
   font-weight: 700;
 }
 
+.brand-row {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .wordmark {
   border: 0;
   background: transparent;
@@ -62,6 +69,57 @@ select {
   letter-spacing: -0.04em;
 }
 
+.about-menu {
+  position: relative;
+}
+
+.about-menu summary {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  list-style: none;
+  cursor: pointer;
+}
+
+.about-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.about-card {
+  position: absolute;
+  z-index: 5;
+  top: 36px;
+  left: 0;
+  display: grid;
+  width: 230px;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.about-card b,
+.about-card a {
+  color: var(--ink);
+}
+
+.about-card a {
+  font-weight: 800;
+  text-decoration: none;
+}
+
 .setup-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(340px, 420px);
@@ -71,18 +129,6 @@ select {
 
 .hero-copy {
   padding-top: clamp(10px, 4vw, 42px);
-}
-
-.hello-line {
-  display: inline-flex;
-  margin: 0 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.76);
-  padding: 8px 14px;
-  color: var(--muted);
-  font-size: 15px;
-  font-weight: 900;
 }
 
 h1 {
@@ -112,22 +158,6 @@ h2 {
   font-size: 18px;
   line-height: 1.65;
   font-weight: 650;
-}
-
-.home-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 24px;
-}
-
-.home-facts span {
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-  padding: 10px 14px;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 900;
 }
 
 .panel {
@@ -236,7 +266,7 @@ h2 {
 }
 
 .battery-card {
-  min-height: 106px;
+  min-height: 76px;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--panel);
@@ -261,15 +291,6 @@ h2 {
   font-family: Inter, Nunito, sans-serif;
   font-size: 18px;
   line-height: 1;
-}
-
-.battery-card span {
-  display: block;
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.35;
 }
 
 label {
@@ -334,7 +355,6 @@ button:focus-visible {
   color: var(--ink);
 }
 
-.tiny-stats,
 .data-actions,
 .footer-actions,
 .result-actions,
@@ -342,13 +362,6 @@ button:focus-visible {
 .row {
   display: flex;
   align-items: center;
-}
-
-.tiny-stats {
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 900;
 }
 
 .data-box {

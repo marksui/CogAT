@@ -16,10 +16,10 @@ const questionSets = {
 };
 
 const batteries = [
-  { key: 'all', label: 'Mixed', kidLabel: 'Mix it up', description: 'Words, numbers, and shapes together.', questions: [...questionSets.verbal, ...questionSets.quantitative, ...questionSets.nonverbal] },
-  { key: 'verbal', label: 'Verbal', kidLabel: 'Word clues', description: 'Practice words and sentences.', questions: questionSets.verbal },
-  { key: 'quantitative', label: 'Quantitative', kidLabel: 'Number clues', description: 'Practice patterns and number puzzles.', questions: questionSets.quantitative },
-  { key: 'nonverbal', label: 'Nonverbal', kidLabel: 'Shape clues', description: 'Practice pictures, folds, and patterns.', questions: questionSets.nonverbal },
+  { key: 'all', label: 'Mixed', kidLabel: 'Mixed', questions: [...questionSets.verbal, ...questionSets.quantitative, ...questionSets.nonverbal] },
+  { key: 'verbal', label: 'Verbal', kidLabel: 'Verbal', questions: questionSets.verbal },
+  { key: 'quantitative', label: 'Quantitative', kidLabel: 'Quantitative', questions: questionSets.quantitative },
+  { key: 'nonverbal', label: 'Nonverbal', kidLabel: 'Nonverbal', questions: questionSets.nonverbal },
 ];
 
 const mockParts = [
@@ -72,7 +72,18 @@ function renderShell(content) {
   app.innerHTML = `
     <main class="app-shell">
       <header class="topbar">
-        <button class="wordmark" type="button" data-home>CogAT 4</button>
+        <div class="brand-row">
+          <button class="wordmark" type="button" data-home>CogAT 4</button>
+          <details class="about-menu">
+            <summary aria-label="About this site">?</summary>
+            <div class="about-card">
+              <b>About</b>
+              <span>Updated July 19, 2026.</span>
+              <span>Designed for Grade 4 CogAT practice.</span>
+              <a href="https://github.com/marksui/CogAT" target="_blank" rel="noopener noreferrer">marksui/CogAT</a>
+            </div>
+          </details>
+        </div>
         <span>${allQuestions.length} questions</span>
       </header>
       ${content}
@@ -91,19 +102,11 @@ function renderShell(content) {
 function renderSetup() {
   const subtests = getSubtests();
   const pool = getPracticePool();
-  const historySummary = getHistorySummary();
 
   renderShell(`
     <section class="setup-grid">
       <div class="hero-copy">
-        <p class="hello-line">Ready when you are.</p>
-        <h1>${state.examType === 'mock' ? 'Try the full mock exam.' : 'Choose your brain workout.'}</h1>
-        <p class="muted">${state.examType === 'mock' ? 'Three short parts. One timer for each part. Take your time, then see your score at the end.' : 'Pick one big box, choose a smaller skill, then start. Your Subtest list changes when you pick a different Battery.'}</p>
-        <div class="home-facts" aria-label="Practice summary">
-          <span>${allQuestions.length} questions</span>
-          <span>${state.examType === 'mock' ? '30 minute mock' : '30 per round'}</span>
-          <span>${state.examType === 'mock' ? '3 timed parts' : 'JSON history'}</span>
-        </div>
+        <h1>${state.examType === 'mock' ? 'Mock exam' : 'Practice'}</h1>
       </div>
 
       <form class="panel controls" id="setup-form">
@@ -114,7 +117,6 @@ function renderSetup() {
 
         ${state.examType === 'mock' ? `
           <div class="mock-preview">
-            <div class="step-label">Three timed parts</div>
             <div class="mock-parts">
               ${mockParts.map((part, index) => `
                 <div class="mock-part">
@@ -126,28 +128,26 @@ function renderSetup() {
           </div>
         ` : `
         <div>
-          <div class="step-label">1. Choose a battery</div>
+          <div class="step-label">Battery</div>
           <div class="battery-grid" aria-label="Battery">
             ${batteries.map((battery) => `
               <button class="battery-card ${battery.key === state.battery ? 'selected' : ''}" type="button" data-battery="${battery.key}">
                 <b>${battery.kidLabel}</b>
-                <span>${battery.description}</span>
               </button>
             `).join('')}
           </div>
         </div>
 
         <label>
-          <span>2. Pick a subtest</span>
+          <span>Subtest</span>
           <select id="subtest">
             <option value="all">All subtests</option>
             ${subtests.map((subtest) => `<option value="${escapeHtml(subtest)}" ${subtest === state.subtest ? 'selected' : ''}>${subtest}</option>`).join('')}
           </select>
-          <small>${batteryMap.get(state.battery).label} has ${subtests.length} subtest choices.</small>
         </label>
 
         <label>
-          <span>3. Practice mode</span>
+          <span>Mode</span>
           <select id="mode">
             <option value="all" ${state.mode === 'all' ? 'selected' : ''}>All questions</option>
             <option value="new" ${state.mode === 'new' ? 'selected' : ''}>New only</option>
@@ -159,11 +159,6 @@ function renderSetup() {
 
         <button class="primary" type="submit" ${state.examType === 'practice' && pool.length === 0 ? 'disabled' : ''}>${state.examType === 'mock' ? 'Start mock exam' : `Start ${Math.min(pool.length, QUESTION_LIMIT)}`}</button>
 
-        <div class="tiny-stats">
-          <span>${state.examType === 'mock' ? '10 questions per part' : `${historySummary.correct} correct`}</span>
-          <span>${state.examType === 'mock' ? '10 minutes per part' : `${historySummary.missed} missed`}</span>
-          <span>${state.examType === 'mock' ? '3 parts' : `${pool.length} in pool`}</span>
-        </div>
 
         <details class="data-box">
           <summary>JSON history</summary>
@@ -173,7 +168,6 @@ function renderSetup() {
             <button class="ghost" type="button" id="clear-history">Clear</button>
             <input id="history-file" type="file" accept="application/json,.json" hidden>
           </div>
-          <p class="microcopy">Use this to move correct/missed history between browsers or devices.</p>
         </details>
 
         ${state.message ? `<p class="message">${escapeHtml(state.message)}</p>` : ''}
@@ -206,7 +200,7 @@ function renderSetup() {
       const selectedBattery = batteryMap.get(button.dataset.battery);
       state.battery = selectedBattery.key;
       state.subtest = 'all';
-      state.message = `${selectedBattery.label} subtests loaded.`;
+      state.message = '';
       render();
     });
   });
