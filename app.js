@@ -15,10 +15,10 @@ const questionSets = {
 };
 
 const batteries = [
-  { key: 'all', label: 'Mixed', questions: [...questionSets.verbal, ...questionSets.quantitative, ...questionSets.nonverbal] },
-  { key: 'verbal', label: 'Verbal', questions: questionSets.verbal },
-  { key: 'quantitative', label: 'Quantitative', questions: questionSets.quantitative },
-  { key: 'nonverbal', label: 'Nonverbal', questions: questionSets.nonverbal },
+  { key: 'all', label: 'Mixed', kidLabel: 'Mix it up', description: 'Words, numbers, and shapes together.', questions: [...questionSets.verbal, ...questionSets.quantitative, ...questionSets.nonverbal] },
+  { key: 'verbal', label: 'Verbal', kidLabel: 'Word clues', description: 'Practice words and sentences.', questions: questionSets.verbal },
+  { key: 'quantitative', label: 'Quantitative', kidLabel: 'Number clues', description: 'Practice patterns and number puzzles.', questions: questionSets.quantitative },
+  { key: 'nonverbal', label: 'Nonverbal', kidLabel: 'Shape clues', description: 'Practice pictures, folds, and patterns.', questions: questionSets.nonverbal },
 ];
 
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
@@ -77,29 +77,41 @@ function renderSetup() {
 
   renderShell(`
     <section class="setup-grid">
-      <div>
-        <h1>Practice CogAT, quietly.</h1>
-        <p class="muted">Pick a section. Press start. Your correct and missed history stays in this browser, or moves by JSON.</p>
+      <div class="hero-copy">
+        <p class="hello-line">Ready when you are.</p>
+        <h1>Choose your brain workout.</h1>
+        <p class="muted">Pick one big box, choose a smaller skill, then start. Your Subtest list changes when you pick a different Battery.</p>
+        <div class="home-facts" aria-label="Practice summary">
+          <span>${allQuestions.length} questions</span>
+          <span>30 per round</span>
+          <span>JSON history</span>
+        </div>
       </div>
 
       <form class="panel controls" id="setup-form">
-        <label>
-          <span>Battery</span>
-          <select id="battery">
-            ${batteries.map((battery) => `<option value="${battery.key}" ${battery.key === state.battery ? 'selected' : ''}>${battery.label}</option>`).join('')}
-          </select>
-        </label>
+        <div>
+          <div class="step-label">1. Choose a battery</div>
+          <div class="battery-grid" aria-label="Battery">
+            ${batteries.map((battery) => `
+              <button class="battery-card ${battery.key === state.battery ? 'selected' : ''}" type="button" data-battery="${battery.key}">
+                <b>${battery.kidLabel}</b>
+                <span>${battery.description}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
 
         <label>
-          <span>Subtest</span>
+          <span>2. Pick a subtest</span>
           <select id="subtest">
             <option value="all">All subtests</option>
             ${subtests.map((subtest) => `<option value="${escapeHtml(subtest)}" ${subtest === state.subtest ? 'selected' : ''}>${subtest}</option>`).join('')}
           </select>
+          <small>${batteryMap.get(state.battery).label} has ${subtests.length} subtest choices.</small>
         </label>
 
         <label>
-          <span>Mode</span>
+          <span>3. Practice mode</span>
           <select id="mode">
             <option value="all" ${state.mode === 'all' ? 'selected' : ''}>All questions</option>
             <option value="new" ${state.mode === 'new' ? 'selected' : ''}>New only</option>
@@ -132,11 +144,14 @@ function renderSetup() {
     </section>
   `);
 
-  document.querySelector('#battery').addEventListener('change', (event) => {
-    state.battery = event.target.value;
-    state.subtest = 'all';
-    state.message = '';
-    render();
+  document.querySelectorAll('[data-battery]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const selectedBattery = batteryMap.get(button.dataset.battery);
+      state.battery = selectedBattery.key;
+      state.subtest = 'all';
+      state.message = `${selectedBattery.label} subtests loaded.`;
+      render();
+    });
   });
 
   document.querySelector('#subtest').addEventListener('change', (event) => {
