@@ -785,6 +785,11 @@ button:focus-visible {
   border-radius: 14px;
 }
 
+.question-card img.workbook-question-image {
+  width: min(100%, 720px);
+  max-height: 560px;
+}
+
 .options {
   display: grid;
   gap: 10px;

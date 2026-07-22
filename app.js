@@ -7,14 +7,15 @@ import { quantitativeExtraQuestions } from './data/quantitativeExtraQuestions.js
 import { nonverbalExtraQuestions } from './data/nonverbalExtraQuestions.js';
 import { mockExamQuestions } from './data/mockExamQuestions.js';
 import { level10OriginalQuestions } from './data/level10OriginalQuestions.js';
+import { g4WorkbookQuestions } from './data/g4WorkbookQuestions.js';
 
 const QUESTION_LIMIT = 30;
 const STORAGE_KEY = 'grade4-cogat-history-v1';
 
 const questionSets = {
-  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalWorkbookQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery')],
-  quantitative: [...quantitativeQuestions, ...quantitativeExtraQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery')],
-  nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Nonverbal Battery')],
+  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalWorkbookQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery')],
+  quantitative: [...quantitativeQuestions, ...quantitativeExtraQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery')],
+  nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Nonverbal Battery')],
 };
 
 const batteries = [
@@ -178,6 +179,9 @@ function renderSetup() {
             <option value="all" ${state.mode === 'all' ? 'selected' : ''}>All questions</option>
             <option value="new" ${state.mode === 'new' ? 'selected' : ''}>New only</option>
             <option value="missed" ${state.mode === 'missed' ? 'selected' : ''}>Missed review</option>
+            <option value="weak" ${state.mode === 'weak' ? 'selected' : ''}>Weak areas</option>
+            <option value="very-hard" ${state.mode === 'very-hard' ? 'selected' : ''}>Very hard only</option>
+            <option value="pdf" ${state.mode === 'pdf' ? 'selected' : ''}>PDF workbook only</option>
             <option value="correct" ${state.mode === 'correct' ? 'selected' : ''}>Correct review</option>
           </select>
         </label>
@@ -280,11 +284,12 @@ function renderPractice() {
 
       <div class="options">
         ${question.options.map((option) => {
-          const selected = answer === option.label;
-          const correct = state.checked && option.label === question.correctAnswer;
-          const wrong = state.checked && selected && option.label !== question.correctAnswer;
+          const optionValue = getOptionValue(option);
+          const selected = answer === optionValue;
+          const correct = state.checked && optionValue === getCorrectAnswer(question);
+          const wrong = state.checked && selected && optionValue !== getCorrectAnswer(question);
           return `
-            <button class="option ${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${wrong ? 'wrong' : ''}" type="button" data-option="${option.label}">
+            <button class="option ${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${wrong ? 'wrong' : ''}" type="button" data-option="${escapeHtml(optionValue)}">
               <b>${option.label}</b>
               <span>${option.text}</span>
             </button>
@@ -294,7 +299,7 @@ function renderPractice() {
 
       ${state.checked ? `
         <div class="feedback">
-          <b>${answer === question.correctAnswer ? 'Correct' : `Correct answer: ${question.correctAnswer}`}</b>
+          <b>${answer === getCorrectAnswer(question) ? 'Correct' : `Correct answer: ${getCorrectAnswer(question)}`}</b>
           <span>${question.explanation}</span>
         </div>
       ` : ''}
@@ -349,6 +354,7 @@ function renderMockPractice() {
   const answer = state.answers[state.currentIndex];
   const total = state.questions.length;
   const isLast = state.currentIndex === total - 1;
+  const answeredCount = state.answers.filter(Boolean).length;
   const difficulty = getDifficulty(question);
 
   renderShell(`
@@ -366,7 +372,7 @@ function renderMockPractice() {
           <span>Question ${state.currentIndex + 1} of ${total}</span>
           <span class="difficulty-badge difficulty-${difficulty}">${formatDifficulty(difficulty)}</span>
         </div>
-        <span>Choose one answer</span>
+        <span>${answeredCount}/${total} answered</span>
       </div>
       <div class="meter" aria-hidden="true"><span style="width:${((state.currentIndex + 1) / total) * 100}%"></span></div>
 
@@ -377,7 +383,7 @@ function renderMockPractice() {
 
       <div class="options">
         ${question.options.map((option) => `
-          <button class="option ${answer === option.label ? 'selected' : ''}" type="button" data-option="${option.label}">
+          <button class="option ${answer === getOptionValue(option) ? 'selected' : ''}" type="button" data-option="${escapeHtml(getOptionValue(option))}">
             <b>${option.label}</b>
             <span>${option.text}</span>
           </button>
@@ -386,6 +392,7 @@ function renderMockPractice() {
 
       <div class="footer-actions">
         <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+        <button class="ghost" type="button" id="mock-back" ${state.currentIndex === 0 ? 'disabled' : ''}>Back</button>
         <button class="primary" type="button" id="mock-next">${isLast ? 'Finish part' : 'Next'}</button>
       </div>
     </section>
@@ -406,6 +413,14 @@ function renderMockPractice() {
       return;
     }
     state.currentIndex += 1;
+    renderMockPractice();
+  });
+
+  document.querySelector('#mock-back').addEventListener('click', () => {
+    if (state.currentIndex === 0) {
+      return;
+    }
+    state.currentIndex -= 1;
     renderMockPractice();
   });
 
@@ -498,7 +513,7 @@ function finishMockPart() {
     if (!answer) {
       return;
     }
-    if (answer === question.correctAnswer) {
+    if (answer === getCorrectAnswer(question)) {
       correct += 1;
     }
     recordAnswer(question, answer);
@@ -539,10 +554,10 @@ function renderResults() {
 
   const total = state.questions.length;
   const correct = state.answers.reduce((count, answer, index) => (
-    answer === state.questions[index].correctAnswer ? count + 1 : count
+    answer === getCorrectAnswer(state.questions[index]) ? count + 1 : count
   ), 0);
   const percent = Math.round((correct / total) * 100);
-  const missedQuestions = state.questions.filter((question, index) => state.answers[index] !== question.correctAnswer);
+  const missedQuestions = state.questions.filter((question, index) => state.answers[index] !== getCorrectAnswer(question));
   const bySubtest = summarizeSession();
 
   renderShell(`
@@ -571,7 +586,7 @@ function renderResults() {
             const index = state.questions.indexOf(question);
             return `
               <article>
-                <b>${escapeHtml(question.subtest)} - ${state.answers[index]} -> ${question.correctAnswer}</b>
+                <b>${escapeHtml(question.subtest)} - ${state.answers[index]} -> ${getCorrectAnswer(question)}</b>
                 <p>${question.explanation}</p>
               </article>
             `;
@@ -706,7 +721,7 @@ function renderBankQuestion(question, index) {
         <span>#${escapeHtml(question.id)}</span>
         <span class="difficulty-badge difficulty-${difficulty}">${formatDifficulty(difficulty)}</span>
         <span>${escapeHtml(question.battery.replace(' Battery', ''))} · ${escapeHtml(question.subtest)}</span>
-        <span class="bank-answer">Answer ${escapeHtml(question.correctAnswer)}</span>
+        <span class="bank-answer">Answer ${escapeHtml(getCorrectAnswer(question))}</span>
       </div>
       <div class="bank-question-body">
         <div class="bank-preview">
@@ -715,7 +730,7 @@ function renderBankQuestion(question, index) {
         </div>
         <div class="bank-options-mini">
           ${question.options.map((option) => `
-            <div class="bank-option-mini ${option.label === question.correctAnswer ? 'is-answer' : ''}">
+            <div class="bank-option-mini ${getOptionValue(option) === getCorrectAnswer(question) ? 'is-answer' : ''}">
               <b>${escapeHtml(option.label)}</b>
               <span>${option.text}</span>
             </div>
@@ -782,10 +797,27 @@ function getPracticePool() {
   if (state.mode === 'missed') {
     return pool.filter((question) => state.history.stats[String(question.id)]?.lastResult === 'wrong');
   }
+  if (state.mode === 'weak') {
+    return pool.filter((question) => isWeakQuestion(question));
+  }
+  if (state.mode === 'very-hard') {
+    return pool.filter((question) => getDifficulty(question) === 'very-hard');
+  }
+  if (state.mode === 'pdf') {
+    return pool.filter((question) => question.source === 'G4 PDF workbook');
+  }
   if (state.mode === 'correct') {
     return pool.filter((question) => state.history.stats[String(question.id)]?.lastResult === 'correct');
   }
   return pool;
+}
+
+function isWeakQuestion(question) {
+  const stats = state.history.stats[String(question.id)];
+  if (!stats) {
+    return false;
+  }
+  return stats.lastResult === 'wrong' || (stats.attempts >= 2 && stats.correct / stats.attempts < 0.7);
 }
 
 function getDifficulty(question) {
@@ -825,6 +857,42 @@ function formatDifficulty(difficulty) {
   return difficulty.replace('-', ' ');
 }
 
+function getOptionValue(option) {
+  return String(option.value ?? option.label);
+}
+
+function getCorrectAnswer(question) {
+  return String(question.correctAnswer);
+}
+
+function handleKeyboard(event) {
+  if (!['practice', 'mock-practice'].includes(state.view)) {
+    return;
+  }
+  const target = event.target;
+  if (target?.matches?.('input, select, textarea, button')) {
+    return;
+  }
+
+  const key = event.key.toLowerCase();
+  const optionIndex = ['a', 'b', 'c', 'd', 'e'].indexOf(key);
+  const question = state.questions[state.currentIndex];
+  if (optionIndex >= 0 && question?.options?.[optionIndex]) {
+    state.answers[state.currentIndex] = getOptionValue(question.options[optionIndex]);
+    if (state.view === 'practice') {
+      renderPractice();
+    } else {
+      renderMockPractice();
+    }
+    return;
+  }
+
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    document.querySelector(state.view === 'practice' ? '#check' : '#mock-next')?.click();
+  }
+}
+
 function getSubtests() {
   const battery = batteryMap.get(state.battery) ?? batteryMap.get('all');
   return [...new Set(battery.questions.map((question) => question.subtest))].sort();
@@ -840,7 +908,7 @@ function recordAnswer(question, answer) {
     correct: 0,
     wrong: 0,
   };
-  const isCorrect = answer === question.correctAnswer;
+  const isCorrect = answer === getCorrectAnswer(question);
 
   state.history.stats[id] = {
     ...previous,
@@ -848,7 +916,7 @@ function recordAnswer(question, answer) {
     correct: previous.correct + (isCorrect ? 1 : 0),
     wrong: previous.wrong + (isCorrect ? 0 : 1),
     lastAnswer: answer,
-    correctAnswer: question.correctAnswer,
+    correctAnswer: getCorrectAnswer(question),
     lastResult: isCorrect ? 'correct' : 'wrong',
     updatedAt: new Date().toISOString(),
   };
@@ -860,7 +928,7 @@ function summarizeSession() {
   return state.questions.reduce((summary, question, index) => {
     summary[question.subtest] ??= { correct: 0, total: 0 };
     summary[question.subtest].total += 1;
-    if (state.answers[index] === question.correctAnswer) {
+    if (state.answers[index] === getCorrectAnswer(question)) {
       summary[question.subtest].correct += 1;
     }
     return summary;
@@ -979,4 +1047,5 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
+document.addEventListener('keydown', handleKeyboard);
 render();
