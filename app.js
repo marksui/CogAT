@@ -172,6 +172,16 @@ function renderAuthControl() {
   return `<details class="auth-menu"><summary>${summaryLabel}</summary><div class="auth-card"><b>Use the same progress everywhere</b><span>${description}</span>${isConfigured ? `<div class="auth-mode-switch" role="group" aria-label="Account access"><button class="auth-mode-button ${!isSigningUp ? 'is-selected' : ''}" type="button" data-auth-mode="signin" aria-pressed="${!isSigningUp}">Sign in</button><button class="auth-mode-button ${isSigningUp ? 'is-selected' : ''}" type="button" data-auth-mode="signup" aria-pressed="${isSigningUp}">Create account</button></div><form id="auth-form"><label><span>Email</span><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" required><button class="primary" type="submit">${actionLabel}</button></label></form><small>We’ll email a one-time link to finish.</small>` : ''}${authState.message ? `<small class="auth-message">${escapeHtml(authState.message)}</small>` : ''}</div></details>`;
 }
 
+function renderDashboardIcon(name) {
+  const icons = {
+    missed: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9a6 6 0 1 1-4.24 10.24"/><path d="M4 8l4-4M4 8l4 4"/></svg>',
+    new: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    mock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 13V9M12 13l3 2M9 2h6"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  };
+  return icons[name] ?? '';
+}
+
 function renderSetup() {
   const subtests = getSubtests();
   const pool = getPracticePool();
@@ -183,25 +193,10 @@ function renderSetup() {
   const dailyComplete = daily.completed;
 
   renderShell(`
-    <section class="dashboard-intro">
-      <div class="hero-copy">
-        <span class="eyebrow">Grade 4 · CogAT practice</span>
-        <h1>Small steps.<br><span>Big progress.</span></h1>
-        <p class="muted">A calm place to build confidence, one question at a time.</p>
-      </div>
-      <div class="progress-stats" aria-label="Your progress">
-        <div><b>${summary.streak}</b><span>day streak</span></div>
-        <div><b>${summary.totalAnswered}</b><span>answered</span></div>
-        <div><b>${summary.lastAccuracy === null ? '—' : `${summary.lastAccuracy}%`}</b><span>last score</span></div>
-      </div>
-    </section>
-
     <section class="panel daily-card ${dailyComplete ? 'is-complete' : ''}">
       <div class="daily-copy">
-        <span class="eyebrow">Today’s practice</span>
-        <h2>${dailyComplete ? 'Goal complete!' : hasActiveDaily ? 'You’re on your way.' : 'Keep your streak going.'}</h2>
-        <p>${dailyComplete ? 'Nice work. A little practice every day adds up.' : `Answer ${dailyGoal} questions today to build your CogAT skills.`}</p>
-        <button class="primary daily-cta" type="button" data-start-daily>${dailyComplete ? 'Practice more' : hasActiveDaily ? 'Continue today’s practice' : 'Start today’s practice'}</button>
+        <h1>Today</h1>
+        <button class="primary daily-cta" type="button" data-start-daily>${dailyComplete ? 'Practice more' : hasActiveDaily ? 'Continue' : 'Start'}</button>
       </div>
       <div class="daily-progress-wrap">
         <div class="daily-progress" style="--progress:${dailyPercent}%" aria-label="${daily.answered} of ${dailyGoal} questions complete">
@@ -215,27 +210,27 @@ function renderSetup() {
 
     <section class="dashboard-grid">
       <div class="panel progress-panel">
-        <div class="section-heading"><div><span class="eyebrow">Your progress</span><h2>Keep learning</h2></div><span class="section-icon" aria-hidden="true">↗</span></div>
+        <div class="section-heading"><h2>Progress</h2></div>
         <div class="progress-list">
           ${batteries.filter((battery) => battery.key !== 'all').map((battery) => {
             const item = getBatteryProgress(battery.key);
-            return `<div class="progress-row"><div><b>${battery.label}</b><span>${item.attempted ? `${formatQuestionCount(item.attempted)} practiced` : 'Ready when you are'}</span></div><strong>${item.accuracy === null ? '—' : `${item.accuracy}%`}</strong></div>`;
+            return `<div class="progress-row"><b>${battery.label}</b><strong>${item.accuracy === null ? 'Ready' : `${item.accuracy}%`}</strong></div>`;
           }).join('')}
         </div>
       </div>
 
       <div class="panel quick-panel">
-        <div class="section-heading"><div><span class="eyebrow">Quick start</span><h2>Choose a focus</h2></div><span class="section-icon" aria-hidden="true">✦</span></div>
+        <div class="section-heading"><h2>Start</h2></div>
         <div class="quick-actions">
-          <button class="quick-action" type="button" data-quick-mode="missed"><span class="quick-action-icon" aria-hidden="true">↺</span><span><b>Review missed</b><small>${formatQuestionCount(summary.missed)} to revisit</small></span><span class="arrow" aria-hidden="true">→</span></button>
-          <button class="quick-action" type="button" data-quick-mode="new"><span class="quick-action-icon" aria-hidden="true">＋</span><span><b>Try new questions</b><small>Explore the full question bank</small></span><span class="arrow" aria-hidden="true">→</span></button>
-          <button class="quick-action" type="button" data-quick-mock><span class="quick-action-icon" aria-hidden="true">◷</span><span><b>Take a mock exam</b><small>Practice with a timer</small></span><span class="arrow" aria-hidden="true">→</span></button>
+          <button class="quick-action" type="button" data-quick-mode="missed"><span class="quick-action-icon">${renderDashboardIcon('missed')}</span><b>Missed</b><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
+          <button class="quick-action" type="button" data-quick-mode="new"><span class="quick-action-icon">${renderDashboardIcon('new')}</span><b>New</b><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
+          <button class="quick-action" type="button" data-quick-mock><span class="quick-action-icon">${renderDashboardIcon('mock')}</span><b>Mock Exam</b><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
         </div>
       </div>
     </section>
 
     <section class="panel custom-practice">
-      <div class="section-heading"><div><span class="eyebrow">More ways to practice</span><h2>Make your own set</h2></div></div>
+      <div class="section-heading"><h2>Practice</h2></div>
       <form class="controls" id="setup-form">
         <div class="exam-switch" aria-label="Choose exam type">
           <button class="${state.examType === 'practice' ? 'selected' : ''}" type="button" data-exam-type="practice">Practice set</button>

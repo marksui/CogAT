@@ -44,8 +44,10 @@ select {
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: clamp(44px, 8vw, 92px);
   color: var(--muted);
   font-size: 13px;
@@ -60,6 +62,9 @@ select {
 }
 
 .wordmark {
+  display: inline-grid;
+  min-height: 44px;
+  place-items: center;
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -71,7 +76,7 @@ select {
 }
 
 .bank-link {
-  min-height: 28px;
+  min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--panel);
@@ -87,8 +92,8 @@ select {
 
 .about-menu summary {
   display: grid;
-  width: 26px;
-  height: 26px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 50%;
@@ -137,10 +142,6 @@ select {
   grid-template-columns: minmax(0, 0.95fr) minmax(340px, 420px);
   gap: clamp(28px, 6vw, 72px);
   align-items: start;
-}
-
-.hero-copy {
-  padding-top: clamp(10px, 4vw, 42px);
 }
 
 h1 {
@@ -1027,7 +1028,7 @@ button:focus-visible {
 
 .auth-menu summary {
   display: inline-flex;
-  min-height: 30px;
+  min-height: 44px;
   align-items: center;
   gap: 7px;
   border: 1px solid var(--line);
@@ -1160,7 +1161,7 @@ button:focus-visible {
 
 .auth-card .primary,
 .auth-card .ghost {
-  min-height: 42px;
+  min-height: 44px;
   margin-top: 2px;
   font-size: 12px;
 }
@@ -1182,70 +1183,11 @@ button:focus-visible {
   transform: translateY(-1px);
 }
 
-.dashboard-intro {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(290px, 360px);
-  gap: 32px;
-  align-items: end;
-  margin-bottom: 28px;
-}
-
-.hero-copy h1 {
-  margin-top: 12px;
-  color: var(--ink);
-  font-size: clamp(52px, 7vw, 82px);
-  letter-spacing: -0.075em;
-}
-
-.hero-copy h1 span {
-  color: var(--blue);
-}
-
-.hero-copy .muted {
-  max-width: 430px;
-  margin-top: 20px;
-  font-size: 17px;
-  line-height: 1.55;
-}
-
 .eyebrow {
   color: var(--blue);
 }
 
-.progress-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 12px 30px rgba(54, 83, 119, 0.05);
-}
-
-.progress-stats div {
-  display: grid;
-  min-height: 92px;
-  align-content: center;
-  gap: 4px;
-  padding: 14px 12px;
-  text-align: center;
-}
-
-.progress-stats div + div {
-  border-left: 1px solid var(--line);
-}
-
-.progress-stats b {
-  color: var(--ink);
-  font-family: Nunito, Inter, sans-serif;
-  font-size: 27px;
-  line-height: 1;
-}
-
-.progress-stats span,
-.progress-row span,
-.goal-option span,
-.quick-action small {
+.goal-option span {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -1254,56 +1196,36 @@ button:focus-visible {
 .daily-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 28px;
+  gap: clamp(20px, 4vw, 36px);
   align-items: center;
-  overflow: hidden;
   border-color: #d1e0f1;
-  background: linear-gradient(120deg, #ffffff 0%, #f5f9ff 100%);
-  padding: clamp(24px, 4vw, 38px);
-}
-
-.daily-card::after {
-  position: absolute;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  background: rgba(93, 151, 232, 0.11);
-  content: "";
-  pointer-events: none;
-  transform: translate(550px, -160px);
+  background: #ffffff;
+  padding: clamp(22px, 4vw, 34px);
 }
 
 .daily-card {
   position: relative;
 }
 
-.daily-copy,
-.daily-progress-wrap {
-  position: relative;
-  z-index: 1;
+.daily-copy {
+  display: grid;
+  gap: 18px;
+  align-content: center;
 }
 
-.daily-copy h2,
-.section-heading h2 {
-  margin: 8px 0 8px;
+.daily-copy h1 {
+  margin: 0;
   color: var(--ink);
   font-family: Nunito, Inter, sans-serif;
-  font-size: 30px;
-  letter-spacing: -0.045em;
-}
-
-.daily-copy p {
-  max-width: 470px;
-  margin: 0 0 20px;
-  color: var(--muted);
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 1.5;
+  font-size: clamp(46px, 8vw, 76px);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
 }
 
 .daily-cta {
-  min-height: 48px;
-  padding: 0 20px;
+  width: fit-content;
+  min-height: 52px;
+  padding: 0 24px;
   background: var(--blue);
   box-shadow: 0 8px 18px rgba(47, 102, 208, 0.2);
 }
@@ -1316,11 +1238,7 @@ button:focus-visible {
 
 .daily-card.is-complete {
   border-color: #b9dfd3;
-  background: linear-gradient(120deg, #ffffff 0%, #f1fbf7 100%);
-}
-
-.daily-card.is-complete .eyebrow {
-  color: var(--green);
+  background: #f7fffb;
 }
 
 .daily-progress-wrap {
@@ -1373,8 +1291,8 @@ button:focus-visible {
 }
 
 .goal-option {
-  min-width: 42px;
-  min-height: 30px;
+  min-width: 44px;
+  min-height: 44px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -1394,7 +1312,7 @@ button:focus-visible {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
   gap: 18px;
   margin-top: 18px;
 }
@@ -1402,7 +1320,7 @@ button:focus-visible {
 .progress-panel,
 .quick-panel,
 .custom-practice {
-  padding: 24px;
+  padding: 20px;
 }
 
 .section-heading {
@@ -1413,68 +1331,58 @@ button:focus-visible {
 }
 
 .section-heading h2 {
-  margin-bottom: 18px;
+  margin: 0 0 16px;
+  color: var(--ink);
+  font-family: Nunito, Inter, sans-serif;
   font-size: 24px;
-}
-
-.section-icon {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border-radius: 12px;
-  background: var(--soft);
-  color: var(--blue);
-  font-size: 18px;
-  font-weight: 900;
+  letter-spacing: -0.035em;
 }
 
 .progress-list {
   display: grid;
-  gap: 2px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .progress-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-}
-
-.progress-row > div {
   display: grid;
-  gap: 4px;
+  min-height: 76px;
+  align-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+  padding: 14px;
 }
 
 .progress-row b {
   color: var(--ink);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .progress-row strong {
   color: var(--blue);
   font-family: Nunito, Inter, sans-serif;
-  font-size: 20px;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .quick-actions {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
 .quick-action {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  min-height: 98px;
+  align-content: space-between;
   gap: 10px;
-  align-items: center;
-  min-height: 54px;
   border: 1px solid transparent;
-  border-radius: 15px;
+  border-radius: 16px;
   background: var(--bg);
   color: var(--ink);
-  padding: 8px 10px;
+  padding: 12px;
   text-align: left;
   transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
 }
@@ -1483,39 +1391,37 @@ button:focus-visible {
 .quick-action:active {
   border-color: #c7d8eb;
   background: #f0f6ff;
-  transform: translateX(2px);
+  transform: translateY(-1px);
 }
 
 .quick-action-icon {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   place-items: center;
-  border-radius: 11px;
+  border-radius: 12px;
   background: #ffffff;
   color: var(--blue);
-  font-size: 18px;
-  font-weight: 900;
 }
 
-.quick-action > span:nth-child(2) {
-  display: grid;
-  gap: 3px;
+.quick-action svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
 }
 
 .quick-action b {
   font-size: 13px;
-}
-
-.quick-action small {
-  font-size: 11px;
-  font-weight: 700;
+  line-height: 1.15;
 }
 
 .quick-action .arrow {
+  justify-self: end;
   color: var(--blue);
-  font-size: 18px;
-  font-weight: 900;
 }
 
 .custom-practice {
@@ -1528,6 +1434,31 @@ button:focus-visible {
 
 .custom-practice .controls {
   padding: 0;
+}
+
+.dashboard-data {
+  margin-top: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+}
+
+.dashboard-data summary {
+  width: fit-content;
+  min-height: 44px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-data .data-actions {
+  margin-top: 10px;
+}
+
+.dashboard-data .ghost {
+  min-height: 44px;
 }
 
 .battery-card {
@@ -1751,7 +1682,7 @@ summary:focus-visible {
   }
 
   .topbar {
-    margin-bottom: 40px;
+    margin-bottom: 24px;
   }
 
   .question-count {
@@ -1766,32 +1697,16 @@ summary:focus-visible {
     padding: 0 9px;
   }
 
-  .dashboard-intro,
-  .dashboard-grid,
-  .daily-card {
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-intro {
-    gap: 24px;
-  }
-
-  .hero-copy h1 {
-    font-size: clamp(48px, 15vw, 68px);
-  }
-
-  .progress-stats {
-    max-width: none;
-  }
-
   .daily-card {
-    gap: 22px;
+    gap: 16px;
   }
 
   .daily-progress-wrap {
-    justify-items: start;
-    grid-template-columns: auto 1fr;
-    align-items: center;
+    justify-items: end;
   }
 
   .daily-progress {
