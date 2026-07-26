@@ -70,6 +70,7 @@ const app = document.querySelector('#app');
 let mockTimerHandle = null;
 let supabase = null;
 let cloudSyncTimer = null;
+let authMode = 'signin';
 const authState = {
   status: 'checking',
   user: null,
@@ -142,6 +143,13 @@ function renderShell(content) {
 
   document.querySelector('#auth-form')?.addEventListener('submit', sendMagicLink);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
+  document.querySelectorAll('[data-auth-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      authMode = button.dataset.authMode;
+      authState.message = '';
+      render();
+    });
+  });
 }
 
 function renderAuthControl() {
@@ -155,7 +163,13 @@ function renderAuthControl() {
   }
 
   const isConfigured = Boolean(supabaseConfig.url && supabaseConfig.publishableKey);
-  return `<details class="auth-menu"><summary>Sign in to sync</summary><div class="auth-card"><b>Use the same progress everywhere</b><span>${isConfigured ? 'Get a magic link by email. No password needed.' : 'Add your Supabase project details to enable cloud sync.'}</span>${isConfigured ? `<form id="auth-form"><label><span>Email</span><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" required><button class="primary" type="submit">Send magic link</button></label></form>` : ''}${authState.message ? `<small class="auth-message">${escapeHtml(authState.message)}</small>` : ''}</div></details>`;
+  const isSigningUp = authMode === 'signup';
+  const summaryLabel = isSigningUp ? 'Create account' : 'Sign in to sync';
+  const description = isConfigured
+    ? 'Use your email to receive a one-time link. No password needed.'
+    : 'Add your Supabase project details to enable cloud sync.';
+  const actionLabel = isSigningUp ? 'Send sign-up link' : 'Send sign-in link';
+  return `<details class="auth-menu"><summary>${summaryLabel}</summary><div class="auth-card"><b>Use the same progress everywhere</b><span>${description}</span>${isConfigured ? `<div class="auth-mode-switch" role="group" aria-label="Account access"><button class="auth-mode-button ${!isSigningUp ? 'is-selected' : ''}" type="button" data-auth-mode="signin" aria-pressed="${!isSigningUp}">Sign in</button><button class="auth-mode-button ${isSigningUp ? 'is-selected' : ''}" type="button" data-auth-mode="signup" aria-pressed="${isSigningUp}">Create account</button></div><form id="auth-form"><label><span>Email</span><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" required><button class="primary" type="submit">${actionLabel}</button></label></form><small>We’ll email a one-time link to finish.</small>` : ''}${authState.message ? `<small class="auth-message">${escapeHtml(authState.message)}</small>` : ''}</div></details>`;
 }
 
 function renderSetup() {
@@ -1470,10 +1484,15 @@ async function sendMagicLink(event) {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
+      shouldCreateUser: authMode === 'signup',
       emailRedirectTo: `${window.location.origin}${window.location.pathname}`,
     },
   });
-  authState.message = error ? error.message : 'Check your email for the magic link.';
+  authState.message = error
+    ? error.message
+    : authMode === 'signup'
+      ? 'Check your email to finish creating your account.'
+      : 'Check your email for the sign-in link.';
   render();
 }
 

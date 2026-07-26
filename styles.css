@@ -1108,6 +1108,42 @@ button:focus-visible {
   font-size: 10px;
 }
 
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.auth-mode-button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.auth-mode-button:hover {
+  color: var(--blue);
+}
+
+.auth-mode-button.is-selected {
+  background: #ffffff;
+  color: var(--blue);
+  box-shadow: 0 1px 3px rgba(23, 45, 74, 0.1);
+}
+
+.auth-mode-button:focus-visible {
+  outline: 3px solid rgba(47, 102, 208, 0.22);
+  outline-offset: 1px;
+}
+
 .auth-card input {
   min-height: 42px;
   border: 1px solid var(--line);
