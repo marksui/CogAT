@@ -8,6 +8,7 @@ import { nonverbalExtraQuestions } from './data/nonverbalExtraQuestions.js';
 import { mockExamQuestions } from './data/mockExamQuestions.js';
 import { level10OriginalQuestions } from './data/level10OriginalQuestions.js';
 import { g4WorkbookQuestions } from './data/g4WorkbookQuestions.js';
+import { supabaseConfig } from './supabase-config.js';
 
 const QUESTION_LIMIT = 30;
 const DAILY_GOAL_OPTIONS = [5, 10, 15];
@@ -67,6 +68,14 @@ const state = {
 
 const app = document.querySelector('#app');
 let mockTimerHandle = null;
+let supabase = null;
+let cloudSyncTimer = null;
+const authState = {
+  status: 'checking',
+  user: null,
+  message: '',
+  syncStatus: 'local',
+};
 state.dailyGoal = state.history.dailyGoal ?? DEFAULT_DAILY_GOAL;
 
 function render() {
@@ -109,7 +118,10 @@ function renderShell(content) {
           </details>
           <button class="bank-link" type="button" data-bank>Question bank</button>
         </div>
-        <span class="question-count">${allQuestions.length} questions</span>
+        <div class="topbar-actions">
+          ${renderAuthControl()}
+          <span class="question-count">${allQuestions.length} questions</span>
+        </div>
       </header>
       ${content}
     </main>
@@ -127,6 +139,23 @@ function renderShell(content) {
     state.message = '';
     render();
   });
+
+  document.querySelector('#auth-form')?.addEventListener('submit', sendMagicLink);
+  document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
+}
+
+function renderAuthControl() {
+  if (authState.status === 'checking') {
+    return '<span class="sync-status is-checking">Checking sync…</span>';
+  }
+
+  if (authState.status === 'signed-in' && authState.user) {
+    const syncLabel = authState.syncStatus === 'syncing' ? 'Syncing…' : authState.syncStatus === 'error' ? 'Sync issue' : 'Synced';
+    return `<details class="auth-menu"><summary><span class="sync-dot ${authState.syncStatus}"></span>${syncLabel}</summary><div class="auth-card"><b>Cloud sync is on</b><span>${escapeHtml(authState.user.email ?? 'Signed-in account')}</span><small>Your progress is available on other devices using this account.</small><button class="ghost" type="button" data-sign-out>Sign out</button></div></details>`;
+  }
+
+  const isConfigured = Boolean(supabaseConfig.url && supabaseConfig.publishableKey);
+  return `<details class="auth-menu"><summary>Sign in to sync</summary><div class="auth-card"><b>Use the same progress everywhere</b><span>${isConfigured ? 'Get a magic link by email. No password needed.' : 'Add your Supabase project details to enable cloud sync.'}</span>${isConfigured ? `<form id="auth-form"><label><span>Email</span><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" required><button class="primary" type="submit">Send magic link</button></label></form>` : ''}${authState.message ? `<small class="auth-message">${escapeHtml(authState.message)}</small>` : ''}</div></details>`;
 }
 
 function renderSetup() {
@@ -653,15 +682,20 @@ function renderResults() {
 function renderMockResults() {
   const total = state.mockResults.reduce((sum, part) => sum + part.total, 0);
   const correct = state.mockResults.reduce((sum, part) => sum + part.correct, 0);
-  const percent = Math.round((correct / total) * 100);
-  const batteryScores = summarizeMockScores();
+  const report = buildMockScoreReport();
+  const batteryScores = report.batteries;
 
   renderShell(`
     <section class="results mock-results">
       <div class="panel score">
         <span class="eyebrow">Mock exam complete</span>
-        <h1>${percent}%</h1>
-        <p>${correct}/${total} correct</p>
+        <h1>${report.overall.accuracy}%</h1>
+        <p>${correct}/${total} correct · practice accuracy</p>
+        <div class="estimate-grid" aria-label="Practice score estimate">
+          <article class="estimate-card"><span>Estimated SAS</span><strong>${report.overall.sas}</strong><small>Mean 100 · SD 16</small></article>
+          <article class="estimate-card"><span>Estimated percentile</span><strong>${formatOrdinal(report.overall.percentile)}</strong><small>Grade 4 practice model</small></article>
+          <article class="estimate-card"><span>Estimated stanine</span><strong>${report.overall.stanine}</strong><small>Scale from 1 to 9</small></article>
+        </div>
         <div class="result-actions">
           <button class="primary" type="button" id="again">Try again</button>
           <button class="ghost" type="button" id="export-history">Export JSON</button>
@@ -669,28 +703,106 @@ function renderMockResults() {
       </div>
 
       <div class="panel summary">
-        <h2>Battery scores</h2>
+        <div class="score-section-heading"><div><span class="eyebrow">Practice estimate</span><h2>Battery scores</h2></div><span class="score-note">Not an official CogAT score</span></div>
         ${Object.entries(batteryScores).map(([battery, score]) => `
           <div class="row">
-            <span>${escapeHtml(battery.replace(' Battery', ''))}</span>
-            <b>${score.correct}/${score.total} - ${Math.round((score.correct / score.total) * 100)}%</b>
+            <span><b>${escapeHtml(battery.replace(' Battery', ''))}</b><small>${score.correct}/${score.total} correct · ${score.accuracy}% accuracy</small></span>
+            <b>SAS ${score.sas} · PR ${score.percentile} · S${score.stanine}</b>
           </div>
         `).join('')}
 
         <h2>Subtest scores</h2>
         ${state.mockResults.map((part) => `
           <div class="row">
-            <span>${escapeHtml(part.label)}</span>
-            <b>${part.correct}/${part.total}${part.unanswered ? ` - ${part.unanswered} blank` : ''}</b>
+            <span><b>${escapeHtml(part.label)}</b><small>${part.correct}/${part.total} correct · ${scorePracticeAccuracy(part.correct, part.total)}% accuracy</small></span>
+            <b>${part.unanswered ? `${part.unanswered} blank` : 'Complete'}</b>
           </div>
         `).join('')}
-        <p class="microcopy mock-result-note">Raw score only. Official CogAT SAS, percentile, and stanine need age norms that are not included here.</p>
+        <p class="microcopy mock-result-note">This estimate converts practice accuracy into a simple normalized score for motivation. Official CogAT results use the test form, level, age or grade norms, and Riverside conversion tables.</p>
       </div>
     </section>
   `);
 
   document.querySelector('#again').addEventListener('click', startMockExam);
   document.querySelector('#export-history').addEventListener('click', exportHistory);
+}
+
+function buildMockScoreReport() {
+  const batteryScores = summarizeMockScores();
+  const batteries = Object.fromEntries(Object.entries(batteryScores).map(([battery, score]) => [battery, scorePracticeEstimate(score.correct, score.total)]));
+  const batteryEstimates = Object.values(batteries).filter((score) => Number.isFinite(score.sas));
+  const compositeSas = batteryEstimates.length
+    ? Math.round(batteryEstimates.reduce((sum, score) => sum + score.sas, 0) / batteryEstimates.length)
+    : 100;
+  const total = state.mockResults.reduce((sum, part) => sum + part.total, 0);
+  const correct = state.mockResults.reduce((sum, part) => sum + part.correct, 0);
+  const overallAccuracy = scorePracticeAccuracy(correct, total);
+  return {
+    batteries,
+    overall: {
+      accuracy: overallAccuracy,
+      sas: compositeSas,
+      percentile: percentileFromSas(compositeSas),
+      stanine: stanineFromPercentile(percentileFromSas(compositeSas)),
+    },
+  };
+}
+
+function scorePracticeEstimate(correct, total) {
+  const accuracy = scorePracticeAccuracy(correct, total);
+  if (!total) {
+    return { correct, total, accuracy, sas: null, percentile: null, stanine: null };
+  }
+  const proportion = correct / total;
+  const z = (proportion - 0.5) / 0.15;
+  const sas = Math.round(clamp(100 + (z * 16), 50, 160));
+  const percentile = percentileFromSas(sas);
+  return { correct, total, accuracy, sas, percentile, stanine: stanineFromPercentile(percentile) };
+}
+
+function scorePracticeAccuracy(correct, total) {
+  return total ? Math.round((correct / total) * 100) : 0;
+}
+
+function formatOrdinal(value) {
+  const remainder100 = value % 100;
+  if (remainder100 >= 11 && remainder100 <= 13) {
+    return `${value}th`;
+  }
+  const suffixes = { 1: 'st', 2: 'nd', 3: 'rd' };
+  return `${value}${suffixes[value % 10] ?? 'th'}`;
+}
+
+function percentileFromSas(sas) {
+  return clamp(Math.round(normalCdf((sas - 100) / 16) * 100), 1, 99);
+}
+
+function stanineFromPercentile(percentile) {
+  if (percentile >= 96) return 9;
+  if (percentile >= 89) return 8;
+  if (percentile >= 77) return 7;
+  if (percentile >= 60) return 6;
+  if (percentile >= 41) return 5;
+  if (percentile >= 24) return 4;
+  if (percentile >= 12) return 3;
+  if (percentile >= 5) return 2;
+  return 1;
+}
+
+function normalCdf(value) {
+  return 0.5 * (1 + erf(value / Math.sqrt(2)));
+}
+
+function erf(value) {
+  const sign = value < 0 ? -1 : 1;
+  const absolute = Math.abs(value);
+  const t = 1 / (1 + (0.3275911 * absolute));
+  const polynomial = 1 - (((((1.061405429 * t) - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-(absolute * absolute));
+  return sign * polynomial;
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.min(Math.max(value, minimum), maximum);
 }
 
 function renderQuestionBank() {
@@ -1247,6 +1359,7 @@ function normalizeHistory(input) {
       total: Number(record?.total ?? record?.answered ?? 0),
       completed: Boolean(record?.completed),
       completedAt: record?.completedAt ?? '',
+      updatedAt: record?.updatedAt ?? record?.completedAt ?? '',
     };
     return daily;
   }, {});
@@ -1284,8 +1397,176 @@ function normalizeHistory(input) {
   return next;
 }
 
-function saveHistory() {
+function saveHistory({ queueSync = true } = {}) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.history));
+  if (queueSync) {
+    queueCloudSync();
+  }
+}
+
+async function initializeCloudSync() {
+  if (!supabaseConfig.url || !supabaseConfig.publishableKey) {
+    authState.status = 'local';
+    authState.syncStatus = 'local';
+    return;
+  }
+
+  try {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    supabase = createClient(supabaseConfig.url, supabaseConfig.publishableKey);
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      throw error;
+    }
+    await handleAuthSession(data.session, false);
+    supabase.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(() => handleAuthSession(session), 0);
+    });
+  } catch (error) {
+    console.error('Supabase initialization failed', error);
+    authState.status = 'error';
+    authState.syncStatus = 'error';
+    authState.message = 'Cloud sync is unavailable. Local progress is still safe.';
+  }
+}
+
+async function handleAuthSession(session, shouldRender = true) {
+  if (!session?.user) {
+    authState.status = supabase ? 'signed-out' : 'local';
+    authState.user = null;
+    authState.syncStatus = supabase ? 'local' : 'local';
+    if (shouldRender) {
+      render();
+    }
+    return;
+  }
+
+  authState.status = 'signed-in';
+  authState.user = session.user;
+  authState.syncStatus = 'syncing';
+  try {
+    await loadCloudHistory();
+    authState.syncStatus = 'synced';
+    authState.message = '';
+  } catch (error) {
+    console.error('Supabase sync failed', error);
+    authState.syncStatus = 'error';
+    authState.message = 'Could not sync yet. Local progress is still safe.';
+  }
+  if (shouldRender) {
+    render();
+  }
+}
+
+async function sendMagicLink(event) {
+  event.preventDefault();
+  const email = document.querySelector('#auth-email')?.value.trim();
+  if (!email || !supabase) {
+    return;
+  }
+
+  authState.message = 'Sending your sign-in link…';
+  render();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${window.location.origin}${window.location.pathname}`,
+    },
+  });
+  authState.message = error ? error.message : 'Check your email for the magic link.';
+  render();
+}
+
+async function signOut() {
+  if (!supabase) {
+    return;
+  }
+  await syncHistoryToCloud();
+  await supabase.auth.signOut();
+}
+
+function queueCloudSync() {
+  if (!supabase || !authState.user) {
+    return;
+  }
+  if (cloudSyncTimer) {
+    window.clearTimeout(cloudSyncTimer);
+  }
+  cloudSyncTimer = window.setTimeout(() => {
+    syncHistoryToCloud().catch((error) => {
+      console.error('Supabase save failed', error);
+      authState.syncStatus = 'error';
+    });
+  }, 350);
+}
+
+async function syncHistoryToCloud() {
+  if (!supabase || !authState.user) {
+    return;
+  }
+  authState.syncStatus = 'syncing';
+  const { error } = await supabase.from('progress_snapshots').upsert({
+    user_id: authState.user.id,
+    history: state.history,
+    updated_at: state.history.updatedAt ?? new Date().toISOString(),
+  }, { onConflict: 'user_id' });
+  if (error) {
+    authState.syncStatus = 'error';
+    throw error;
+  }
+  authState.syncStatus = 'synced';
+}
+
+async function loadCloudHistory() {
+  const { data, error } = await supabase
+    .from('progress_snapshots')
+    .select('history, updated_at')
+    .eq('user_id', authState.user.id)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+
+  if (data?.history) {
+    state.history = mergeHistories(state.history, normalizeHistory(data.history));
+    state.dailyGoal = state.history.dailyGoal;
+    saveHistory({ queueSync: false });
+  }
+  await syncHistoryToCloud();
+}
+
+function mergeHistories(local, remote) {
+  const merged = createEmptyHistory();
+  const localIsNewer = timestamp(local.updatedAt) >= timestamp(remote.updatedAt);
+  merged.dailyGoal = localIsNewer ? local.dailyGoal : remote.dailyGoal;
+  merged.stats = mergeRecordMaps(local.stats, remote.stats);
+  merged.daily = mergeRecordMaps(local.daily, remote.daily);
+  merged.activeSession = pickLatestRecord(local.activeSession, remote.activeSession);
+  merged.lastSession = pickLatestRecord(local.lastSession, remote.lastSession);
+  merged.updatedAt = new Date(Math.max(timestamp(local.updatedAt), timestamp(remote.updatedAt))).toISOString();
+  return normalizeHistory(merged);
+}
+
+function mergeRecordMaps(localRecords = {}, remoteRecords = {}) {
+  const merged = {};
+  const ids = new Set([...Object.keys(localRecords), ...Object.keys(remoteRecords)]);
+  ids.forEach((id) => {
+    merged[id] = pickLatestRecord(localRecords[id], remoteRecords[id]);
+  });
+  return merged;
+}
+
+function pickLatestRecord(localRecord, remoteRecord) {
+  if (!localRecord) return remoteRecord;
+  if (!remoteRecord) return localRecord;
+  return timestamp(localRecord.updatedAt ?? localRecord.completedAt) >= timestamp(remoteRecord.updatedAt ?? remoteRecord.completedAt)
+    ? localRecord
+    : remoteRecord;
+}
+
+function timestamp(value) {
+  const parsed = Date.parse(value ?? '');
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function exportHistory() {
@@ -1347,4 +1628,10 @@ function escapeHtml(value) {
 }
 
 document.addEventListener('keydown', handleKeyboard);
-render();
+
+async function boot() {
+  await initializeCloudSync();
+  render();
+}
+
+boot();
