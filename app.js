@@ -10,7 +10,10 @@ import { level10OriginalQuestions } from './data/level10OriginalQuestions.js';
 import { g4WorkbookQuestions } from './data/g4WorkbookQuestions.js';
 
 const QUESTION_LIMIT = 30;
-const STORAGE_KEY = 'grade4-cogat-history-v1';
+const DAILY_GOAL_OPTIONS = [5, 10, 15];
+const DEFAULT_DAILY_GOAL = 10;
+const STORAGE_KEY = 'grade4-cogat-history-v2';
+const LEGACY_STORAGE_KEY = 'grade4-cogat-history-v1';
 
 const questionSets = {
   verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalWorkbookQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery')],
@@ -52,6 +55,8 @@ const state = {
   currentIndex: 0,
   checked: false,
   history: loadHistory(),
+  dailyGoal: 10,
+  sessionKind: 'custom',
   message: '',
   mockPartIndex: 0,
   mockResults: [],
@@ -62,6 +67,7 @@ const state = {
 
 const app = document.querySelector('#app');
 let mockTimerHandle = null;
+state.dailyGoal = state.history.dailyGoal ?? DEFAULT_DAILY_GOAL;
 
 function render() {
   if (state.view === 'practice') {
@@ -101,23 +107,20 @@ function renderShell(content) {
               <a href="https://github.com/marksui/CogAT" target="_blank" rel="noopener noreferrer">marksui/CogAT</a>
             </div>
           </details>
-          <button class="bank-link" type="button" data-bank>题库</button>
+          <button class="bank-link" type="button" data-bank>Question bank</button>
         </div>
-        <span>${allQuestions.length} questions</span>
+        <span class="question-count">${allQuestions.length} questions</span>
       </header>
       ${content}
     </main>
   `;
 
   document.querySelector('[data-home]').addEventListener('click', () => {
-    stopMockTimer();
-    state.view = 'setup';
-    state.examType = 'practice';
-    state.message = '';
-    render();
+    goHome();
   });
 
   document.querySelector('[data-bank]').addEventListener('click', () => {
+    persistActiveSession();
     stopMockTimer();
     state.view = 'bank';
     state.examType = 'practice';
@@ -129,14 +132,68 @@ function renderShell(content) {
 function renderSetup() {
   const subtests = getSubtests();
   const pool = getPracticePool();
+  const daily = getDailyProgress();
+  const dailyGoal = state.dailyGoal;
+  const dailyPercent = Math.min(100, Math.round((daily.answered / dailyGoal) * 100));
+  const summary = getProgressSummary();
+  const hasActiveDaily = hasResumableDailySession();
+  const dailyComplete = daily.completed;
 
   renderShell(`
-    <section class="setup-grid">
+    <section class="dashboard-intro">
       <div class="hero-copy">
-        <h1>${state.examType === 'mock' ? 'Mock exam' : 'Practice'}</h1>
+        <span class="eyebrow">Grade 4 · CogAT practice</span>
+        <h1>Small steps.<br><span>Big progress.</span></h1>
+        <p class="muted">A calm place to build confidence, one question at a time.</p>
+      </div>
+      <div class="progress-stats" aria-label="Your progress">
+        <div><b>${summary.streak}</b><span>day streak</span></div>
+        <div><b>${summary.totalAnswered}</b><span>answered</span></div>
+        <div><b>${summary.lastAccuracy === null ? '—' : `${summary.lastAccuracy}%`}</b><span>last score</span></div>
+      </div>
+    </section>
+
+    <section class="panel daily-card ${dailyComplete ? 'is-complete' : ''}">
+      <div class="daily-copy">
+        <span class="eyebrow">Today’s practice</span>
+        <h2>${dailyComplete ? 'Goal complete!' : hasActiveDaily ? 'You’re on your way.' : 'Keep your streak going.'}</h2>
+        <p>${dailyComplete ? 'Nice work. A little practice every day adds up.' : `Answer ${dailyGoal} questions today to build your CogAT skills.`}</p>
+        <button class="primary daily-cta" type="button" data-start-daily>${dailyComplete ? 'Practice more' : hasActiveDaily ? 'Continue today’s practice' : 'Start today’s practice'}</button>
+      </div>
+      <div class="daily-progress-wrap">
+        <div class="daily-progress" style="--progress:${dailyPercent}%" aria-label="${daily.answered} of ${dailyGoal} questions complete">
+          <div><strong>${daily.answered}</strong><span>of ${dailyGoal}</span></div>
+        </div>
+        <div class="goal-options" aria-label="Daily goal">
+          ${DAILY_GOAL_OPTIONS.map((goal) => `<button class="goal-option ${goal === dailyGoal ? 'selected' : ''}" type="button" data-daily-goal="${goal}">${goal}<span>q</span></button>`).join('')}
+        </div>
+      </div>
+    </section>
+
+    <section class="dashboard-grid">
+      <div class="panel progress-panel">
+        <div class="section-heading"><div><span class="eyebrow">Your progress</span><h2>Keep learning</h2></div><span class="section-icon" aria-hidden="true">↗</span></div>
+        <div class="progress-list">
+          ${batteries.filter((battery) => battery.key !== 'all').map((battery) => {
+            const item = getBatteryProgress(battery.key);
+            return `<div class="progress-row"><div><b>${battery.label}</b><span>${item.attempted ? `${formatQuestionCount(item.attempted)} practiced` : 'Ready when you are'}</span></div><strong>${item.accuracy === null ? '—' : `${item.accuracy}%`}</strong></div>`;
+          }).join('')}
+        </div>
       </div>
 
-      <form class="panel controls" id="setup-form">
+      <div class="panel quick-panel">
+        <div class="section-heading"><div><span class="eyebrow">Quick start</span><h2>Choose a focus</h2></div><span class="section-icon" aria-hidden="true">✦</span></div>
+        <div class="quick-actions">
+          <button class="quick-action" type="button" data-quick-mode="missed"><span class="quick-action-icon" aria-hidden="true">↺</span><span><b>Review missed</b><small>${formatQuestionCount(summary.missed)} to revisit</small></span><span class="arrow" aria-hidden="true">→</span></button>
+          <button class="quick-action" type="button" data-quick-mode="new"><span class="quick-action-icon" aria-hidden="true">＋</span><span><b>Try new questions</b><small>Explore the full question bank</small></span><span class="arrow" aria-hidden="true">→</span></button>
+          <button class="quick-action" type="button" data-quick-mock><span class="quick-action-icon" aria-hidden="true">◷</span><span><b>Take a mock exam</b><small>Practice with a timer</small></span><span class="arrow" aria-hidden="true">→</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel custom-practice">
+      <div class="section-heading"><div><span class="eyebrow">More ways to practice</span><h2>Make your own set</h2></div></div>
+      <form class="controls" id="setup-form">
         <div class="exam-switch" aria-label="Choose exam type">
           <button class="${state.examType === 'practice' ? 'selected' : ''}" type="button" data-exam-type="practice">Practice set</button>
           <button class="${state.examType === 'mock' ? 'selected' : ''}" type="button" data-exam-type="mock">Mock exam</button>
@@ -145,64 +202,22 @@ function renderSetup() {
         ${state.examType === 'mock' ? `
           <div class="mock-preview">
             <div class="mock-parts">
-              ${mockParts.map((part, index) => `
-                <div class="mock-part">
-                  <span>${index + 1}</span>
-                  <div><b>${part.label}</b><small>${part.minutes} minutes - ${part.questionCount} questions</small></div>
-                </div>
-              `).join('')}
+              ${mockParts.map((part, index) => `<div class="mock-part"><span>${index + 1}</span><div><b>${part.label}</b><small>${part.minutes} minutes · ${part.questionCount} questions</small></div></div>`).join('')}
             </div>
           </div>
         ` : `
-        <div>
-          <div class="step-label">Battery</div>
-          <div class="battery-grid" aria-label="Battery">
-            ${batteries.map((battery) => `
-              <button class="battery-card ${battery.key === state.battery ? 'selected' : ''}" type="button" data-battery="${battery.key}">
-                <b>${battery.kidLabel}</b>
-              </button>
-            `).join('')}
-          </div>
-        </div>
-
-        <label>
-          <span>Subtest</span>
-          <select id="subtest">
-            <option value="all">All subtests</option>
-            ${subtests.map((subtest) => `<option value="${escapeHtml(subtest)}" ${subtest === state.subtest ? 'selected' : ''}>${subtest}</option>`).join('')}
-          </select>
-        </label>
-
-        <label>
-          <span>Mode</span>
-          <select id="mode">
-            <option value="all" ${state.mode === 'all' ? 'selected' : ''}>All questions</option>
-            <option value="new" ${state.mode === 'new' ? 'selected' : ''}>New only</option>
-            <option value="missed" ${state.mode === 'missed' ? 'selected' : ''}>Missed review</option>
-            <option value="weak" ${state.mode === 'weak' ? 'selected' : ''}>Weak areas</option>
-            <option value="very-hard" ${state.mode === 'very-hard' ? 'selected' : ''}>Very hard only</option>
-            <option value="pdf" ${state.mode === 'pdf' ? 'selected' : ''}>PDF workbook only</option>
-            <option value="correct" ${state.mode === 'correct' ? 'selected' : ''}>Correct review</option>
-          </select>
-        </label>
+          <div><div class="step-label">Battery</div><div class="battery-grid" aria-label="Battery">
+            ${batteries.map((battery) => `<button class="battery-card ${battery.key === state.battery ? 'selected' : ''}" type="button" data-battery="${battery.key}"><b>${battery.kidLabel}</b><span>${battery.questions.length} questions</span></button>`).join('')}
+          </div></div>
+          <label><span>Subtest</span><select id="subtest"><option value="all">All subtests</option>${subtests.map((subtest) => `<option value="${escapeHtml(subtest)}" ${subtest === state.subtest ? 'selected' : ''}>${subtest}</option>`).join('')}</select></label>
+          <label><span>Mode</span><select id="mode"><option value="all" ${state.mode === 'all' ? 'selected' : ''}>All questions</option><option value="new" ${state.mode === 'new' ? 'selected' : ''}>New only</option><option value="missed" ${state.mode === 'missed' ? 'selected' : ''}>Missed review</option><option value="weak" ${state.mode === 'weak' ? 'selected' : ''}>Weak areas</option><option value="very-hard" ${state.mode === 'very-hard' ? 'selected' : ''}>Very hard only</option><option value="pdf" ${state.mode === 'pdf' ? 'selected' : ''}>PDF workbook only</option><option value="correct" ${state.mode === 'correct' ? 'selected' : ''}>Correct review</option></select></label>
         `}
-
         <button class="primary" type="submit" ${state.examType === 'practice' && pool.length === 0 ? 'disabled' : ''}>${state.examType === 'mock' ? 'Start mock exam' : `Start ${Math.min(pool.length, QUESTION_LIMIT)}`}</button>
-
-
-        <details class="data-box">
-          <summary>JSON history</summary>
-          <div class="data-actions">
-            <button class="ghost" type="button" id="export-history">Export</button>
-            <button class="ghost" type="button" id="import-history">Import</button>
-            <button class="ghost" type="button" id="clear-history">Clear</button>
-            <input id="history-file" type="file" accept="application/json,.json" hidden>
-          </div>
-        </details>
-
         ${state.message ? `<p class="message">${escapeHtml(state.message)}</p>` : ''}
       </form>
     </section>
+
+    <details class="data-box dashboard-data"><summary>Progress backup</summary><div class="data-actions"><button class="ghost" type="button" id="export-history">Export JSON</button><button class="ghost" type="button" id="import-history">Import JSON</button><button class="ghost" type="button" id="clear-history">Clear progress</button><input id="history-file" type="file" accept="application/json,.json" hidden></div></details>
   `);
 
   document.querySelectorAll('[data-exam-type]').forEach((button) => {
@@ -213,15 +228,39 @@ function renderSetup() {
     });
   });
 
+  document.querySelectorAll('[data-daily-goal]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.dailyGoal = Number(button.dataset.dailyGoal);
+      state.history.dailyGoal = state.dailyGoal;
+      saveHistory();
+      render();
+    });
+  });
+
+  document.querySelector('[data-start-daily]').addEventListener('click', startDailyPractice);
+  document.querySelectorAll('[data-quick-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.battery = 'all';
+      state.subtest = 'all';
+      state.mode = button.dataset.quickMode;
+      startPractice({ kind: button.dataset.quickMode === 'missed' ? 'review' : 'custom' });
+    });
+  });
+  document.querySelector('[data-quick-mock]').addEventListener('click', () => {
+    state.examType = 'mock';
+    startMockExam();
+  });
+
+  document.querySelector('#export-history').addEventListener('click', exportHistory);
+  document.querySelector('#import-history').addEventListener('click', () => document.querySelector('#history-file').click());
+  document.querySelector('#history-file').addEventListener('change', importHistory);
+  document.querySelector('#clear-history').addEventListener('click', clearHistory);
+
   if (state.examType === 'mock') {
     document.querySelector('#setup-form').addEventListener('submit', (event) => {
       event.preventDefault();
       startMockExam();
     });
-    document.querySelector('#export-history').addEventListener('click', exportHistory);
-    document.querySelector('#import-history').addEventListener('click', () => document.querySelector('#history-file').click());
-    document.querySelector('#history-file').addEventListener('change', importHistory);
-    document.querySelector('#clear-history').addEventListener('click', clearHistory);
     return;
   }
 
@@ -251,11 +290,6 @@ function renderSetup() {
     event.preventDefault();
     startPractice();
   });
-
-  document.querySelector('#export-history').addEventListener('click', exportHistory);
-  document.querySelector('#import-history').addEventListener('click', () => document.querySelector('#history-file').click());
-  document.querySelector('#history-file').addEventListener('change', importHistory);
-  document.querySelector('#clear-history').addEventListener('click', clearHistory);
 }
 
 function renderPractice() {
@@ -269,7 +303,7 @@ function renderPractice() {
     <section class="panel practice">
       <div class="practice-head">
         <div class="question-kicker">
-          <span>${state.currentIndex + 1}/${total}</span>
+          <span>${state.sessionKind === 'daily' ? 'Today · ' : ''}${state.currentIndex + 1}/${total}</span>
           <span class="difficulty-badge difficulty-${difficulty}">${formatDifficulty(difficulty)}</span>
         </div>
         <span>${escapeHtml(question.battery.replace(' Battery', ''))} - ${escapeHtml(question.subtest)}</span>
@@ -289,7 +323,7 @@ function renderPractice() {
           const correct = state.checked && optionValue === getCorrectAnswer(question);
           const wrong = state.checked && selected && optionValue !== getCorrectAnswer(question);
           return `
-            <button class="option ${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${wrong ? 'wrong' : ''}" type="button" data-option="${escapeHtml(optionValue)}">
+            <button class="option ${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${wrong ? 'wrong' : ''}" type="button" data-option="${escapeHtml(optionValue)}" aria-pressed="${selected}">
               <b>${option.label}</b>
               <span>${option.text}</span>
             </button>
@@ -305,7 +339,7 @@ function renderPractice() {
       ` : ''}
 
       <div class="footer-actions">
-        <button class="ghost" type="button" id="back">Back</button>
+        <button class="ghost" type="button" id="back">${state.sessionKind === 'daily' ? 'Pause' : 'Back'}</button>
         <button class="primary" type="button" id="check">${state.checked ? (isLast ? 'Results' : 'Next') : 'Check'}</button>
       </div>
     </section>
@@ -317,6 +351,7 @@ function renderPractice() {
         return;
       }
       state.answers[state.currentIndex] = button.dataset.option;
+      persistActiveSession();
       render();
     });
   });
@@ -328,23 +363,24 @@ function renderPractice() {
       }
       state.checked = true;
       recordAnswer(question, answer);
+      persistActiveSession();
       render();
       return;
     }
 
     if (isLast) {
+      finishPracticeSession();
       state.view = 'results';
     } else {
       state.currentIndex += 1;
       state.checked = false;
+      persistActiveSession();
     }
     render();
   });
 
   document.querySelector('#back').addEventListener('click', () => {
-    state.view = 'setup';
-    state.message = '';
-    render();
+    goHome();
   });
 }
 
@@ -559,14 +595,19 @@ function renderResults() {
   const percent = Math.round((correct / total) * 100);
   const missedQuestions = state.questions.filter((question, index) => state.answers[index] !== getCorrectAnswer(question));
   const bySubtest = summarizeSession();
+  const daily = getDailyProgress();
+  const isDaily = state.sessionKind === 'daily';
 
   renderShell(`
     <section class="results">
       <div class="panel score">
+        <span class="eyebrow">${isDaily ? 'Today’s practice complete' : 'Practice complete'}</span>
         <h1>${percent}%</h1>
         <p>${correct}/${total} correct</p>
+        ${isDaily ? `<div class="result-goal"><b>${daily.answered}/${state.dailyGoal}</b><span>daily goal complete</span></div>` : ''}
         <div class="result-actions">
-          <button class="primary" type="button" id="again">Practice again</button>
+          <button class="primary" type="button" id="again">${isDaily ? 'Back to progress' : 'Practice again'}</button>
+          ${missedQuestions.length ? '<button class="ghost" type="button" id="review-missed">Review missed</button>' : ''}
           <button class="ghost" type="button" id="export-history">Export JSON</button>
         </div>
       </div>
@@ -599,6 +640,12 @@ function renderResults() {
   document.querySelector('#again').addEventListener('click', () => {
     state.view = 'setup';
     render();
+  });
+  document.querySelector('#review-missed')?.addEventListener('click', () => {
+    state.battery = 'all';
+    state.subtest = 'all';
+    state.mode = 'missed';
+    startPractice({ kind: 'review' });
   });
   document.querySelector('#export-history').addEventListener('click', exportHistory);
 }
@@ -657,7 +704,7 @@ function renderQuestionBank() {
   renderShell(`
     <section class="panel question-bank">
       <div class="bank-head">
-        <h1>题库</h1>
+        <h1>Question bank</h1>
         <span>${filteredQuestions.length}/${allQuestions.length}</span>
       </div>
 
@@ -708,7 +755,7 @@ function renderQuestionBank() {
     state.battery = state.bankBattery;
     state.subtest = state.bankSubtest;
     state.mode = 'all';
-    startPractice();
+    startPractice({ kind: 'custom' });
   });
 }
 
@@ -763,19 +810,152 @@ function summarizeMockScores() {
   }, {});
 }
 
-function startPractice() {
-  const pool = getPracticePool();
-  if (!pool.length) {
+function startDailyPractice() {
+  if (getDailyProgress().completed) {
+    state.battery = 'all';
+    state.subtest = 'all';
+    state.mode = 'all';
+    startPractice({ kind: 'extra', limit: state.dailyGoal });
+    return;
+  }
+
+  const active = state.history.activeSession;
+  if (hasResumableDailySession() && active?.questionIds?.length) {
+    const questions = active.questionIds.map((id) => questionById.get(String(id))).filter(Boolean);
+    if (questions.length) {
+      state.sessionKind = 'daily';
+      state.questions = questions;
+      state.answers = questions.map((question, index) => active.answers?.[index] ?? null);
+      state.currentIndex = Math.min(Number(active.currentIndex ?? 0), questions.length - 1);
+      state.checked = Boolean(active.checked);
+      state.view = 'practice';
+      state.message = '';
+      render();
+      return;
+    }
+  }
+
+  startPractice({ kind: 'daily', pool: selectDailyQuestions(state.dailyGoal), limit: state.dailyGoal });
+}
+
+function startPractice({ kind = 'custom', pool = null, limit = QUESTION_LIMIT } = {}) {
+  const practicePool = pool ?? getPracticePool();
+  if (!practicePool.length) {
     state.message = 'No questions match this filter yet.';
     render();
     return;
   }
 
-  state.questions = shuffle(pool).slice(0, QUESTION_LIMIT);
+  state.sessionKind = kind;
+  state.questions = shuffle(practicePool).slice(0, Math.min(limit, practicePool.length));
   state.answers = new Array(state.questions.length).fill(null);
   state.currentIndex = 0;
   state.checked = false;
   state.view = 'practice';
+  state.message = '';
+  if (kind === 'daily') {
+    persistActiveSession();
+  }
+  render();
+}
+
+function selectDailyQuestions(goal) {
+  const seen = new Set();
+  const selected = [];
+  const pools = [
+    allQuestions.filter((question) => isWeakQuestion(question)),
+    allQuestions.filter((question) => !state.history.stats[String(question.id)]),
+    allQuestions,
+  ];
+
+  pools.forEach((pool) => {
+    shuffle(pool).forEach((question) => {
+      if (selected.length >= goal || seen.has(String(question.id))) {
+        return;
+      }
+      seen.add(String(question.id));
+      selected.push(question);
+    });
+  });
+
+  return selected;
+}
+
+function hasResumableDailySession() {
+  const active = state.history.activeSession;
+  return Boolean(active && active.kind === 'daily' && active.date === getDateKey() && !getDailyProgress().completed);
+}
+
+function persistActiveSession() {
+  if (state.sessionKind !== 'daily' || state.view !== 'practice' || !state.questions.length) {
+    return;
+  }
+  state.history.activeSession = {
+    date: getDateKey(),
+    kind: 'daily',
+    goal: state.dailyGoal,
+    questionIds: state.questions.map((question) => String(question.id)),
+    answers: [...state.answers],
+    currentIndex: state.currentIndex,
+    checked: state.checked,
+    answeredCount: getActiveSessionCounts().answered,
+    correctCount: getActiveSessionCounts().correct,
+    updatedAt: new Date().toISOString(),
+  };
+  saveHistory();
+}
+
+function getActiveSessionCounts() {
+  if (state.sessionKind !== 'daily' || !state.questions.length) {
+    return { answered: 0, correct: 0 };
+  }
+  const answered = state.answers.reduce((count, answer, index) => {
+    const isCheckedAnswer = index < state.currentIndex || (index === state.currentIndex && state.checked);
+    return count + (isCheckedAnswer && answer ? 1 : 0);
+  }, 0);
+  const correct = state.answers.reduce((count, answer, index) => {
+    const isCheckedAnswer = index < state.currentIndex || (index === state.currentIndex && state.checked);
+    return count + (isCheckedAnswer && answer === getCorrectAnswer(state.questions[index]) ? 1 : 0);
+  }, 0);
+  return { answered, correct };
+}
+
+function finishPracticeSession() {
+  const correct = state.answers.reduce((count, answer, index) => (
+    answer === getCorrectAnswer(state.questions[index]) ? count + 1 : count
+  ), 0);
+  const total = state.questions.length;
+  const completedAt = new Date().toISOString();
+
+  state.history.lastSession = {
+    kind: state.sessionKind,
+    correct,
+    total,
+    accuracy: total ? Math.round((correct / total) * 100) : 0,
+    completedAt,
+  };
+
+  if (state.sessionKind === 'daily') {
+    const date = getDateKey();
+    state.history.daily[date] = {
+      answered: total,
+      correct,
+      total,
+      completed: true,
+      completedAt,
+    };
+    state.history.activeSession = null;
+  }
+
+  state.history.updatedAt = completedAt;
+  saveHistory();
+}
+
+function goHome() {
+  persistActiveSession();
+  stopMockTimer();
+  state.view = 'setup';
+  state.examType = 'practice';
   state.message = '';
   render();
 }
@@ -857,6 +1037,10 @@ function formatDifficulty(difficulty) {
   return difficulty.replace('-', ' ');
 }
 
+function formatQuestionCount(count) {
+  return `${count} ${count === 1 ? 'question' : 'questions'}`;
+}
+
 function getOptionValue(option) {
   return String(option.value ?? option.label);
 }
@@ -879,6 +1063,7 @@ function handleKeyboard(event) {
   const question = state.questions[state.currentIndex];
   if (optionIndex >= 0 && question?.options?.[optionIndex]) {
     state.answers[state.currentIndex] = getOptionValue(question.options[optionIndex]);
+    persistActiveSession();
     if (state.view === 'practice') {
       renderPractice();
     } else {
@@ -935,6 +1120,70 @@ function summarizeSession() {
   }, {});
 }
 
+function getDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function shiftDateKey(dateKey, amount) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + amount);
+  return getDateKey(date);
+}
+
+function getDailyProgress() {
+  const record = state.history.daily[getDateKey()] ?? {};
+  const active = hasStoredActiveDailySession() ? state.history.activeSession : null;
+  const answered = active ? Number(active.answeredCount ?? 0) : Number(record.answered ?? 0);
+  return {
+    answered,
+    correct: active ? Number(active.correctCount ?? 0) : Number(record.correct ?? 0),
+    total: Number(record.total ?? 0),
+    completed: Boolean(record.completed) && answered >= state.dailyGoal,
+  };
+}
+
+function hasStoredActiveDailySession() {
+  const active = state.history.activeSession;
+  return Boolean(active && active.kind === 'daily' && active.date === getDateKey());
+}
+
+function getCurrentStreak() {
+  let streak = 0;
+  let dateKey = getDateKey();
+  while (state.history.daily[dateKey]?.completed) {
+    streak += 1;
+    dateKey = shiftDateKey(dateKey, -1);
+  }
+  return streak;
+}
+
+function getProgressSummary() {
+  const records = Object.values(state.history.stats);
+  const totalAnswered = records.reduce((sum, record) => sum + Number(record.attempts ?? 0), 0);
+  const lastAccuracy = state.history.lastSession?.total ? Number(state.history.lastSession.accuracy) : null;
+  return {
+    totalAnswered,
+    streak: getCurrentStreak(),
+    lastAccuracy,
+    missed: records.filter((record) => record.lastResult === 'wrong').length,
+  };
+}
+
+function getBatteryProgress(batteryKey) {
+  const battery = batteryMap.get(batteryKey);
+  const records = battery.questions.map((question) => state.history.stats[String(question.id)]).filter(Boolean);
+  const attempted = records.reduce((sum, record) => sum + Number(record.attempts ?? 0), 0);
+  const correct = records.reduce((sum, record) => sum + Number(record.correct ?? 0), 0);
+  return {
+    attempted,
+    accuracy: attempted ? Math.round((correct / attempted) * 100) : null,
+  };
+}
+
 function getHistorySummary() {
   const records = Object.values(state.history.stats);
   return {
@@ -945,15 +1194,19 @@ function getHistorySummary() {
 
 function createEmptyHistory() {
   return {
-    version: 1,
+    version: 2,
     updatedAt: new Date().toISOString(),
+    dailyGoal: DEFAULT_DAILY_GOAL,
+    daily: {},
+    activeSession: null,
+    lastSession: null,
     stats: {},
   };
 }
 
 function loadHistory() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
     return stored ? normalizeHistory(JSON.parse(stored)) : createEmptyHistory();
   } catch {
     return createEmptyHistory();
@@ -983,6 +1236,50 @@ function normalizeHistory(input) {
     };
   });
 
+  next.dailyGoal = DAILY_GOAL_OPTIONS.includes(Number(input?.dailyGoal)) ? Number(input.dailyGoal) : DEFAULT_DAILY_GOAL;
+  next.daily = Object.entries(input?.daily ?? {}).reduce((daily, [date, record]) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return daily;
+    }
+    daily[date] = {
+      answered: Number(record?.answered ?? 0),
+      correct: Number(record?.correct ?? 0),
+      total: Number(record?.total ?? record?.answered ?? 0),
+      completed: Boolean(record?.completed),
+      completedAt: record?.completedAt ?? '',
+    };
+    return daily;
+  }, {});
+  if (input?.activeSession && input.activeSession.kind === 'daily') {
+    const questionIds = Array.isArray(input.activeSession.questionIds) ? input.activeSession.questionIds.map(String) : [];
+    const answers = Array.isArray(input.activeSession.answers) ? input.activeSession.answers : [];
+    const currentIndex = Number(input.activeSession.currentIndex ?? 0);
+    const checked = Boolean(input.activeSession.checked);
+    const getWasChecked = (index) => index < currentIndex || (index === currentIndex && checked);
+    const inferredAnswered = answers.reduce((count, answer, index) => count + (getWasChecked(index) && answer ? 1 : 0), 0);
+    const inferredCorrect = answers.reduce((count, answer, index) => count + (getWasChecked(index) && answer === questionById.get(questionIds[index])?.correctAnswer ? 1 : 0), 0);
+    next.activeSession = {
+      date: input.activeSession.date,
+      kind: 'daily',
+      goal: Number(input.activeSession.goal ?? next.dailyGoal),
+      questionIds,
+      answers,
+      currentIndex,
+      checked,
+      answeredCount: Number(input.activeSession.answeredCount ?? inferredAnswered),
+      correctCount: Number(input.activeSession.correctCount ?? inferredCorrect),
+      updatedAt: input.activeSession.updatedAt ?? '',
+    };
+  }
+  if (input?.lastSession) {
+    next.lastSession = {
+      kind: input.lastSession.kind ?? 'custom',
+      correct: Number(input.lastSession.correct ?? 0),
+      total: Number(input.lastSession.total ?? 0),
+      accuracy: Number(input.lastSession.accuracy ?? 0),
+      completedAt: input.lastSession.completedAt ?? '',
+    };
+  }
   next.updatedAt = input?.updatedAt ?? new Date().toISOString();
   return next;
 }
@@ -1013,6 +1310,7 @@ async function importHistory(event) {
   try {
     const text = await file.text();
     state.history = normalizeHistory(JSON.parse(text));
+    state.dailyGoal = state.history.dailyGoal;
     saveHistory();
     state.message = 'History imported.';
   } catch {
@@ -1024,6 +1322,7 @@ async function importHistory(event) {
 
 function clearHistory() {
   state.history = createEmptyHistory();
+  state.dailyGoal = DEFAULT_DAILY_GOAL;
   saveHistory();
   state.message = 'History cleared.';
   render();
