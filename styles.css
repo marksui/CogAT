@@ -1247,26 +1247,6 @@ button:disabled {
   background: var(--green);
 }
 
-.mock-submit-warning {
-  display: grid;
-  gap: 3px;
-  margin-top: 14px;
-  border: 1px solid rgba(217, 121, 53, 0.34);
-  border-radius: 16px;
-  background: #fff8ed;
-  padding: 13px 14px;
-}
-
-.mock-submit-warning b {
-  color: var(--ink);
-}
-
-.mock-submit-warning span {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 750;
-}
-
 .mock-progress-steps {
   display: grid;
   grid-template-columns: repeat(9, minmax(0, 1fr));
@@ -1362,6 +1342,39 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 7px;
+}
+
+.mock-answer-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.mock-answer-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mock-answer-legend i {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--bg);
+}
+
+.mock-answer-legend i.answered {
+  border-color: rgba(22, 130, 103, 0.32);
+  background: #ecfaf5;
+}
+
+.mock-answer-legend i.current {
+  border-color: var(--ink);
+  background: var(--ink);
 }
 
 .mock-answer-button {

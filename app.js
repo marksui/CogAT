@@ -41,6 +41,10 @@ const mockParts = [
   { key: 'nonverbal', battery: 'Nonverbal Battery', subtest: 'Figure Classification', label: 'Figure Classification', minutes: 10, questionCount: 22 },
 ];
 
+const MOCK_FORM_ID = 'level-10-form-a';
+const MOCK_DIFFICULTY_ORDER = ['easy', 'medium', 'hard', 'very-hard'];
+const MOCK_DIFFICULTY_RANK = Object.fromEntries(MOCK_DIFFICULTY_ORDER.map((difficulty, index) => [difficulty, index]));
+
 const BADGE_REWARDS = {
   basic: 5,
   medium: 10,
@@ -622,7 +626,7 @@ function renderMockIntro() {
     <section class="panel mock-launch">
       <div class="mock-launch-head">
         <span class="eyebrow">Mock exam</span>
-        <h1>Full test mode</h1>
+        <h1>Level 10 Form A</h1>
         <div class="mock-exam-stats" aria-label="Mock exam summary">
           <span><b>${mockParts.length}</b> parts</span>
           <span><b>${totalQuestions}</b> questions</span>
@@ -631,15 +635,15 @@ function renderMockIntro() {
       </div>
 
       <div class="mock-rules" aria-label="Exam rules">
-        <div><b>Timed sections</b><span>Each part starts its own clock.</span></div>
-        <div><b>Forward flow</b><span>No answer feedback during the exam.</span></div>
+        <div><b>10-minute sections</b><span>Each subtest starts its own clock.</span></div>
+        <div><b>Exam pacing</b><span>Questions progress from easier items to harder items.</span></div>
         <div><b>Final scoring</b><span>Blank answers count as missed.</span></div>
       </div>
 
       <div class="mock-mode-picker" role="radiogroup" aria-label="Mock exam layout">
         <button class="${state.mockMode === 'sheet' ? 'selected' : ''}" type="button" role="radio" aria-checked="${state.mockMode === 'sheet'}" data-mock-mode="sheet">
           <b>Worksheet</b>
-          <span>All questions on one scrolling page.</span>
+          <span>Default exam layout with question navigation.</span>
         </button>
         <button class="${state.mockMode === 'bubble' ? 'selected' : ''}" type="button" role="radio" aria-checked="${state.mockMode === 'bubble'}" data-mock-mode="bubble">
           <b>Bubble sheet</b>
@@ -652,7 +656,7 @@ function renderMockIntro() {
       </div>
 
       <div class="mock-section-strip" aria-label="Exam parts">
-        ${mockParts.map((part, index) => `<div class="mock-section-pill"><span>${index + 1}</span><b>${part.label}</b><small>${part.minutes}m · ${part.questionCount}q</small></div>`).join('')}
+        ${mockParts.map((part, index) => `<div class="mock-section-pill"><span>${index + 1}</span><b>${part.label}</b><small>${part.minutes}m - ${part.questionCount}q</small></div>`).join('')}
       </div>
 
       <div class="footer-actions">
@@ -694,7 +698,7 @@ function renderMockBreak() {
       <div class="mock-next-card">
         <span>Next part</span>
         <b>${escapeHtml(nextPart.label)}</b>
-        <small>${nextPart.minutes} minutes · ${nextPart.questionCount} questions</small>
+        <small>${nextPart.minutes} minutes - ${nextPart.questionCount} questions</small>
       </div>
 
       <div class="mock-progress-steps" aria-label="Mock exam progress">
@@ -748,6 +752,11 @@ function renderMockAnswerCard() {
           return `<button class="mock-answer-button ${isCurrent ? 'current' : ''} ${isAnswered ? 'answered' : 'blank'}" type="button" data-mock-jump="${index}" aria-label="Go to question ${index + 1}${isAnswered ? ', answered' : ', blank'}" aria-current="${isCurrent ? 'true' : 'false'}">${index + 1}</button>`;
         }).join('')}
       </div>
+      <div class="mock-answer-legend" aria-hidden="true">
+        <span><i class="current"></i>Current</span>
+        <span><i class="answered"></i>Answered</span>
+        <span><i></i>Blank</span>
+      </div>
     </aside>
   `;
 }
@@ -792,8 +801,7 @@ function updateMockAnswerCardState() {
 }
 
 function resetMockSheetSubmitPrompt() {
-  document.querySelector('.mock-submit-warning')?.remove();
-  document.querySelector('#mock-next')?.replaceChildren(document.createTextNode('Finish part'));
+  document.querySelector('#mock-next')?.replaceChildren(document.createTextNode('Submit part'));
 }
 
 function updateMockSheetCurrentQuestion(index) {
@@ -828,6 +836,25 @@ function renderMockExitDialog() {
   `;
 }
 
+function renderMockSubmitDialog(unansweredCount) {
+  if (!state.mockConfirmFinish) {
+    return '';
+  }
+
+  return `
+    <div class="mock-exit-backdrop" role="presentation">
+      <div class="mock-exit-dialog mock-submit-dialog" role="dialog" aria-modal="true" aria-labelledby="mock-submit-title" aria-describedby="mock-submit-copy">
+        <h2 id="mock-submit-title">Submit this part?</h2>
+        <p id="mock-submit-copy">${unansweredCount ? `${unansweredCount} blank ${unansweredCount === 1 ? 'answer' : 'answers'} will be scored as missed.` : 'You answered every question in this part.'}</p>
+        <div class="mock-exit-actions">
+          <button class="ghost" type="button" id="mock-keep-working">Keep working</button>
+          <button class="primary" type="button" id="mock-confirm-submit">Submit part</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function requestMockExit() {
   state.mockExitConfirm = true;
   render();
@@ -852,6 +879,28 @@ function attachMockExitDialogHandlers() {
   document.querySelector('#mock-confirm-exit')?.addEventListener('click', confirmMockExit);
   if (state.mockExitConfirm) {
     window.requestAnimationFrame(() => document.querySelector('#mock-stay')?.focus());
+  }
+}
+
+function requestMockPartSubmit(unansweredCount) {
+  if (unansweredCount === 0) {
+    finishMockPart();
+    return;
+  }
+  state.mockConfirmFinish = true;
+  renderMockPractice();
+}
+
+function cancelMockPartSubmit() {
+  state.mockConfirmFinish = false;
+  renderMockPractice();
+}
+
+function attachMockSubmitDialogHandlers() {
+  document.querySelector('#mock-keep-working')?.addEventListener('click', cancelMockPartSubmit);
+  document.querySelector('#mock-confirm-submit')?.addEventListener('click', finishMockPart);
+  if (state.mockConfirmFinish) {
+    window.requestAnimationFrame(() => document.querySelector('#mock-keep-working')?.focus());
   }
 }
 
@@ -898,16 +947,18 @@ function renderMockGuidedPractice() {
         `).join('')}
       </div>
 
-      ${state.mockConfirmFinish ? `<div class="mock-submit-warning" role="status"><b>Submit this part?</b><span>${unansweredCount ? `${unansweredCount} blank ${unansweredCount === 1 ? 'answer' : 'answers'} will be scored as missed.` : 'You answered every question in this part.'}</span></div>` : ''}
-
       <div class="footer-actions">
         <button class="ghost" type="button" id="exit-mock">Leave exam</button>
-        <button class="primary" type="button" id="mock-next">${isLast ? (state.mockConfirmFinish ? 'Submit part' : 'Finish part') : 'Next'}</button>
+        <button class="primary" type="button" id="mock-next">${isLast ? 'Submit part' : 'Next'}</button>
       </div>
     </section>
+    ${renderMockExitDialog()}
+    ${renderMockSubmitDialog(unansweredCount)}
   `);
 
   startMockTimer();
+  attachMockExitDialogHandlers();
+  attachMockSubmitDialogHandlers();
 
   document.querySelectorAll('[data-option]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -918,12 +969,7 @@ function renderMockGuidedPractice() {
 
   document.querySelector('#mock-next').addEventListener('click', () => {
     if (isLast) {
-      if (!state.mockConfirmFinish) {
-        state.mockConfirmFinish = true;
-        renderMockPractice();
-        return;
-      }
-      finishMockPart();
+      requestMockPartSubmit(unansweredCount);
       return;
     }
     state.mockConfirmFinish = false;
@@ -931,12 +977,7 @@ function renderMockGuidedPractice() {
     renderMockPractice();
   });
 
-  document.querySelector('#exit-mock').addEventListener('click', () => {
-    stopMockTimer();
-    state.view = 'setup';
-    state.examType = 'mock';
-    render();
-  });
+  document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
 }
 
 function renderMockGuidedPracticeWithCard() {
@@ -987,21 +1028,21 @@ function renderMockGuidedPracticeWithCard() {
           }).join('')}
         </div>
 
-        ${state.mockConfirmFinish ? `<div class="mock-submit-warning" role="status"><b>Submit this part?</b><span>${unansweredCount ? `${unansweredCount} blank ${unansweredCount === 1 ? 'answer' : 'answers'} will be scored as missed.` : 'You answered every question in this part.'}</span></div>` : ''}
-
         <div class="footer-actions">
           <button class="ghost" type="button" id="exit-mock">Leave exam</button>
-          <button class="primary" type="button" id="mock-next">${isLast ? (state.mockConfirmFinish ? 'Submit part' : 'Finish part') : 'Next'}</button>
+          <button class="primary" type="button" id="mock-next">${isLast ? 'Submit part' : 'Next'}</button>
         </div>
       </div>
       ${renderMockAnswerCard()}
     </section>
     ${renderMockExitDialog()}
+    ${renderMockSubmitDialog(unansweredCount)}
   `);
 
   startMockTimer();
   attachMockAnswerCardHandlers();
   attachMockExitDialogHandlers();
+  attachMockSubmitDialogHandlers();
 
   document.querySelectorAll('[data-option]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1013,12 +1054,7 @@ function renderMockGuidedPracticeWithCard() {
 
   document.querySelector('#mock-next').addEventListener('click', () => {
     if (isLast) {
-      if (!state.mockConfirmFinish) {
-        state.mockConfirmFinish = true;
-        renderMockPractice();
-        return;
-      }
-      finishMockPart();
+      requestMockPartSubmit(unansweredCount);
       return;
     }
     state.mockConfirmFinish = false;
@@ -1050,7 +1086,7 @@ function renderMockSheetPractice() {
 
         <div class="practice-head mock-sheet-head">
           <div class="question-kicker">
-            <span>Answer sheet mode</span>
+            <span>Worksheet</span>
           </div>
           <span data-sheet-answered>${answeredCount}/${total} answered</span>
         </div>
@@ -1082,21 +1118,21 @@ function renderMockSheetPractice() {
           }).join('')}
         </div>
 
-        ${state.mockConfirmFinish ? `<div class="mock-submit-warning" role="status"><b>Submit this part?</b><span>${unansweredCount ? `${unansweredCount} blank ${unansweredCount === 1 ? 'answer' : 'answers'} will be scored as missed.` : 'You answered every question in this part.'}</span></div>` : ''}
-
         <div class="footer-actions">
           <button class="ghost" type="button" id="exit-mock">Leave exam</button>
-          <button class="primary" type="button" id="mock-next">${state.mockConfirmFinish ? 'Submit part' : 'Finish part'}</button>
+          <button class="primary" type="button" id="mock-next">Submit part</button>
         </div>
       </div>
       ${renderMockAnswerCard()}
     </section>
     ${renderMockExitDialog()}
+    ${renderMockSubmitDialog(unansweredCount)}
   `);
 
   startMockTimer();
   attachMockAnswerCardHandlers({ renderOnJump: false });
   attachMockExitDialogHandlers();
+  attachMockSubmitDialogHandlers();
 
   document.querySelectorAll('[data-sheet-option]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1116,12 +1152,7 @@ function renderMockSheetPractice() {
   });
 
   document.querySelector('#mock-next').addEventListener('click', () => {
-    if (!state.mockConfirmFinish) {
-      state.mockConfirmFinish = true;
-      renderMockPractice();
-      return;
-    }
-    finishMockPart();
+    requestMockPartSubmit(unansweredCount);
   });
 
   document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
@@ -1148,7 +1179,7 @@ function renderMockBubblePractice() {
 
         <div class="practice-head mock-bubble-head">
           <div class="question-kicker">
-            <span>Bubble sheet mode</span>
+            <span>Bubble sheet</span>
           </div>
           <span data-bubble-answered>${answeredCount}/${total} answered</span>
         </div>
@@ -1179,19 +1210,19 @@ function renderMockBubblePractice() {
           }).join('')}
         </div>
 
-        ${state.mockConfirmFinish ? `<div class="mock-submit-warning" role="status"><b>Submit this part?</b><span>${unansweredCount ? `${unansweredCount} blank ${unansweredCount === 1 ? 'answer' : 'answers'} will be scored as missed.` : 'You answered every question in this part.'}</span></div>` : ''}
-
         <div class="footer-actions">
           <button class="ghost" type="button" id="exit-mock">Leave exam</button>
-          <button class="primary" type="button" id="mock-next">${state.mockConfirmFinish ? 'Submit part' : 'Finish part'}</button>
+          <button class="primary" type="button" id="mock-next">Submit part</button>
         </div>
       </div>
     </section>
     ${renderMockExitDialog()}
+    ${renderMockSubmitDialog(unansweredCount)}
   `);
 
   startMockTimer();
   attachMockExitDialogHandlers();
+  attachMockSubmitDialogHandlers();
 
   document.querySelectorAll('[data-bubble-jump]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1221,12 +1252,7 @@ function renderMockBubblePractice() {
   });
 
   document.querySelector('#mock-next').addEventListener('click', () => {
-    if (!state.mockConfirmFinish) {
-      state.mockConfirmFinish = true;
-      renderMockPractice();
-      return;
-    }
-    finishMockPart();
+    requestMockPartSubmit(unansweredCount);
   });
 
   document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
@@ -1293,29 +1319,70 @@ function startMockPart() {
 
 function getMockPartQuestions(part) {
   const source = questionSets[part.key].filter((question) => question.subtest === part.subtest);
-  return selectBalancedMockQuestions(source, part.questionCount);
+  return selectOfficialStyleMockQuestions(source, part.questionCount, part);
 }
 
-function selectBalancedMockQuestions(source, count) {
+function selectOfficialStyleMockQuestions(source, count, part) {
   const targetCounts = {
-    easy: Math.floor(count * 0.2),
-    medium: Math.ceil(count * 0.45),
+    easy: Math.floor(count * 0.15),
+    medium: Math.ceil(count * 0.55),
+    hard: Math.floor(count * 0.22),
   };
-  targetCounts.hard = count - targetCounts.easy - targetCounts.medium;
+  targetCounts['very-hard'] = count - targetCounts.easy - targetCounts.medium - targetCounts.hard;
 
   const selectedQuestions = [];
-  ['easy', 'medium', 'hard'].forEach((difficulty) => {
-    const bucket = source.filter((question) => getDifficultyBucket(question) === difficulty);
-    selectedQuestions.push(...shuffle(bucket).slice(0, targetCounts[difficulty]));
+  MOCK_DIFFICULTY_ORDER.forEach((difficulty) => {
+    const bucket = source.filter((question) => getMockDifficulty(question) === difficulty);
+    const formSeed = `${MOCK_FORM_ID}:${part.subtest}:${difficulty}`;
+    selectedQuestions.push(...stableMockShuffle(bucket, formSeed).slice(0, targetCounts[difficulty]));
   });
 
   if (selectedQuestions.length < count) {
     const selectedIds = new Set(selectedQuestions.map((question) => question.id));
     const remainingQuestions = source.filter((question) => !selectedIds.has(question.id));
-    selectedQuestions.push(...shuffle(remainingQuestions).slice(0, count - selectedQuestions.length));
+    selectedQuestions.push(...stableMockShuffle(remainingQuestions, `${MOCK_FORM_ID}:${part.subtest}:fill`).slice(0, count - selectedQuestions.length));
   }
 
-  return shuffle(selectedQuestions).slice(0, count);
+  return sortMockQuestionsForExam(selectedQuestions).slice(0, count);
+}
+
+function getMockDifficulty(question) {
+  const explicitDifficulty = String(question.difficulty ?? '').toLowerCase();
+  if (MOCK_DIFFICULTY_RANK[explicitDifficulty] !== undefined) {
+    return explicitDifficulty;
+  }
+
+  const inferredDifficulty = getDifficulty(question);
+  return MOCK_DIFFICULTY_RANK[inferredDifficulty] !== undefined ? inferredDifficulty : 'medium';
+}
+
+function getMockDifficultyRank(question) {
+  return MOCK_DIFFICULTY_RANK[getMockDifficulty(question)] ?? MOCK_DIFFICULTY_RANK.medium;
+}
+
+function sortMockQuestionsForExam(items) {
+  return [...items].sort((first, second) => {
+    const difficultyDelta = getMockDifficultyRank(first) - getMockDifficultyRank(second);
+    if (difficultyDelta !== 0) {
+      return difficultyDelta;
+    }
+    return stableMockHash(`${MOCK_FORM_ID}:${first.subtest}:${first.id}`) - stableMockHash(`${MOCK_FORM_ID}:${second.subtest}:${second.id}`);
+  });
+}
+
+function stableMockShuffle(items, seed) {
+  return [...items].sort((first, second) => (
+    stableMockHash(`${seed}:${first.id}`) - stableMockHash(`${seed}:${second.id}`)
+  ));
+}
+
+function stableMockHash(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 function startMockTimer() {
