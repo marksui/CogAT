@@ -1184,30 +1184,52 @@ function renderMockBubblePractice() {
           <span data-bubble-answered>${answeredCount}/${total} answered</span>
         </div>
 
-        <div class="mock-bubble-list" aria-label="Bubble answer sheet">
-          ${state.questions.map((question, index) => {
-            const answer = state.answers[index];
-            return `
-              <article class="mock-bubble-row ${index === state.currentIndex ? 'current' : ''}" id="mock-bubble-question-${index}">
+        <div class="mock-bubble-board">
+          <div class="mock-bubble-questions" aria-label="Questions">
+            ${state.questions.map((question, index) => `
+              <article class="mock-bubble-question-item ${index === state.currentIndex ? 'current' : ''} ${state.answers[index] ? 'answered' : ''}" id="mock-bubble-question-${index}">
                 <button class="mock-bubble-number" type="button" data-bubble-jump="${index}" aria-label="Go to question ${index + 1}">${index + 1}</button>
                 <div class="mock-bubble-question">
                   <div>${question.question}</div>
                   ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
                 </div>
-                <div class="mock-bubble-options" role="radiogroup" aria-label="Question ${index + 1} choices">
-                  ${question.options.map((option) => {
-                    const optionValue = getOptionValue(option);
-                    const selected = answer === optionValue;
-                    return `
-                      <button class="mock-bubble-choice ${selected ? 'selected' : ''}" type="button" data-bubble-question="${index}" data-bubble-option="${escapeHtml(optionValue)}" aria-pressed="${selected}" aria-label="Question ${index + 1}, choice ${escapeHtml(option.label)}">
-                        <span>${escapeHtml(option.label)}</span>
-                      </button>
-                    `;
-                  }).join('')}
-                </div>
               </article>
-            `;
-          }).join('')}
+            `).join('')}
+          </div>
+
+          <aside class="mock-bubble-card" aria-label="Bubble answer sheet">
+            <div class="mock-bubble-card-head">
+              <div>
+                <span>Answer Sheet</span>
+                <b>Part ${state.mockPartIndex + 1}</b>
+              </div>
+              <div class="mock-student-id" aria-hidden="true">
+                <span>Student ID</span>
+                <i></i><i></i><i></i><i></i><i></i>
+              </div>
+            </div>
+            <div class="mock-bubble-answer-list">
+              ${state.questions.map((question, index) => {
+                const answer = state.answers[index];
+                return `
+                  <div class="mock-bubble-answer-row ${index === state.currentIndex ? 'current' : ''} ${answer ? 'answered' : ''}">
+                    <button class="mock-bubble-answer-number" type="button" data-bubble-jump="${index}" aria-label="Go to question ${index + 1}">${index + 1}</button>
+                    <div class="mock-bubble-options" role="radiogroup" aria-label="Question ${index + 1} choices">
+                      ${question.options.map((option) => {
+                        const optionValue = getOptionValue(option);
+                        const selected = answer === optionValue;
+                        return `
+                          <button class="mock-bubble-choice ${selected ? 'selected' : ''}" type="button" data-bubble-question="${index}" data-bubble-option="${escapeHtml(optionValue)}" aria-pressed="${selected}" aria-label="Question ${index + 1}, choice ${escapeHtml(option.label)}">
+                            <span>${escapeHtml(option.label)}</span>
+                          </button>
+                        `;
+                      }).join('')}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </aside>
         </div>
 
         <div class="footer-actions">
@@ -1266,7 +1288,13 @@ function updateMockBubbleState() {
     const sectionProgress = ((state.mockPartIndex + answeredCount / state.questions.length) / mockParts.length) * 100;
     progressBar.style.width = `${sectionProgress}%`;
   }
-  document.querySelectorAll('.mock-bubble-row').forEach((row, index) => {
+  document.querySelectorAll('.mock-bubble-question-item, .mock-bubble-answer-row').forEach((row) => {
+    const jumpButton = row.querySelector('[data-bubble-jump]');
+    const optionButton = row.querySelector('[data-bubble-option]');
+    const index = Number(jumpButton?.dataset.bubbleJump ?? optionButton?.dataset.bubbleQuestion);
+    if (Number.isNaN(index)) {
+      return;
+    }
     const isCurrent = index === state.currentIndex;
     const isAnswered = Boolean(state.answers[index]);
     row.classList.toggle('current', isCurrent);
