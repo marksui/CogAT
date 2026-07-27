@@ -328,6 +328,14 @@ h2 {
   align-items: stretch;
 }
 
+.bank-question.is-workbook-question .bank-question-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bank-question.is-workbook-question .bank-options-mini {
+  display: none;
+}
+
 .bank-preview,
 .bank-option-mini {
   border-radius: 14px;
@@ -415,6 +423,17 @@ h2 {
   max-width: 100%;
   max-height: 118px;
   object-fit: contain;
+}
+
+.bank-question.is-workbook-question .bank-preview {
+  justify-items: center;
+  padding: 12px;
+}
+
+.bank-question.is-workbook-question .bank-preview img.workbook-question-image {
+  width: min(760px, 100%);
+  height: auto;
+  max-height: none;
 }
 
 .bank-preview .flex {
@@ -1030,16 +1049,42 @@ button:focus-visible {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.75);
-  color: var(--blue);
-  padding: 0 11px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--ink);
+  padding: 0 12px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
   list-style: none;
+  box-shadow: 0 8px 22px rgba(54, 83, 119, 0.05);
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.auth-menu summary:hover,
+.auth-menu[open] summary {
+  border-color: rgba(47, 102, 208, 0.28);
+  background: #ffffff;
+  color: var(--blue);
+  transform: translateY(-1px);
+}
+
+.auth-menu summary:focus-visible {
+  outline: 3px solid rgba(47, 102, 208, 0.2);
+  outline-offset: 3px;
+}
+
+.auth-menu summary svg,
+.sync-status svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .auth-menu summary::-webkit-details-marker {
@@ -1054,6 +1099,10 @@ button:focus-visible {
   background: var(--green);
 }
 
+.sync-dot.local {
+  background: var(--muted);
+}
+
 .sync-dot.syncing,
 .sync-dot.checking {
   background: var(--orange);
@@ -1064,32 +1113,54 @@ button:focus-visible {
 }
 
 .sync-status {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0 12px;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .auth-card {
   position: absolute;
   z-index: 10;
-  top: 40px;
+  top: 52px;
   right: 0;
   display: grid;
-  width: min(310px, calc(100vw - 32px));
-  gap: 8px;
+  width: min(342px, calc(100vw - 32px));
+  gap: 12px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 20px;
   background: #ffffff;
-  padding: 16px;
+  padding: 14px;
   box-shadow: var(--shadow);
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
 }
 
-.auth-card b,
-.auth-card span {
+.auth-card-head {
+  display: grid;
+  gap: 2px;
+}
+
+.auth-card-head b {
   color: var(--ink);
+  font-size: 14px;
+}
+
+.auth-card-head span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .auth-card small,
@@ -1101,26 +1172,28 @@ button:focus-visible {
 
 .auth-card label {
   gap: 6px;
-  margin-top: 4px;
+  margin: 0;
 }
 
 .auth-card label span {
   color: var(--muted);
   font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .auth-mode-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
-  margin-top: 4px;
   padding: 4px;
   border-radius: 12px;
   background: var(--bg);
 }
 
 .auth-mode-button {
-  min-height: 32px;
+  min-height: 36px;
   border: 0;
   border-radius: 9px;
   background: transparent;
@@ -1145,13 +1218,24 @@ button:focus-visible {
   outline-offset: 1px;
 }
 
+.auth-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
 .auth-card input {
-  min-height: 42px;
+  width: 100%;
+  min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--bg);
-  padding: 0 10px;
+  padding: 0 12px;
   outline: none;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 750;
 }
 
 .auth-card input:focus {
@@ -1162,12 +1246,20 @@ button:focus-visible {
 .auth-card .primary,
 .auth-card .ghost {
   min-height: 44px;
-  margin-top: 2px;
   font-size: 12px;
+}
+
+.auth-card .primary {
+  padding: 0 14px;
+  white-space: nowrap;
 }
 
 .auth-card .ghost {
   width: fit-content;
+}
+
+.auth-signout {
+  justify-self: start;
 }
 
 .bank-link {

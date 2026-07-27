@@ -71,6 +71,7 @@ let mockTimerHandle = null;
 let supabase = null;
 let cloudSyncTimer = null;
 let authMode = 'signin';
+let authMenuOpen = false;
 const authState = {
   status: 'checking',
   user: null,
@@ -129,10 +130,12 @@ function renderShell(content) {
   `;
 
   document.querySelector('[data-home]').addEventListener('click', () => {
+    authMenuOpen = false;
     goHome();
   });
 
   document.querySelector('[data-bank]').addEventListener('click', () => {
+    authMenuOpen = false;
     persistActiveSession();
     stopMockTimer();
     state.view = 'bank';
@@ -143,33 +146,35 @@ function renderShell(content) {
 
   document.querySelector('#auth-form')?.addEventListener('submit', sendMagicLink);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
+  document.querySelector('.auth-menu')?.addEventListener('toggle', (event) => {
+    authMenuOpen = event.target.open;
+  });
   document.querySelectorAll('[data-auth-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       authMode = button.dataset.authMode;
       authState.message = '';
+      authMenuOpen = true;
       render();
     });
   });
 }
 
 function renderAuthControl() {
+  const syncIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-14.6 7.05"/><path d="M3 12a9 9 0 0 1 14.6-7.05"/><path d="M7 19H4v-3M17 5h3v3"/></svg>';
+
   if (authState.status === 'checking') {
-    return '<span class="sync-status is-checking">Checking sync…</span>';
+    return `<span class="sync-status is-checking"><span class="sync-dot checking"></span>${syncIcon}<span>Checking</span></span>`;
   }
 
   if (authState.status === 'signed-in' && authState.user) {
     const syncLabel = authState.syncStatus === 'syncing' ? 'Syncing…' : authState.syncStatus === 'error' ? 'Sync issue' : 'Synced';
-    return `<details class="auth-menu"><summary><span class="sync-dot ${authState.syncStatus}"></span>${syncLabel}</summary><div class="auth-card"><b>Cloud sync is on</b><span>${escapeHtml(authState.user.email ?? 'Signed-in account')}</span><small>Your progress is available on other devices using this account.</small><button class="ghost" type="button" data-sign-out>Sign out</button></div></details>`;
+    return `<details class="auth-menu" ${authMenuOpen ? 'open' : ''}><summary aria-label="${syncLabel}">${syncIcon}<span class="sync-dot ${authState.syncStatus}"></span><span>${syncLabel}</span></summary><div class="auth-card"><div class="auth-card-head"><b>Cloud sync</b><span>${escapeHtml(authState.user.email ?? 'Signed-in account')}</span></div><button class="ghost auth-signout" type="button" data-sign-out>Sign out</button>${authState.message ? `<small class="auth-message">${escapeHtml(authState.message)}</small>` : ''}</div></details>`;
   }
 
   const isConfigured = Boolean(supabaseConfig.url && supabaseConfig.publishableKey);
   const isSigningUp = authMode === 'signup';
-  const summaryLabel = isSigningUp ? 'Create account' : 'Sign in to sync';
-  const description = isConfigured
-    ? 'Use your email to receive a one-time link. No password needed.'
-    : 'Add your Supabase project details to enable cloud sync.';
-  const actionLabel = isSigningUp ? 'Send sign-up link' : 'Send sign-in link';
-  return `<details class="auth-menu"><summary>${summaryLabel}</summary><div class="auth-card"><b>Use the same progress everywhere</b><span>${description}</span>${isConfigured ? `<div class="auth-mode-switch" role="group" aria-label="Account access"><button class="auth-mode-button ${!isSigningUp ? 'is-selected' : ''}" type="button" data-auth-mode="signin" aria-pressed="${!isSigningUp}">Sign in</button><button class="auth-mode-button ${isSigningUp ? 'is-selected' : ''}" type="button" data-auth-mode="signup" aria-pressed="${isSigningUp}">Create account</button></div><form id="auth-form"><label><span>Email</span><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" required><button class="primary" type="submit">${actionLabel}</button></label></form><small>We’ll email a one-time link to finish.</small>` : ''}${authState.message ? `<small class="auth-message">${escapeHtml(authState.message)}</small>` : ''}</div></details>`;
+  const actionLabel = isSigningUp ? 'Create' : 'Send link';
+  return `<details class="auth-menu" ${authMenuOpen ? 'open' : ''}><summary aria-label="Sync progress">${syncIcon}<span class="sync-dot local"></span><span>Sync</span></summary><div class="auth-card"><div class="auth-card-head"><b>Sync progress</b><span>${isConfigured ? 'Email link' : 'Setup needed'}</span></div>${isConfigured ? `<div class="auth-mode-switch" role="group" aria-label="Account access"><button class="auth-mode-button ${!isSigningUp ? 'is-selected' : ''}" type="button" data-auth-mode="signin" aria-pressed="${!isSigningUp}">Sign in</button><button class="auth-mode-button ${isSigningUp ? 'is-selected' : ''}" type="button" data-auth-mode="signup" aria-pressed="${isSigningUp}">Create</button></div><form id="auth-form" class="auth-form"><label><span>Email</span><input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" required></label><button class="primary" type="submit">${actionLabel}</button></form>` : `<small class="auth-message">Add Supabase details to enable sync.</small>`}${authState.message ? `<small class="auth-message">${escapeHtml(authState.message)}</small>` : ''}</div></details>`;
 }
 
 function renderDashboardIcon(name) {
@@ -882,8 +887,9 @@ function renderQuestionBank() {
 
 function renderBankQuestion(question, index) {
   const difficulty = getDifficulty(question);
+  const isWorkbookQuestion = question.source === 'G4 PDF workbook';
   return `
-    <article class="bank-question" id="question-${question.id}">
+    <article class="bank-question ${isWorkbookQuestion ? 'is-workbook-question' : ''}" id="question-${question.id}">
       <div class="bank-question-meta">
         <b>${index + 1}</b>
         <span>#${escapeHtml(question.id)}</span>
@@ -1474,6 +1480,7 @@ async function sendMagicLink(event) {
     return;
   }
 
+  authMenuOpen = true;
   authState.message = 'Sending your sign-in link…';
   render();
   const { error } = await supabase.auth.signInWithOtp({
@@ -1495,6 +1502,7 @@ async function signOut() {
   if (!supabase) {
     return;
   }
+  authMenuOpen = false;
   await syncHistoryToCloud();
   await supabase.auth.signOut();
 }
