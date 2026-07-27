@@ -41,6 +41,37 @@ const mockParts = [
   { key: 'nonverbal', battery: 'Nonverbal Battery', subtest: 'Figure Classification', label: 'Figure Classification', minutes: 10, questionCount: 22 },
 ];
 
+const BADGE_REWARDS = {
+  basic: 5,
+  medium: 10,
+  advanced: 20,
+};
+
+const BADGE_DEFINITIONS = [
+  { id: 'first-step', name: 'First Step', description: 'Complete your first question.', icon: 'steps', category: 'Practice Count', tier: 'basic' },
+  { id: 'getting-started', name: 'Getting Started', description: 'Complete 10 questions.', icon: 'spark', category: 'Practice Count', tier: 'basic' },
+  { id: 'question-explorer', name: 'Question Explorer', description: 'Complete 50 questions.', icon: 'map', category: 'Practice Count', tier: 'medium' },
+  { id: 'century-club', name: 'Century Club', description: 'Complete 100 questions.', icon: 'medal', category: 'Practice Count', tier: 'advanced' },
+  { id: 'practice-champion', name: 'Practice Champion', description: 'Complete 500 questions.', icon: 'trophy', category: 'Practice Count', tier: 'advanced' },
+  { id: 'first-correct', name: 'First Correct', description: 'Answer your first question correctly.', icon: 'check', category: 'Correct Answers', tier: 'basic' },
+  { id: 'sharp-thinker', name: 'Sharp Thinker', description: 'Answer 25 questions correctly.', icon: 'bolt', category: 'Correct Answers', tier: 'medium' },
+  { id: 'brain-builder', name: 'Brain Builder', description: 'Answer 100 questions correctly.', icon: 'brain', category: 'Correct Answers', tier: 'advanced' },
+  { id: 'word-wizard', name: 'Word Wizard', description: 'Answer 30 Verbal Battery questions correctly.', icon: 'book', category: 'Battery Mastery', tier: 'medium' },
+  { id: 'number-ninja', name: 'Number Ninja', description: 'Answer 30 Quantitative Battery questions correctly.', icon: 'numbers', category: 'Battery Mastery', tier: 'medium' },
+  { id: 'pattern-pro', name: 'Pattern Pro', description: 'Answer 30 Nonverbal Battery questions correctly.', icon: 'pattern', category: 'Battery Mastery', tier: 'medium' },
+  { id: 'perfect-set', name: 'Perfect Set', description: 'Finish a practice set of at least 10 questions with every answer correct.', icon: 'star', category: 'Special', tier: 'medium' },
+  { id: 'comeback-kid', name: 'Comeback Kid', description: 'Correctly answer a question you missed before.', icon: 'return', category: 'Special', tier: 'basic' },
+  { id: 'mock-exam-finisher', name: 'Mock Exam Finisher', description: 'Complete one full mock exam.', icon: 'clock', category: 'Special', tier: 'medium' },
+  { id: 'balanced-brain', name: 'Balanced Brain', description: 'Complete at least 20 questions in each Battery.', icon: 'balance', category: 'Special', tier: 'medium' },
+];
+
+const SHOP_ITEMS = [
+  { id: 'blue-focus-frame', name: 'Blue Focus Frame', description: 'A crisp blue frame for your badge shelf.', price: 25, icon: 'frame' },
+  { id: 'green-spark-card', name: 'Green Spark Card', description: 'A fresh green card style for unlocked badges.', price: 40, icon: 'spark-card' },
+  { id: 'gold-badge-shelf', name: 'Gold Badge Shelf', description: 'A warm gold shelf accent for Game Center.', price: 60, icon: 'shelf' },
+  { id: 'champion-header-ring', name: 'Champion Header Ring', description: 'A bold ring accent for your coin summary.', price: 100, icon: 'ring' },
+];
+
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
 const allQuestions = batteries[0].questions;
 const questionById = new Map(allQuestions.map((question) => [String(question.id), question]));
@@ -63,6 +94,8 @@ const state = {
   mockResults: [],
   mockSecondsRemaining: 0,
   mockConfirmFinish: false,
+  gameCenterTab: 'badges',
+  practiceCoinMessage: '',
   bankBattery: 'all',
   bankSubtest: 'all',
 };
@@ -73,6 +106,8 @@ let supabase = null;
 let cloudSyncTimer = null;
 let authMode = 'signin';
 let authMenuOpen = false;
+let coinDisplayValue = null;
+let coinAnimationHandle = null;
 const authState = {
   status: 'checking',
   user: null,
@@ -100,6 +135,10 @@ function render() {
   }
   if (state.view === 'mock-break') {
     renderMockBreak();
+    return;
+  }
+  if (state.view === 'game-center') {
+    renderGameCenter();
     return;
   }
   if (state.view === 'bank') {
@@ -130,6 +169,7 @@ function renderShell(content) {
           <button class="bank-link" type="button" data-bank>Question bank</button>
         </div>
         <div class="topbar-actions">
+          ${renderCoinButton()}
           ${renderAuthControl()}
           <span class="question-count">${allQuestions.length} questions</span>
         </div>
@@ -153,6 +193,15 @@ function renderShell(content) {
     render();
   });
 
+  document.querySelector('[data-game-center]')?.addEventListener('click', () => {
+    authMenuOpen = false;
+    persistActiveSession();
+    stopMockTimer();
+    state.view = 'game-center';
+    state.message = '';
+    render();
+  });
+
   document.querySelector('#auth-form')?.addEventListener('submit', sendMagicLink);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
   document.querySelector('.auth-menu')?.addEventListener('toggle', (event) => {
@@ -166,6 +215,11 @@ function renderShell(content) {
       render();
     });
   });
+}
+
+function renderCoinButton() {
+  const coins = coinDisplayValue ?? state.history.currentCoins ?? 0;
+  return `<button class="coin-button" type="button" data-game-center aria-label="Open game center, ${coins} coins">${renderCoinIcon()}<span data-coin-count>${coins}</span></button>`;
 }
 
 function renderAuthControl() {
@@ -194,6 +248,41 @@ function renderDashboardIcon(name) {
     arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   };
   return icons[name] ?? '';
+}
+
+function renderCoinIcon() {
+  return '<svg class="coin-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v10M9 9.5h5.25a2.25 2.25 0 0 1 0 4.5H9"/></svg>';
+}
+
+function renderBadgeIcon(name) {
+  const icons = {
+    steps: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 19h10M8 15h8M10 11h4M12 5v6"/></svg>',
+    spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8L18 15z"/></svg>',
+    map: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l-5 2V6l5-2 6 2 5-2v14l-5 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>',
+    medal: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3l4 6 4-6M12 9a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/><path d="M12 13v4M10 15h4"/></svg>',
+    trophy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/><path d="M8 6H4a4 4 0 0 0 4 4M16 6h4a4 4 0 0 1-4 4M12 12v5M9 20h6"/></svg>',
+    check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
+    bolt: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L5 14h6l-1 8 9-13h-6l0-7z"/></svg>',
+    brain: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5a3 3 0 0 0-3 3 3.5 3.5 0 0 0-1 6.8A4 4 0 0 0 9 20V5z"/><path d="M15 5a3 3 0 0 1 3 3 3.5 3.5 0 0 1 1 6.8A4 4 0 0 1 15 20V5z"/><path d="M9 9h3M12 15h3"/></svg>',
+    book: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2H20v17H8.5A3.5 3.5 0 0 0 5 22V5.5z"/><path d="M5 5.5A3.5 3.5 0 0 0 1.5 2H1v17h.5A3.5 3.5 0 0 1 5 22"/></svg>',
+    numbers: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v16M4 6h4M4 18h4M12 7a3 3 0 0 1 6 0c0 4-6 4-6 9h6"/></svg>',
+    pattern: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><circle cx="17" cy="7" r="3"/><path d="M7 14l4 6H3l4-6z"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>',
+    star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3z"/></svg>',
+    return: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h10a6 6 0 1 1-4.2 10.2"/><path d="M4 9l4-4M4 9l4 4"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 13V9M12 13l3 2M9 2h6"/></svg>',
+    balance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M5 7h14M7 7l-4 7h8L7 7zM17 7l-4 7h8l-4-7z"/></svg>',
+  };
+  return icons[name] ?? icons.star;
+}
+
+function renderShopIcon(name) {
+  const icons = {
+    frame: '<svg viewBox="0 0 72 54" aria-hidden="true"><rect x="8" y="8" width="56" height="38" rx="10"/><rect x="18" y="17" width="36" height="20" rx="6"/><path d="M23 27h26"/></svg>',
+    'spark-card': '<svg viewBox="0 0 72 54" aria-hidden="true"><rect x="10" y="9" width="52" height="36" rx="10"/><path d="M36 16l2.4 6.8L45 25l-6.6 2.2L36 34l-2.4-6.8L27 25l6.6-2.2L36 16z"/></svg>',
+    shelf: '<svg viewBox="0 0 72 54" aria-hidden="true"><path d="M12 39h48M18 15h36v18H18z"/><path d="M26 33V21M36 33V21M46 33V21"/></svg>',
+    ring: '<svg viewBox="0 0 72 54" aria-hidden="true"><circle cx="36" cy="27" r="17"/><circle cx="36" cy="27" r="8"/><path d="M36 5v8M36 41v8M14 27h8M50 27h8"/></svg>',
+  };
+  return icons[name] ?? icons.frame;
 }
 
 function renderSetup() {
@@ -350,6 +439,7 @@ function renderPractice() {
   const total = state.questions.length;
   const isLast = state.currentIndex === total - 1;
   const difficulty = getDifficulty(question);
+  const isCorrect = answer === getCorrectAnswer(question);
 
   renderShell(`
     <section class="panel practice">
@@ -385,8 +475,10 @@ function renderPractice() {
 
       ${state.checked ? `
         <div class="feedback">
-          <b>${answer === getCorrectAnswer(question) ? 'Correct' : `Correct answer: ${getCorrectAnswer(question)}`}</b>
+          <b>${isCorrect ? 'Correct! You earned 1 coin.' : 'Nice work &mdash; you earned 1 coin for practicing.'}</b>
+          ${!isCorrect ? `<small>Correct answer: ${getCorrectAnswer(question)}</small>` : ''}
           <span>${question.explanation}</span>
+          <span class="coin-reward-pill">${renderCoinIcon()}+1 Coin</span>
         </div>
       ` : ''}
 
@@ -413,8 +505,12 @@ function renderPractice() {
       if (!answer) {
         return;
       }
+      const rewardOrigin = document.querySelector('.option.selected') ?? document.querySelector('.question-card');
       state.checked = true;
-      recordAnswer(question, answer);
+      state.practiceCoinMessage = answer === getCorrectAnswer(question) ? 'correct' : 'practice';
+      recordAnswer(question, answer, { save: false });
+      awardCoins(1, 'practice', 'Practice answer', { animate: true, originElement: rewardOrigin });
+      saveHistory();
       persistActiveSession();
       render();
       return;
@@ -426,6 +522,7 @@ function renderPractice() {
     } else {
       state.currentIndex += 1;
       state.checked = false;
+      state.practiceCoinMessage = '';
       persistActiveSession();
     }
     render();
@@ -698,7 +795,7 @@ function finishMockPart() {
     if (answer === getCorrectAnswer(question)) {
       correct += 1;
     }
-    recordAnswer(question, answer);
+    recordAnswer(question, answer, { save: false });
   });
 
   state.mockResults.push({
@@ -716,12 +813,17 @@ function finishMockPart() {
     state.mockPartIndex += 1;
     state.mockConfirmFinish = false;
     state.view = 'mock-break';
+    state.history.updatedAt = new Date().toISOString();
+    saveHistory();
     render();
     return;
   }
 
+  checkAndUnlockBadges({ type: 'mock-complete' });
   state.mockConfirmFinish = false;
   state.view = 'results';
+  state.history.updatedAt = new Date().toISOString();
+  saveHistory();
   render();
 }
 
@@ -845,6 +947,161 @@ function renderMockResults() {
 
   document.querySelector('#again').addEventListener('click', startMockIntro);
   document.querySelector('#export-history').addEventListener('click', exportHistory);
+}
+
+function renderGameCenter() {
+  const unlockedCount = state.history.badges.length;
+  const tabs = [
+    { key: 'badges', label: 'Badges' },
+    { key: 'shop', label: 'Reward Shop' },
+    { key: 'history', label: 'Coin History' },
+  ];
+
+  renderShell(`
+    <section class="game-center">
+      <div class="panel game-hero ${getEquippedClass('hero')}">
+        <div>
+          <span class="eyebrow">Game Center</span>
+          <h1>Rewards</h1>
+        </div>
+        <button class="ghost" type="button" id="game-home">Back home</button>
+      </div>
+
+      <div class="game-stats" aria-label="Game center stats">
+        <article class="panel game-stat"><span>Current Coins</span><strong>${state.history.currentCoins}</strong></article>
+        <article class="panel game-stat"><span>Lifetime Coins</span><strong>${state.history.lifetimeCoins}</strong></article>
+        <article class="panel game-stat"><span>Badges Earned</span><strong>${unlockedCount}/${BADGE_DEFINITIONS.length}</strong></article>
+      </div>
+
+      <div class="game-tabs" role="tablist" aria-label="Game center sections">
+        ${tabs.map((tab) => `<button class="${state.gameCenterTab === tab.key ? 'selected' : ''}" type="button" role="tab" aria-selected="${state.gameCenterTab === tab.key}" data-game-tab="${tab.key}">${tab.label}</button>`).join('')}
+      </div>
+
+      <section class="panel game-panel ${getEquippedClass('panel')}">
+        ${renderGameCenterPanel()}
+      </section>
+    </section>
+  `);
+
+  document.querySelector('#game-home').addEventListener('click', goHome);
+  document.querySelectorAll('[data-game-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.gameCenterTab = button.dataset.gameTab;
+      renderGameCenter();
+    });
+  });
+  document.querySelectorAll('[data-shop-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+      handleShopAction(button.dataset.shopAction);
+    });
+  });
+}
+
+function renderGameCenterPanel() {
+  if (state.gameCenterTab === 'shop') {
+    return renderRewardShop();
+  }
+  if (state.gameCenterTab === 'history') {
+    return renderCoinHistory();
+  }
+  return renderBadgesPanel();
+}
+
+function renderBadgesPanel() {
+  const unlocked = new Map(state.history.badges.map((badge) => [badge.id, badge]));
+  return `
+    <div class="game-section-head">
+      <div><span class="eyebrow">Badge shelf</span><h2>${state.history.badges.length} earned</h2></div>
+      <span>${BADGE_DEFINITIONS.length - state.history.badges.length} locked</span>
+    </div>
+    <div class="badge-grid">
+      ${BADGE_DEFINITIONS.map((definition) => {
+        const badge = unlocked.get(definition.id);
+        return `
+          <article class="badge-card ${badge ? 'is-unlocked' : 'is-locked'} ${getEquippedClass('badge')}">
+            <div class="badge-icon">${renderBadgeIcon(definition.icon)}</div>
+            <div>
+              <span>${escapeHtml(definition.category)}</span>
+              <b>${escapeHtml(definition.name)}</b>
+              <p>${escapeHtml(definition.description)}</p>
+              <small>${badge ? `Unlocked ${formatShortDate(badge.unlockedAt)}` : `${BADGE_REWARDS[definition.tier]} coin reward`}</small>
+            </div>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderRewardShop() {
+  const owned = new Set(state.history.shop.owned);
+  return `
+    <div class="game-section-head">
+      <div><span class="eyebrow">Reward Shop</span><h2>Cosmetic items</h2></div>
+      <span>${state.history.currentCoins} coins</span>
+    </div>
+    <div class="shop-grid">
+      ${SHOP_ITEMS.map((item) => {
+        const isOwned = owned.has(item.id);
+        const isEquipped = state.history.shop.equipped === item.id;
+        const canBuy = state.history.currentCoins >= item.price;
+        const label = isEquipped ? 'Equipped' : isOwned ? 'Equip' : canBuy ? 'Buy' : `Need ${item.price - state.history.currentCoins}`;
+        return `
+          <article class="shop-card">
+            <div class="shop-preview">${renderShopIcon(item.icon)}</div>
+            <div class="shop-copy">
+              <b>${escapeHtml(item.name)}</b>
+              <span>${escapeHtml(item.description)}</span>
+              <small>${item.price} coins</small>
+            </div>
+            <button class="${isEquipped ? 'ghost' : 'primary'}" type="button" data-shop-action="${item.id}" ${(!isOwned && !canBuy) || isEquipped ? 'disabled' : ''}>${label}</button>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderCoinHistory() {
+  const entries = [...state.history.coinHistory].sort((first, second) => timestamp(second.createdAt) - timestamp(first.createdAt)).slice(0, 30);
+  return `
+    <div class="game-section-head">
+      <div><span class="eyebrow">Coin History</span><h2>Recent rewards</h2></div>
+      <span>${entries.length} shown</span>
+    </div>
+    <div class="coin-history-list">
+      ${entries.length ? entries.map((entry) => `
+        <div class="coin-history-row">
+          <span class="${entry.amount >= 0 ? 'positive' : 'negative'}">${entry.amount >= 0 ? '+' : ''}${entry.amount}</span>
+          <b>${escapeHtml(entry.label)}</b>
+          <small>${formatShortDate(entry.createdAt)}</small>
+        </div>
+      `).join('') : '<div class="empty-game-state">No coin activity yet.</div>'}
+    </div>
+  `;
+}
+
+function handleShopAction(itemId) {
+  const item = SHOP_ITEMS.find((shopItem) => shopItem.id === itemId);
+  if (!item) {
+    return;
+  }
+
+  const owned = new Set(state.history.shop.owned);
+  if (owned.has(item.id)) {
+    state.history.shop.equipped = item.id;
+  } else {
+    if (state.history.currentCoins < item.price) {
+      return;
+    }
+    state.history.currentCoins -= item.price;
+    state.history.shop.owned = [...owned, item.id];
+    state.history.shop.equipped = item.id;
+    addCoinHistory(-item.price, 'shop', item.name);
+  }
+  state.history.updatedAt = new Date().toISOString();
+  saveHistory();
+  renderGameCenter();
 }
 
 function buildMockScoreReport() {
@@ -1180,6 +1437,7 @@ function finishPracticeSession() {
     state.history.activeSession = null;
   }
 
+  checkAndUnlockBadges({ type: 'practice-complete', correct, total, kind: state.sessionKind });
   state.history.updatedAt = completedAt;
   saveHistory();
 }
@@ -1282,6 +1540,187 @@ function getCorrectAnswer(question) {
   return String(question.correctAnswer);
 }
 
+function awardCoins(amount, reason, label, { animate = false, originElement = null } = {}) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value === 0) {
+    return;
+  }
+
+  const previousCoins = state.history.currentCoins;
+  state.history.currentCoins = Math.max(0, state.history.currentCoins + value);
+  if (value > 0) {
+    state.history.lifetimeCoins += value;
+  }
+  addCoinHistory(value, reason, label);
+  state.history.updatedAt = new Date().toISOString();
+
+  if (value > 0 && animate) {
+    animateCoinReward(originElement, previousCoins, state.history.currentCoins);
+  } else {
+    animateCoinTotal(previousCoins, state.history.currentCoins);
+  }
+}
+
+function addCoinHistory(amount, reason, label) {
+  state.history.coinHistory = [{
+    id: `coin-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    amount,
+    reason,
+    label,
+    createdAt: new Date().toISOString(),
+  }, ...state.history.coinHistory].slice(0, 80);
+}
+
+function checkAndUnlockBadges(context = {}) {
+  BADGE_DEFINITIONS.forEach((definition) => {
+    if (state.history.badges.some((badge) => badge.id === definition.id) || !isBadgeEarned(definition.id, context)) {
+      return;
+    }
+
+    const unlockedAt = new Date().toISOString();
+    state.history.badges.push({
+      id: definition.id,
+      name: definition.name,
+      description: definition.description,
+      icon: definition.icon,
+      category: definition.category,
+      unlockedAt,
+    });
+
+    if (!state.history.claimedMilestones[definition.id]) {
+      state.history.claimedMilestones[definition.id] = true;
+      awardCoins(BADGE_REWARDS[definition.tier], 'badge', `${definition.name} badge`);
+    }
+  });
+}
+
+function isBadgeEarned(id, context = {}) {
+  const totals = getPracticeTotals();
+  const batteryStats = getBatteryTotals();
+  const completed = totals.completed;
+  const correct = totals.correct;
+
+  const rules = {
+    'first-step': () => completed >= 1,
+    'getting-started': () => completed >= 10,
+    'question-explorer': () => completed >= 50,
+    'century-club': () => completed >= 100,
+    'practice-champion': () => completed >= 500,
+    'first-correct': () => correct >= 1,
+    'sharp-thinker': () => correct >= 25,
+    'brain-builder': () => correct >= 100,
+    'word-wizard': () => (batteryStats['Verbal Battery']?.correct ?? 0) >= 30,
+    'number-ninja': () => (batteryStats['Quantitative Battery']?.correct ?? 0) >= 30,
+    'pattern-pro': () => (batteryStats['Nonverbal Battery']?.correct ?? 0) >= 30,
+    'perfect-set': () => context.type === 'practice-complete' && context.total >= 10 && context.correct === context.total,
+    'comeback-kid': () => context.type === 'answer' && context.isCorrect && context.wasWrongBefore,
+    'mock-exam-finisher': () => context.type === 'mock-complete',
+    'balanced-brain': () => batteries.filter((battery) => battery.key !== 'all').every((battery) => (batteryStats[battery.battery ?? `${battery.label} Battery`]?.completed ?? 0) >= 20),
+  };
+
+  return Boolean(rules[id]?.());
+}
+
+function getPracticeTotals() {
+  return Object.values(state.history.stats).reduce((totals, record) => {
+    totals.completed += Number(record.attempts ?? 0);
+    totals.correct += Number(record.correct ?? 0);
+    return totals;
+  }, { completed: 0, correct: 0 });
+}
+
+function getBatteryTotals() {
+  return Object.values(state.history.stats).reduce((totals, record) => {
+    totals[record.battery] ??= { completed: 0, correct: 0 };
+    totals[record.battery].completed += Number(record.attempts ?? 0);
+    totals[record.battery].correct += Number(record.correct ?? 0);
+    return totals;
+  }, {});
+}
+
+function animateCoinReward(originElement, fromCoins, toCoins) {
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion || !originElement) {
+    coinDisplayValue = null;
+    updateCoinButtonDisplay(toCoins);
+    return;
+  }
+
+  const target = document.querySelector('[data-game-center]');
+  if (!target) {
+    return;
+  }
+
+  window.clearTimeout(coinAnimationHandle);
+  coinDisplayValue = fromCoins;
+  const originRect = originElement.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const coin = document.createElement('div');
+  coin.className = 'flying-coin';
+  coin.innerHTML = renderCoinIcon();
+  coin.style.setProperty('--coin-x', `${targetRect.left + targetRect.width / 2 - originRect.left - originRect.width / 2}px`);
+  coin.style.setProperty('--coin-y', `${targetRect.top + targetRect.height / 2 - originRect.top - originRect.height / 2}px`);
+  coin.style.left = `${originRect.left + originRect.width / 2 - 14}px`;
+  coin.style.top = `${originRect.top + originRect.height / 2 - 14}px`;
+  document.body.append(coin);
+
+  coinAnimationHandle = window.setTimeout(() => {
+    coin.remove();
+    coinDisplayValue = null;
+    updateCoinButtonDisplay(toCoins);
+  }, 760);
+}
+
+function animateCoinTotal(fromCoins, toCoins) {
+  if (fromCoins === toCoins) {
+    return;
+  }
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) {
+    updateCoinButtonDisplay(toCoins);
+    return;
+  }
+
+  const startedAt = performance.now();
+  const duration = 650;
+  const step = (now) => {
+    const progress = Math.min(1, (now - startedAt) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    updateCoinButtonDisplay(Math.round(fromCoins + (toCoins - fromCoins) * eased));
+    if (progress < 1) {
+      window.requestAnimationFrame(step);
+    }
+  };
+  window.requestAnimationFrame(step);
+}
+
+function updateCoinButtonDisplay(coins) {
+  const count = document.querySelector('[data-coin-count]');
+  const button = document.querySelector('[data-game-center]');
+  if (count) {
+    count.textContent = String(coins);
+  }
+  if (button) {
+    button.setAttribute('aria-label', `Open game center, ${coins} coins`);
+  }
+}
+
+function formatShortDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Recently';
+  }
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function getEquippedClass(area) {
+  const equipped = state.history.shop.equipped;
+  if (!equipped) {
+    return '';
+  }
+  return `equipped-${area} equipped-${equipped}`;
+}
+
 function handleKeyboard(event) {
   if (!['practice', 'mock-practice'].includes(state.view)) {
     return;
@@ -1316,7 +1755,7 @@ function getSubtests() {
   return [...new Set(battery.questions.map((question) => question.subtest))].sort();
 }
 
-function recordAnswer(question, answer) {
+function recordAnswer(question, answer, { save = true } = {}) {
   const id = String(question.id);
   const previous = state.history.stats[id] ?? {
     id,
@@ -1327,6 +1766,7 @@ function recordAnswer(question, answer) {
     wrong: 0,
   };
   const isCorrect = answer === getCorrectAnswer(question);
+  const wasWrongBefore = Number(previous.wrong ?? 0) > 0 || previous.lastResult === 'wrong';
 
   state.history.stats[id] = {
     ...previous,
@@ -1338,8 +1778,11 @@ function recordAnswer(question, answer) {
     lastResult: isCorrect ? 'correct' : 'wrong',
     updatedAt: new Date().toISOString(),
   };
+  checkAndUnlockBadges({ type: 'answer', question, answer, isCorrect, wasWrongBefore });
   state.history.updatedAt = new Date().toISOString();
-  saveHistory();
+  if (save) {
+    saveHistory();
+  }
 }
 
 function summarizeSession() {
@@ -1434,6 +1877,15 @@ function createEmptyHistory() {
     activeSession: null,
     lastSession: null,
     stats: {},
+    currentCoins: 0,
+    lifetimeCoins: 0,
+    badges: [],
+    claimedMilestones: {},
+    coinHistory: [],
+    shop: {
+      owned: [],
+      equipped: null,
+    },
   };
 }
 
@@ -1514,8 +1966,71 @@ function normalizeHistory(input) {
       completedAt: input.lastSession.completedAt ?? '',
     };
   }
+  next.currentCoins = Math.max(0, Number(input?.currentCoins ?? 0));
+  next.lifetimeCoins = Math.max(next.currentCoins, Number(input?.lifetimeCoins ?? next.currentCoins));
+  next.badges = normalizeBadges(input?.badges);
+  next.claimedMilestones = {
+    ...Object.fromEntries(next.badges.map((badge) => [badge.id, true])),
+    ...Object.fromEntries(Object.entries(input?.claimedMilestones ?? {}).filter(([, value]) => Boolean(value))),
+  };
+  next.coinHistory = normalizeCoinHistory(input?.coinHistory);
+  next.shop = normalizeShop(input?.shop);
   next.updatedAt = input?.updatedAt ?? new Date().toISOString();
   return next;
+}
+
+function normalizeBadges(input = []) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+  const seen = new Set();
+  return input.reduce((badges, badge) => {
+    const definition = BADGE_DEFINITIONS.find((item) => item.id === badge?.id);
+    if (!definition || seen.has(definition.id)) {
+      return badges;
+    }
+    seen.add(definition.id);
+    badges.push({
+      id: definition.id,
+      name: definition.name,
+      description: definition.description,
+      icon: definition.icon,
+      category: definition.category,
+      unlockedAt: badge.unlockedAt ?? badge.updatedAt ?? new Date().toISOString(),
+    });
+    return badges;
+  }, []);
+}
+
+function normalizeCoinHistory(input = []) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+  const seen = new Set();
+  return input.reduce((entries, entry) => {
+    const id = String(entry?.id ?? '');
+    if (!id || seen.has(id)) {
+      return entries;
+    }
+    seen.add(id);
+    entries.push({
+      id,
+      amount: Number(entry.amount ?? 0),
+      reason: entry.reason ?? 'reward',
+      label: entry.label ?? 'Coin reward',
+      createdAt: entry.createdAt ?? new Date().toISOString(),
+    });
+    return entries;
+  }, []).sort((first, second) => timestamp(second.createdAt) - timestamp(first.createdAt)).slice(0, 80);
+}
+
+function normalizeShop(input = {}) {
+  const validIds = new Set(SHOP_ITEMS.map((item) => item.id));
+  const owned = Array.isArray(input?.owned)
+    ? [...new Set(input.owned.filter((id) => validIds.has(id)))]
+    : [];
+  const equipped = owned.includes(input?.equipped) ? input.equipped : null;
+  return { owned, equipped };
 }
 
 function saveHistory({ queueSync = true } = {}) {
@@ -1666,13 +2181,51 @@ async function loadCloudHistory() {
 function mergeHistories(local, remote) {
   const merged = createEmptyHistory();
   const localIsNewer = timestamp(local.updatedAt) >= timestamp(remote.updatedAt);
+  const spendableSource = localIsNewer ? local : remote;
   merged.dailyGoal = localIsNewer ? local.dailyGoal : remote.dailyGoal;
   merged.stats = mergeRecordMaps(local.stats, remote.stats);
   merged.daily = mergeRecordMaps(local.daily, remote.daily);
   merged.activeSession = pickLatestRecord(local.activeSession, remote.activeSession);
   merged.lastSession = pickLatestRecord(local.lastSession, remote.lastSession);
+  merged.currentCoins = Number(spendableSource.currentCoins ?? 0);
+  merged.lifetimeCoins = Math.max(Number(local.lifetimeCoins ?? 0), Number(remote.lifetimeCoins ?? 0), merged.currentCoins);
+  merged.badges = mergeBadges(local.badges, remote.badges);
+  merged.claimedMilestones = {
+    ...local.claimedMilestones,
+    ...remote.claimedMilestones,
+    ...Object.fromEntries(merged.badges.map((badge) => [badge.id, true])),
+  };
+  merged.coinHistory = mergeCoinHistory(local.coinHistory, remote.coinHistory);
+  merged.shop = mergeShops(local.shop, remote.shop, spendableSource.shop);
   merged.updatedAt = new Date(Math.max(timestamp(local.updatedAt), timestamp(remote.updatedAt))).toISOString();
   return normalizeHistory(merged);
+}
+
+function mergeBadges(localBadges = [], remoteBadges = []) {
+  const byId = new Map();
+  [...localBadges, ...remoteBadges].forEach((badge) => {
+    const existing = byId.get(badge.id);
+    if (!existing || timestamp(badge.unlockedAt) < timestamp(existing.unlockedAt)) {
+      byId.set(badge.id, badge);
+    }
+  });
+  return [...byId.values()];
+}
+
+function mergeCoinHistory(localEntries = [], remoteEntries = []) {
+  const byId = new Map();
+  [...localEntries, ...remoteEntries].forEach((entry) => {
+    if (!byId.has(entry.id)) {
+      byId.set(entry.id, entry);
+    }
+  });
+  return [...byId.values()].sort((first, second) => timestamp(second.createdAt) - timestamp(first.createdAt)).slice(0, 80);
+}
+
+function mergeShops(localShop = {}, remoteShop = {}, preferredShop = {}) {
+  const owned = [...new Set([...(localShop.owned ?? []), ...(remoteShop.owned ?? [])])];
+  const equipped = owned.includes(preferredShop.equipped) ? preferredShop.equipped : (owned.includes(localShop.equipped) ? localShop.equipped : null);
+  return { owned, equipped };
 }
 
 function mergeRecordMaps(localRecords = {}, remoteRecords = {}) {
