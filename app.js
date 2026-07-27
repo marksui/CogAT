@@ -95,7 +95,7 @@ const state = {
   mockSecondsRemaining: 0,
   mockConfirmFinish: false,
   mockExitConfirm: false,
-  mockMode: 'guided',
+  mockMode: 'sheet',
   gameCenterTab: 'badges',
   practiceCoinMessage: '',
   bankBattery: 'all',
@@ -637,13 +637,17 @@ function renderMockIntro() {
       </div>
 
       <div class="mock-mode-picker" role="radiogroup" aria-label="Mock exam layout">
+        <button class="${state.mockMode === 'sheet' ? 'selected' : ''}" type="button" role="radio" aria-checked="${state.mockMode === 'sheet'}" data-mock-mode="sheet">
+          <b>Worksheet</b>
+          <span>All questions on one scrolling page.</span>
+        </button>
+        <button class="${state.mockMode === 'bubble' ? 'selected' : ''}" type="button" role="radio" aria-checked="${state.mockMode === 'bubble'}" data-mock-mode="bubble">
+          <b>Bubble sheet</b>
+          <span>Fill A-E bubbles in compact exam rows.</span>
+        </button>
         <button class="${state.mockMode === 'guided' ? 'selected' : ''}" type="button" role="radio" aria-checked="${state.mockMode === 'guided'}" data-mock-mode="guided">
           <b>Question by question</b>
           <span>One question at a time with a jump card.</span>
-        </button>
-        <button class="${state.mockMode === 'sheet' ? 'selected' : ''}" type="button" role="radio" aria-checked="${state.mockMode === 'sheet'}" data-mock-mode="sheet">
-          <b>Answer sheet</b>
-          <span>All questions on one scrolling page.</span>
         </button>
       </div>
 
@@ -713,6 +717,10 @@ function renderMockBreak() {
 function renderMockPractice() {
   if (state.mockMode === 'sheet') {
     renderMockSheetPractice();
+    return;
+  }
+  if (state.mockMode === 'bubble') {
+    renderMockBubblePractice();
     return;
   }
   renderMockGuidedPracticeWithCard();
@@ -1117,6 +1125,134 @@ function renderMockSheetPractice() {
   });
 
   document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
+}
+
+function renderMockBubblePractice() {
+  const part = mockParts[state.mockPartIndex];
+  const total = state.questions.length;
+  const answeredCount = state.answers.filter(Boolean).length;
+  const unansweredCount = total - answeredCount;
+  const sectionProgress = ((state.mockPartIndex + answeredCount / total) / mockParts.length) * 100;
+
+  renderShell(`
+    <section class="mock-exam-layout mock-mode-bubble">
+      <div class="panel mock-bubble-sheet">
+        <div class="mock-topline">
+          <div>
+            <span class="eyebrow">Mock exam - Part ${state.mockPartIndex + 1} of ${mockParts.length}</span>
+            <h2>${part.label}</h2>
+          </div>
+          <div class="timer" id="timer" aria-live="polite">${formatTime(state.mockSecondsRemaining)}</div>
+        </div>
+        <div class="mock-progress-rail" aria-hidden="true"><span style="width:${sectionProgress}%"></span></div>
+
+        <div class="practice-head mock-bubble-head">
+          <div class="question-kicker">
+            <span>Bubble sheet mode</span>
+          </div>
+          <span data-bubble-answered>${answeredCount}/${total} answered</span>
+        </div>
+
+        <div class="mock-bubble-list" aria-label="Bubble answer sheet">
+          ${state.questions.map((question, index) => {
+            const answer = state.answers[index];
+            return `
+              <article class="mock-bubble-row ${index === state.currentIndex ? 'current' : ''}" id="mock-bubble-question-${index}">
+                <button class="mock-bubble-number" type="button" data-bubble-jump="${index}" aria-label="Go to question ${index + 1}">${index + 1}</button>
+                <div class="mock-bubble-question">
+                  <div>${question.question}</div>
+                  ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
+                </div>
+                <div class="mock-bubble-options" role="radiogroup" aria-label="Question ${index + 1} choices">
+                  ${question.options.map((option) => {
+                    const optionValue = getOptionValue(option);
+                    const selected = answer === optionValue;
+                    return `
+                      <button class="mock-bubble-choice ${selected ? 'selected' : ''}" type="button" data-bubble-question="${index}" data-bubble-option="${escapeHtml(optionValue)}" aria-pressed="${selected}" aria-label="Question ${index + 1}, choice ${escapeHtml(option.label)}">
+                        <span>${escapeHtml(option.label)}</span>
+                      </button>
+                    `;
+                  }).join('')}
+                </div>
+              </article>
+            `;
+          }).join('')}
+        </div>
+
+        ${state.mockConfirmFinish ? `<div class="mock-submit-warning" role="status"><b>Submit this part?</b><span>${unansweredCount ? `${unansweredCount} blank ${unansweredCount === 1 ? 'answer' : 'answers'} will be scored as missed.` : 'You answered every question in this part.'}</span></div>` : ''}
+
+        <div class="footer-actions">
+          <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+          <button class="primary" type="button" id="mock-next">${state.mockConfirmFinish ? 'Submit part' : 'Finish part'}</button>
+        </div>
+      </div>
+    </section>
+    ${renderMockExitDialog()}
+  `);
+
+  startMockTimer();
+  attachMockExitDialogHandlers();
+
+  document.querySelectorAll('[data-bubble-jump]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number(button.dataset.bubbleJump);
+      state.currentIndex = index;
+      state.mockConfirmFinish = false;
+      updateMockBubbleState();
+      resetMockSheetSubmitPrompt();
+      scrollToMockBubbleQuestion(index);
+    });
+  });
+
+  document.querySelectorAll('[data-bubble-option]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number(button.dataset.bubbleQuestion);
+      state.answers[index] = button.dataset.bubbleOption;
+      state.currentIndex = index;
+      state.mockConfirmFinish = false;
+      document.querySelectorAll(`[data-bubble-question="${index}"]`).forEach((optionButton) => {
+        const selected = optionButton.dataset.bubbleOption === button.dataset.bubbleOption;
+        optionButton.classList.toggle('selected', selected);
+        optionButton.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+      updateMockBubbleState();
+      resetMockSheetSubmitPrompt();
+    });
+  });
+
+  document.querySelector('#mock-next').addEventListener('click', () => {
+    if (!state.mockConfirmFinish) {
+      state.mockConfirmFinish = true;
+      renderMockPractice();
+      return;
+    }
+    finishMockPart();
+  });
+
+  document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
+}
+
+function updateMockBubbleState() {
+  const answeredCount = state.answers.filter(Boolean).length;
+  document.querySelector('[data-bubble-answered]')?.replaceChildren(document.createTextNode(`${answeredCount}/${state.questions.length} answered`));
+  const progressBar = document.querySelector('.mock-bubble-sheet .mock-progress-rail span');
+  if (progressBar) {
+    const sectionProgress = ((state.mockPartIndex + answeredCount / state.questions.length) / mockParts.length) * 100;
+    progressBar.style.width = `${sectionProgress}%`;
+  }
+  document.querySelectorAll('.mock-bubble-row').forEach((row, index) => {
+    const isCurrent = index === state.currentIndex;
+    const isAnswered = Boolean(state.answers[index]);
+    row.classList.toggle('current', isCurrent);
+    row.classList.toggle('answered', isAnswered);
+  });
+}
+
+function scrollToMockBubbleQuestion(index) {
+  window.requestAnimationFrame(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.querySelector(`#mock-bubble-question-${index}`)?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'center' });
+  });
 }
 
 function startMockIntro() {
