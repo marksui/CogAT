@@ -94,6 +94,8 @@ const state = {
   mockResults: [],
   mockSecondsRemaining: 0,
   mockConfirmFinish: false,
+  mockExitConfirm: false,
+  mockMode: 'guided',
   gameCenterTab: 'badges',
   practiceCoinMessage: '',
   bankBattery: 'all',
@@ -106,6 +108,8 @@ let supabase = null;
 let cloudSyncTimer = null;
 let authMode = 'signin';
 let authMenuOpen = false;
+let aboutMenuOpen = false;
+let adminTestModeOpen = false;
 let coinDisplayValue = null;
 let coinAnimationHandle = null;
 const authState = {
@@ -154,16 +158,35 @@ function renderShell(content) {
       <header class="topbar">
         <div class="brand-row">
           <button class="wordmark" type="button" data-home>CogAT 4</button>
-          <details class="about-menu">
+          <details class="about-menu" ${aboutMenuOpen ? 'open' : ''}>
             <summary aria-label="About this site">?</summary>
             <div class="about-card">
-              <b>About CogAT 4</b>
-              <span>Updated July 19, 2026.</span>
-              <span>Built for Grade 4 CogAT-style practice.</span>
-              <span>Includes verbal, quantitative, nonverbal, question bank, and timed mock exam.</span>
-              <span>Progress stays in your browser and can be imported/exported as JSON.</span>
-              <span>Independent practice site. Not an official CogAT product.</span>
-              <a href="https://github.com/marksui/CogAT" target="_blank" rel="noopener noreferrer">marksui/CogAT</a>
+              <div class="about-head">
+                <span class="about-kicker">About</span>
+                <b>CogAT 4</b>
+                <small>Updated July 27, 2026.</small>
+              </div>
+              <p>Focused Grade 4 practice for verbal, quantitative, and nonverbal questions.</p>
+              <div class="about-points">
+                <span><b>Practice</b> Question bank and daily goals.</span>
+                <span><b>Test mode</b> Timed mock exam with section checkpoints.</span>
+                <span><b>Rewards</b> Coins, badges, and cosmetic items in Game Center.</span>
+              </div>
+              <div class="about-foot">
+                <span>Progress stays local, with optional sync and JSON backup.</span>
+                <a href="https://github.com/marksui/CogAT" target="_blank" rel="noopener noreferrer">View source</a>
+              </div>
+              <details class="about-admin" ${adminTestModeOpen ? 'open' : ''}>
+                <summary><span>Admin test mode</span><small>Local only</small></summary>
+                <div class="about-admin-body">
+                  <p>Preview reward states without changing question progress.</p>
+                  <div class="about-admin-actions">
+                    <button class="ghost" type="button" id="admin-add-coins">+100 coins</button>
+                    <button class="ghost" type="button" id="admin-unlock-badges">Unlock badges</button>
+                    <button class="ghost" type="button" id="admin-reset-rewards">Reset rewards</button>
+                  </div>
+                </div>
+              </details>
             </div>
           </details>
           <button class="bank-link" type="button" data-bank>Question bank</button>
@@ -180,11 +203,15 @@ function renderShell(content) {
 
   document.querySelector('[data-home]').addEventListener('click', () => {
     authMenuOpen = false;
+    aboutMenuOpen = false;
+    adminTestModeOpen = false;
     goHome();
   });
 
   document.querySelector('[data-bank]').addEventListener('click', () => {
     authMenuOpen = false;
+    aboutMenuOpen = false;
+    adminTestModeOpen = false;
     persistActiveSession();
     stopMockTimer();
     state.view = 'bank';
@@ -195,6 +222,8 @@ function renderShell(content) {
 
   document.querySelector('[data-game-center]')?.addEventListener('click', () => {
     authMenuOpen = false;
+    aboutMenuOpen = false;
+    adminTestModeOpen = false;
     persistActiveSession();
     stopMockTimer();
     state.view = 'game-center';
@@ -207,6 +236,15 @@ function renderShell(content) {
   document.querySelector('.auth-menu')?.addEventListener('toggle', (event) => {
     authMenuOpen = event.target.open;
   });
+  document.querySelector('.about-menu')?.addEventListener('toggle', (event) => {
+    aboutMenuOpen = event.target.open;
+  });
+  document.querySelector('.about-admin')?.addEventListener('toggle', (event) => {
+    adminTestModeOpen = event.target.open;
+  });
+  document.querySelector('#admin-add-coins')?.addEventListener('click', adminAddCoins);
+  document.querySelector('#admin-unlock-badges')?.addEventListener('click', adminUnlockBadges);
+  document.querySelector('#admin-reset-rewards')?.addEventListener('click', adminResetRewards);
   document.querySelectorAll('[data-auth-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       authMode = button.dataset.authMode;
@@ -220,6 +258,49 @@ function renderShell(content) {
 function renderCoinButton() {
   const coins = coinDisplayValue ?? state.history.currentCoins ?? 0;
   return `<button class="coin-button" type="button" data-game-center aria-label="Open game center, ${coins} coins">${renderCoinIcon()}<span data-coin-count>${coins}</span></button>`;
+}
+
+function adminAddCoins() {
+  aboutMenuOpen = true;
+  adminTestModeOpen = true;
+  awardCoins(100, 'admin', 'Admin test coins');
+  saveHistory();
+  render();
+}
+
+function adminUnlockBadges() {
+  aboutMenuOpen = true;
+  adminTestModeOpen = true;
+  BADGE_DEFINITIONS.forEach((definition) => {
+    if (state.history.badges.some((badge) => badge.id === definition.id)) {
+      return;
+    }
+    state.history.badges.push({
+      id: definition.id,
+      name: definition.name,
+      description: definition.description,
+      icon: definition.icon,
+      category: definition.category,
+      unlockedAt: new Date().toISOString(),
+    });
+  });
+  state.history.updatedAt = new Date().toISOString();
+  saveHistory();
+  render();
+}
+
+function adminResetRewards() {
+  aboutMenuOpen = true;
+  adminTestModeOpen = true;
+  state.history.currentCoins = 0;
+  state.history.lifetimeCoins = 0;
+  state.history.badges = [];
+  state.history.claimedMilestones = {};
+  state.history.coinHistory = [];
+  state.history.shop = { owned: [], equipped: null };
+  state.history.updatedAt = new Date().toISOString();
+  saveHistory();
+  render();
 }
 
 function renderAuthControl() {
@@ -555,6 +636,17 @@ function renderMockIntro() {
         <div><b>Final scoring</b><span>Blank answers count as missed.</span></div>
       </div>
 
+      <div class="mock-mode-picker" role="radiogroup" aria-label="Mock exam layout">
+        <button class="${state.mockMode === 'guided' ? 'selected' : ''}" type="button" role="radio" aria-checked="${state.mockMode === 'guided'}" data-mock-mode="guided">
+          <b>Question by question</b>
+          <span>One question at a time with a jump card.</span>
+        </button>
+        <button class="${state.mockMode === 'sheet' ? 'selected' : ''}" type="button" role="radio" aria-checked="${state.mockMode === 'sheet'}" data-mock-mode="sheet">
+          <b>Answer sheet</b>
+          <span>All questions on one scrolling page.</span>
+        </button>
+      </div>
+
       <div class="mock-section-strip" aria-label="Exam parts">
         ${mockParts.map((part, index) => `<div class="mock-section-pill"><span>${index + 1}</span><b>${part.label}</b><small>${part.minutes}m · ${part.questionCount}q</small></div>`).join('')}
       </div>
@@ -566,6 +658,12 @@ function renderMockIntro() {
     </section>
   `);
 
+  document.querySelectorAll('[data-mock-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.mockMode = button.dataset.mockMode;
+      renderMockIntro();
+    });
+  });
   document.querySelector('#mock-start').addEventListener('click', startMockExam);
   document.querySelector('#mock-cancel').addEventListener('click', () => {
     state.view = 'setup';
@@ -604,17 +702,152 @@ function renderMockBreak() {
         <button class="primary" type="button" id="continue-mock">Start next part</button>
       </div>
     </section>
+    ${renderMockExitDialog()}
   `);
 
   document.querySelector('#continue-mock').addEventListener('click', startMockPart);
-  document.querySelector('#exit-mock').addEventListener('click', () => {
-    state.view = 'setup';
-    state.examType = 'mock';
-    render();
-  });
+  document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
+  attachMockExitDialogHandlers();
 }
 
 function renderMockPractice() {
+  if (state.mockMode === 'sheet') {
+    renderMockSheetPractice();
+    return;
+  }
+  renderMockGuidedPracticeWithCard();
+}
+
+function renderMockAnswerCard() {
+  const part = mockParts[state.mockPartIndex];
+  const answeredCount = state.answers.filter(Boolean).length;
+  const total = state.questions.length;
+
+  return `
+    <aside class="mock-answer-card" aria-label="Mock exam answer card">
+      <div class="mock-answer-head">
+        <span>Answer card</span>
+        <b>${answeredCount}/${total}</b>
+      </div>
+      <div class="mock-answer-meta">
+        <span>Part ${state.mockPartIndex + 1}</span>
+        <strong>${escapeHtml(part.label)}</strong>
+      </div>
+      <div class="mock-answer-grid" role="list" aria-label="Questions">
+        ${state.questions.map((question, index) => {
+          const isCurrent = index === state.currentIndex;
+          const isAnswered = Boolean(state.answers[index]);
+          return `<button class="mock-answer-button ${isCurrent ? 'current' : ''} ${isAnswered ? 'answered' : 'blank'}" type="button" data-mock-jump="${index}" aria-label="Go to question ${index + 1}${isAnswered ? ', answered' : ', blank'}" aria-current="${isCurrent ? 'true' : 'false'}">${index + 1}</button>`;
+        }).join('')}
+      </div>
+    </aside>
+  `;
+}
+
+function attachMockAnswerCardHandlers({ renderOnJump = true } = {}) {
+  document.querySelectorAll('[data-mock-jump]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number(button.dataset.mockJump);
+      state.currentIndex = index;
+      state.mockConfirmFinish = false;
+      if (renderOnJump) {
+        renderMockPractice();
+        return;
+      }
+      updateMockAnswerCardState();
+      updateMockSheetCurrentQuestion(index);
+      resetMockSheetSubmitPrompt();
+      scrollToMockQuestion(index);
+    });
+  });
+}
+
+function updateMockAnswerCardState() {
+  const answeredCount = state.answers.filter(Boolean).length;
+  document.querySelector('.mock-answer-head b')?.replaceChildren(document.createTextNode(`${answeredCount}/${state.questions.length}`));
+  document.querySelectorAll('[data-mock-jump]').forEach((button) => {
+    const index = Number(button.dataset.mockJump);
+    const isCurrent = index === state.currentIndex;
+    const isAnswered = Boolean(state.answers[index]);
+    button.classList.toggle('current', isCurrent);
+    button.classList.toggle('answered', isAnswered);
+    button.classList.toggle('blank', !isAnswered);
+    button.setAttribute('aria-current', isCurrent ? 'true' : 'false');
+    button.setAttribute('aria-label', `Go to question ${index + 1}${isAnswered ? ', answered' : ', blank'}`);
+  });
+  document.querySelector('[data-sheet-answered]')?.replaceChildren(document.createTextNode(`${answeredCount}/${state.questions.length} answered`));
+  const sectionProgress = ((state.mockPartIndex + answeredCount / state.questions.length) / mockParts.length) * 100;
+  const progressBar = document.querySelector('.mock-sheet .mock-progress-rail span');
+  if (progressBar) {
+    progressBar.style.width = `${sectionProgress}%`;
+  }
+}
+
+function resetMockSheetSubmitPrompt() {
+  document.querySelector('.mock-submit-warning')?.remove();
+  document.querySelector('#mock-next')?.replaceChildren(document.createTextNode('Finish part'));
+}
+
+function updateMockSheetCurrentQuestion(index) {
+  document.querySelectorAll('.mock-sheet-question').forEach((questionElement, questionIndex) => {
+    questionElement.classList.toggle('current', questionIndex === index);
+  });
+}
+
+function scrollToMockQuestion(index) {
+  window.requestAnimationFrame(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.querySelector(`#mock-question-${index}`)?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'start' });
+  });
+}
+
+function renderMockExitDialog() {
+  if (!state.mockExitConfirm) {
+    return '';
+  }
+
+  return `
+    <div class="mock-exit-backdrop" role="presentation">
+      <div class="mock-exit-dialog" role="dialog" aria-modal="true" aria-labelledby="mock-exit-title" aria-describedby="mock-exit-copy">
+        <h2 id="mock-exit-title">Leave exam?</h2>
+        <p id="mock-exit-copy">Your answers in this section will not be submitted.</p>
+        <div class="mock-exit-actions">
+          <button class="ghost" type="button" id="mock-stay">Stay</button>
+          <button class="primary danger" type="button" id="mock-confirm-exit">Leave exam</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function requestMockExit() {
+  state.mockExitConfirm = true;
+  render();
+}
+
+function cancelMockExit() {
+  state.mockExitConfirm = false;
+  render();
+}
+
+function confirmMockExit() {
+  stopMockTimer();
+  state.mockExitConfirm = false;
+  state.mockConfirmFinish = false;
+  state.view = 'setup';
+  state.examType = 'mock';
+  render();
+}
+
+function attachMockExitDialogHandlers() {
+  document.querySelector('#mock-stay')?.addEventListener('click', cancelMockExit);
+  document.querySelector('#mock-confirm-exit')?.addEventListener('click', confirmMockExit);
+  if (state.mockExitConfirm) {
+    window.requestAnimationFrame(() => document.querySelector('#mock-stay')?.focus());
+  }
+}
+
+function renderMockGuidedPractice() {
   const part = mockParts[state.mockPartIndex];
   const question = state.questions[state.currentIndex];
   const answer = state.answers[state.currentIndex];
@@ -698,6 +931,194 @@ function renderMockPractice() {
   });
 }
 
+function renderMockGuidedPracticeWithCard() {
+  const part = mockParts[state.mockPartIndex];
+  const question = state.questions[state.currentIndex];
+  const answer = state.answers[state.currentIndex];
+  const total = state.questions.length;
+  const isLast = state.currentIndex === total - 1;
+  const answeredCount = state.answers.filter(Boolean).length;
+  const unansweredCount = total - answeredCount;
+  const sectionProgress = ((state.mockPartIndex + (state.currentIndex + 1) / total) / mockParts.length) * 100;
+
+  renderShell(`
+    <section class="mock-exam-layout mock-mode-guided">
+      <div class="panel practice mock-practice">
+        <div class="mock-topline">
+          <div>
+            <span class="eyebrow">Mock exam - Part ${state.mockPartIndex + 1} of ${mockParts.length}</span>
+            <h2>${part.label}</h2>
+          </div>
+          <div class="timer" id="timer" aria-live="polite">${formatTime(state.mockSecondsRemaining)}</div>
+        </div>
+        <div class="mock-progress-rail" aria-hidden="true"><span style="width:${sectionProgress}%"></span></div>
+
+        <div class="practice-head">
+          <div class="question-kicker">
+            <span>Question ${state.currentIndex + 1} of ${total}</span>
+          </div>
+          <span>${answeredCount}/${total} answered</span>
+        </div>
+        <div class="meter" aria-hidden="true"><span style="width:${((state.currentIndex + 1) / total) * 100}%"></span></div>
+
+        <div class="question-card">
+          <div>${question.question}</div>
+          ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
+        </div>
+
+        <div class="options">
+          ${question.options.map((option) => {
+            const optionValue = getOptionValue(option);
+            const selected = answer === optionValue;
+            return `
+              <button class="option ${selected ? 'selected' : ''}" type="button" data-option="${escapeHtml(optionValue)}" aria-pressed="${selected}">
+                <b>${option.label}</b>
+                <span>${option.text}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        ${state.mockConfirmFinish ? `<div class="mock-submit-warning" role="status"><b>Submit this part?</b><span>${unansweredCount ? `${unansweredCount} blank ${unansweredCount === 1 ? 'answer' : 'answers'} will be scored as missed.` : 'You answered every question in this part.'}</span></div>` : ''}
+
+        <div class="footer-actions">
+          <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+          <button class="primary" type="button" id="mock-next">${isLast ? (state.mockConfirmFinish ? 'Submit part' : 'Finish part') : 'Next'}</button>
+        </div>
+      </div>
+      ${renderMockAnswerCard()}
+    </section>
+    ${renderMockExitDialog()}
+  `);
+
+  startMockTimer();
+  attachMockAnswerCardHandlers();
+  attachMockExitDialogHandlers();
+
+  document.querySelectorAll('[data-option]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.answers[state.currentIndex] = button.dataset.option;
+      state.mockConfirmFinish = false;
+      renderMockPractice();
+    });
+  });
+
+  document.querySelector('#mock-next').addEventListener('click', () => {
+    if (isLast) {
+      if (!state.mockConfirmFinish) {
+        state.mockConfirmFinish = true;
+        renderMockPractice();
+        return;
+      }
+      finishMockPart();
+      return;
+    }
+    state.mockConfirmFinish = false;
+    state.currentIndex += 1;
+    renderMockPractice();
+  });
+
+  document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
+}
+
+function renderMockSheetPractice() {
+  const part = mockParts[state.mockPartIndex];
+  const total = state.questions.length;
+  const answeredCount = state.answers.filter(Boolean).length;
+  const unansweredCount = total - answeredCount;
+  const sectionProgress = ((state.mockPartIndex + answeredCount / total) / mockParts.length) * 100;
+
+  renderShell(`
+    <section class="mock-exam-layout mock-mode-sheet">
+      <div class="panel mock-sheet">
+        <div class="mock-topline">
+          <div>
+            <span class="eyebrow">Mock exam - Part ${state.mockPartIndex + 1} of ${mockParts.length}</span>
+            <h2>${part.label}</h2>
+          </div>
+          <div class="timer" id="timer" aria-live="polite">${formatTime(state.mockSecondsRemaining)}</div>
+        </div>
+        <div class="mock-progress-rail" aria-hidden="true"><span style="width:${sectionProgress}%"></span></div>
+
+        <div class="practice-head mock-sheet-head">
+          <div class="question-kicker">
+            <span>Answer sheet mode</span>
+          </div>
+          <span data-sheet-answered>${answeredCount}/${total} answered</span>
+        </div>
+
+        <div class="mock-sheet-list">
+          ${state.questions.map((question, index) => {
+            const answer = state.answers[index];
+            return `
+              <article class="mock-sheet-question ${index === state.currentIndex ? 'current' : ''}" id="mock-question-${index}">
+                <div class="mock-sheet-number">Question ${index + 1}</div>
+                <div class="question-card mock-sheet-card">
+                  <div>${question.question}</div>
+                  ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
+                </div>
+                <div class="options mock-sheet-options">
+                  ${question.options.map((option) => {
+                    const optionValue = getOptionValue(option);
+                    const selected = answer === optionValue;
+                    return `
+                      <button class="option ${selected ? 'selected' : ''}" type="button" data-sheet-question="${index}" data-sheet-option="${escapeHtml(optionValue)}" aria-pressed="${selected}">
+                        <b>${option.label}</b>
+                        <span>${option.text}</span>
+                      </button>
+                    `;
+                  }).join('')}
+                </div>
+              </article>
+            `;
+          }).join('')}
+        </div>
+
+        ${state.mockConfirmFinish ? `<div class="mock-submit-warning" role="status"><b>Submit this part?</b><span>${unansweredCount ? `${unansweredCount} blank ${unansweredCount === 1 ? 'answer' : 'answers'} will be scored as missed.` : 'You answered every question in this part.'}</span></div>` : ''}
+
+        <div class="footer-actions">
+          <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+          <button class="primary" type="button" id="mock-next">${state.mockConfirmFinish ? 'Submit part' : 'Finish part'}</button>
+        </div>
+      </div>
+      ${renderMockAnswerCard()}
+    </section>
+    ${renderMockExitDialog()}
+  `);
+
+  startMockTimer();
+  attachMockAnswerCardHandlers({ renderOnJump: false });
+  attachMockExitDialogHandlers();
+
+  document.querySelectorAll('[data-sheet-option]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number(button.dataset.sheetQuestion);
+      state.answers[index] = button.dataset.sheetOption;
+      state.currentIndex = index;
+      state.mockConfirmFinish = false;
+      document.querySelectorAll(`[data-sheet-question="${index}"]`).forEach((optionButton) => {
+        const selected = optionButton.dataset.sheetOption === button.dataset.sheetOption;
+        optionButton.classList.toggle('selected', selected);
+        optionButton.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+      updateMockSheetCurrentQuestion(index);
+      updateMockAnswerCardState();
+      resetMockSheetSubmitPrompt();
+    });
+  });
+
+  document.querySelector('#mock-next').addEventListener('click', () => {
+    if (!state.mockConfirmFinish) {
+      state.mockConfirmFinish = true;
+      renderMockPractice();
+      return;
+    }
+    finishMockPart();
+  });
+
+  document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
+}
+
 function startMockIntro() {
   stopMockTimer();
   state.mockPartIndex = 0;
@@ -705,6 +1126,7 @@ function startMockIntro() {
   state.examType = 'mock';
   state.message = '';
   state.mockConfirmFinish = false;
+  state.mockExitConfirm = false;
   state.view = 'mock-intro';
   render();
 }
@@ -716,6 +1138,7 @@ function startMockExam() {
   state.examType = 'mock';
   state.message = '';
   state.mockConfirmFinish = false;
+  state.mockExitConfirm = false;
   startMockPart();
 }
 
@@ -726,6 +1149,7 @@ function startMockPart() {
   state.currentIndex = 0;
   state.checked = false;
   state.mockConfirmFinish = false;
+  state.mockExitConfirm = false;
   state.mockSecondsRemaining = part.minutes * 60;
   state.view = 'mock-practice';
   render();
@@ -812,6 +1236,7 @@ function finishMockPart() {
   if (state.mockPartIndex < mockParts.length - 1) {
     state.mockPartIndex += 1;
     state.mockConfirmFinish = false;
+    state.mockExitConfirm = false;
     state.view = 'mock-break';
     state.history.updatedAt = new Date().toISOString();
     saveHistory();
@@ -821,6 +1246,7 @@ function finishMockPart() {
 
   checkAndUnlockBadges({ type: 'mock-complete' });
   state.mockConfirmFinish = false;
+  state.mockExitConfirm = false;
   state.view = 'results';
   state.history.updatedAt = new Date().toISOString();
   saveHistory();
@@ -1011,20 +1437,31 @@ function renderBadgesPanel() {
   const unlocked = new Map(state.history.badges.map((badge) => [badge.id, badge]));
   return `
     <div class="game-section-head">
-      <div><span class="eyebrow">Badge shelf</span><h2>${state.history.badges.length} earned</h2></div>
+      <div>
+        <span class="eyebrow">Badge gallery</span>
+        <h2>${state.history.badges.length} earned</h2>
+      </div>
       <span>${BADGE_DEFINITIONS.length - state.history.badges.length} locked</span>
     </div>
     <div class="badge-grid">
       ${BADGE_DEFINITIONS.map((definition) => {
         const badge = unlocked.get(definition.id);
         return `
-          <article class="badge-card ${badge ? 'is-unlocked' : 'is-locked'} ${getEquippedClass('badge')}">
-            <div class="badge-icon">${renderBadgeIcon(definition.icon)}</div>
-            <div>
-              <span>${escapeHtml(definition.category)}</span>
+          <article class="badge-card badge-tier-${definition.tier} ${badge ? 'is-unlocked' : 'is-locked'} ${getEquippedClass('badge')}">
+            <div class="badge-icon-shell">
+              <div class="badge-icon"><span>${renderBadgeIcon(definition.icon)}</span></div>
+            </div>
+            <div class="badge-copy">
+              <div class="badge-card-top">
+                <span class="badge-category">${escapeHtml(definition.category)}</span>
+                <em>${badge ? 'Unlocked' : `${BADGE_REWARDS[definition.tier]} coins`}</em>
+              </div>
               <b>${escapeHtml(definition.name)}</b>
               <p>${escapeHtml(definition.description)}</p>
-              <small>${badge ? `Unlocked ${formatShortDate(badge.unlockedAt)}` : `${BADGE_REWARDS[definition.tier]} coin reward`}</small>
+              <div class="badge-card-foot">
+                <small>${badge ? `Unlocked ${formatShortDate(badge.unlockedAt)}` : 'Locked'}</small>
+                <span class="badge-tier-pill badge-tier-pill-${definition.tier}">${definition.tier}</span>
+              </div>
             </div>
           </article>
         `;
@@ -1037,7 +1474,10 @@ function renderRewardShop() {
   const owned = new Set(state.history.shop.owned);
   return `
     <div class="game-section-head">
-      <div><span class="eyebrow">Reward Shop</span><h2>Cosmetic items</h2></div>
+      <div>
+        <span class="eyebrow">Reward shop</span>
+        <h2>Cosmetic items</h2>
+      </div>
       <span>${state.history.currentCoins} coins</span>
     </div>
     <div class="shop-grid">
@@ -1047,12 +1487,21 @@ function renderRewardShop() {
         const canBuy = state.history.currentCoins >= item.price;
         const label = isEquipped ? 'Equipped' : isOwned ? 'Equip' : canBuy ? 'Buy' : `Need ${item.price - state.history.currentCoins}`;
         return `
-          <article class="shop-card">
-            <div class="shop-preview">${renderShopIcon(item.icon)}</div>
+          <article class="shop-card shop-card-${item.id}">
+            <div class="shop-preview">
+              <div class="shop-preview-badge">Cosmetic</div>
+              <div class="shop-preview-art">${renderShopIcon(item.icon)}</div>
+            </div>
             <div class="shop-copy">
-              <b>${escapeHtml(item.name)}</b>
+              <div class="shop-card-top">
+                <b>${escapeHtml(item.name)}</b>
+                <span class="shop-price">${item.price} coins</span>
+              </div>
               <span>${escapeHtml(item.description)}</span>
-              <small>${item.price} coins</small>
+              <div class="shop-card-foot">
+                <span class="shop-state ${isEquipped ? 'is-equipped' : isOwned ? 'is-owned' : canBuy ? 'can-buy' : 'locked'}">${label}</span>
+                <small>${isEquipped ? 'Applied to the Game Center' : isOwned ? 'Ready to equip' : canBuy ? 'Tap to buy' : 'Practice to earn more coins'}</small>
+              </div>
             </div>
             <button class="${isEquipped ? 'ghost' : 'primary'}" type="button" data-shop-action="${item.id}" ${(!isOwned && !canBuy) || isEquipped ? 'disabled' : ''}>${label}</button>
           </article>
