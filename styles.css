@@ -488,6 +488,134 @@ h2 {
   padding: 16px;
 }
 
+.mock-launch,
+.mock-break {
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 4vw, 28px);
+}
+
+.mock-launch-head {
+  display: grid;
+  gap: 12px;
+}
+
+.mock-launch h1,
+.mock-break h1 {
+  max-width: none;
+  font-size: clamp(42px, 7vw, 72px);
+  line-height: 0.95;
+}
+
+.mock-exam-stats,
+.mock-break-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mock-exam-stats span,
+.mock-break-summary div,
+.mock-next-card,
+.mock-rules div {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--bg);
+  padding: 13px;
+}
+
+.mock-exam-stats span,
+.mock-break-summary div,
+.mock-next-card {
+  display: grid;
+  gap: 2px;
+}
+
+.mock-exam-stats b,
+.mock-break-summary b,
+.mock-next-card b {
+  color: var(--ink);
+  font-size: 20px;
+}
+
+.mock-exam-stats span,
+.mock-break-summary span,
+.mock-next-card span,
+.mock-next-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.mock-rules {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mock-rules div {
+  display: grid;
+  gap: 5px;
+}
+
+.mock-rules b {
+  color: var(--ink);
+}
+
+.mock-rules span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.mock-section-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mock-section-pill {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 2px 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 9px;
+}
+
+.mock-section-pill span,
+.mock-progress-steps span {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.mock-section-pill span {
+  width: 30px;
+  height: 30px;
+  grid-row: span 2;
+}
+
+.mock-section-pill b {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mock-section-pill small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .mock-parts {
   display: grid;
   gap: 10px;
@@ -894,6 +1022,64 @@ button:focus-visible {
   margin: 2px 0 0;
   font-family: Inter, Nunito, sans-serif;
   font-size: 30px;
+}
+
+.mock-progress-rail {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--soft);
+  margin: -8px 0 18px;
+}
+
+.mock-progress-rail span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+}
+
+.mock-submit-warning {
+  display: grid;
+  gap: 3px;
+  margin-top: 14px;
+  border: 1px solid rgba(217, 121, 53, 0.34);
+  border-radius: 16px;
+  background: #fff8ed;
+  padding: 13px 14px;
+}
+
+.mock-submit-warning b {
+  color: var(--ink);
+}
+
+.mock-submit-warning span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.mock-progress-steps {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mock-progress-steps span {
+  width: 34px;
+  height: 34px;
+  justify-self: center;
+  font-size: 12px;
+}
+
+.mock-progress-steps span.done {
+  background: #ecfaf5;
+  color: var(--green);
+}
+
+.mock-progress-steps span.current {
+  background: var(--ink);
+  color: #ffffff;
 }
 
 .eyebrow {
@@ -1787,6 +1973,23 @@ summary:focus-visible {
 
   .auth-menu summary {
     padding: 0 9px;
+  }
+
+  .mock-exam-stats,
+  .mock-break-summary,
+  .mock-rules,
+  .mock-section-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .mock-launch h1,
+  .mock-break h1 {
+    font-size: 44px;
+  }
+
+  .mock-progress-steps span {
+    width: 28px;
+    height: 28px;
   }
 
   .dashboard-grid {

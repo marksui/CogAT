@@ -62,6 +62,7 @@ const state = {
   mockPartIndex: 0,
   mockResults: [],
   mockSecondsRemaining: 0,
+  mockConfirmFinish: false,
   bankBattery: 'all',
   bankSubtest: 'all',
 };
@@ -91,6 +92,14 @@ function render() {
   }
   if (state.view === 'mock-practice') {
     renderMockPractice();
+    return;
+  }
+  if (state.view === 'mock-intro') {
+    renderMockIntro();
+    return;
+  }
+  if (state.view === 'mock-break') {
+    renderMockBreak();
     return;
   }
   if (state.view === 'bank') {
@@ -291,7 +300,7 @@ function renderSetup() {
   });
   document.querySelector('[data-quick-mock]').addEventListener('click', () => {
     state.examType = 'mock';
-    startMockExam();
+    startMockIntro();
   });
 
   document.querySelector('#export-history').addEventListener('click', exportHistory);
@@ -302,7 +311,7 @@ function renderSetup() {
   if (state.examType === 'mock') {
     document.querySelector('#setup-form').addEventListener('submit', (event) => {
       event.preventDefault();
-      startMockExam();
+      startMockIntro();
     });
     return;
   }
@@ -427,6 +436,87 @@ function renderPractice() {
   });
 }
 
+function renderMockIntro() {
+  const totalQuestions = mockParts.reduce((sum, part) => sum + part.questionCount, 0);
+  const totalMinutes = mockParts.reduce((sum, part) => sum + part.minutes, 0);
+
+  renderShell(`
+    <section class="panel mock-launch">
+      <div class="mock-launch-head">
+        <span class="eyebrow">Mock exam</span>
+        <h1>Full test mode</h1>
+        <div class="mock-exam-stats" aria-label="Mock exam summary">
+          <span><b>${mockParts.length}</b> parts</span>
+          <span><b>${totalQuestions}</b> questions</span>
+          <span><b>${totalMinutes}</b> minutes</span>
+        </div>
+      </div>
+
+      <div class="mock-rules" aria-label="Exam rules">
+        <div><b>Timed sections</b><span>Each part starts its own clock.</span></div>
+        <div><b>Forward flow</b><span>No answer feedback during the exam.</span></div>
+        <div><b>Final scoring</b><span>Blank answers count as missed.</span></div>
+      </div>
+
+      <div class="mock-section-strip" aria-label="Exam parts">
+        ${mockParts.map((part, index) => `<div class="mock-section-pill"><span>${index + 1}</span><b>${part.label}</b><small>${part.minutes}m · ${part.questionCount}q</small></div>`).join('')}
+      </div>
+
+      <div class="footer-actions">
+        <button class="ghost" type="button" id="mock-cancel">Back</button>
+        <button class="primary" type="button" id="mock-start">Start exam</button>
+      </div>
+    </section>
+  `);
+
+  document.querySelector('#mock-start').addEventListener('click', startMockExam);
+  document.querySelector('#mock-cancel').addEventListener('click', () => {
+    state.view = 'setup';
+    state.examType = 'mock';
+    render();
+  });
+}
+
+function renderMockBreak() {
+  const completed = state.mockResults[state.mockResults.length - 1];
+  const nextPart = mockParts[state.mockPartIndex];
+  const completedCount = state.mockResults.length;
+
+  renderShell(`
+    <section class="panel mock-break">
+      <span class="eyebrow">Section checkpoint</span>
+      <h1>Part complete</h1>
+      <div class="mock-break-summary">
+        <div><span>Finished</span><b>${escapeHtml(completed.label)}</b></div>
+        <div><span>Answered</span><b>${completed.total - completed.unanswered}/${completed.total}</b></div>
+        <div><span>Time used</span><b>${formatTime(completed.secondsUsed)}</b></div>
+      </div>
+
+      <div class="mock-next-card">
+        <span>Next part</span>
+        <b>${escapeHtml(nextPart.label)}</b>
+        <small>${nextPart.minutes} minutes · ${nextPart.questionCount} questions</small>
+      </div>
+
+      <div class="mock-progress-steps" aria-label="Mock exam progress">
+        ${mockParts.map((part, index) => `<span class="${index < completedCount ? 'done' : index === state.mockPartIndex ? 'current' : ''}">${index + 1}</span>`).join('')}
+      </div>
+
+      <div class="footer-actions">
+        <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+        <button class="primary" type="button" id="continue-mock">Start next part</button>
+      </div>
+    </section>
+  `);
+
+  document.querySelector('#continue-mock').addEventListener('click', startMockPart);
+  document.querySelector('#exit-mock').addEventListener('click', () => {
+    state.view = 'setup';
+    state.examType = 'mock';
+    render();
+  });
+}
+
 function renderMockPractice() {
   const part = mockParts[state.mockPartIndex];
   const question = state.questions[state.currentIndex];
@@ -434,22 +524,23 @@ function renderMockPractice() {
   const total = state.questions.length;
   const isLast = state.currentIndex === total - 1;
   const answeredCount = state.answers.filter(Boolean).length;
-  const difficulty = getDifficulty(question);
+  const unansweredCount = total - answeredCount;
+  const sectionProgress = ((state.mockPartIndex + (state.currentIndex + 1) / total) / mockParts.length) * 100;
 
   renderShell(`
     <section class="panel practice mock-practice">
       <div class="mock-topline">
         <div>
-          <span class="eyebrow">Mock exam - Part ${state.mockPartIndex + 1} of ${mockParts.length}</span>
+          <span class="eyebrow">Mock exam · Part ${state.mockPartIndex + 1} of ${mockParts.length}</span>
           <h2>${part.label}</h2>
         </div>
         <div class="timer" id="timer" aria-live="polite">${formatTime(state.mockSecondsRemaining)}</div>
       </div>
+      <div class="mock-progress-rail" aria-hidden="true"><span style="width:${sectionProgress}%"></span></div>
 
       <div class="practice-head">
         <div class="question-kicker">
           <span>Question ${state.currentIndex + 1} of ${total}</span>
-          <span class="difficulty-badge difficulty-${difficulty}">${formatDifficulty(difficulty)}</span>
         </div>
         <span>${answeredCount}/${total} answered</span>
       </div>
@@ -469,10 +560,11 @@ function renderMockPractice() {
         `).join('')}
       </div>
 
+      ${state.mockConfirmFinish ? `<div class="mock-submit-warning" role="status"><b>Submit this part?</b><span>${unansweredCount ? `${unansweredCount} blank ${unansweredCount === 1 ? 'answer' : 'answers'} will be scored as missed.` : 'You answered every question in this part.'}</span></div>` : ''}
+
       <div class="footer-actions">
         <button class="ghost" type="button" id="exit-mock">Leave exam</button>
-        <button class="ghost" type="button" id="mock-back" ${state.currentIndex === 0 ? 'disabled' : ''}>Back</button>
-        <button class="primary" type="button" id="mock-next">${isLast ? 'Finish part' : 'Next'}</button>
+        <button class="primary" type="button" id="mock-next">${isLast ? (state.mockConfirmFinish ? 'Submit part' : 'Finish part') : 'Next'}</button>
       </div>
     </section>
   `);
@@ -488,18 +580,16 @@ function renderMockPractice() {
 
   document.querySelector('#mock-next').addEventListener('click', () => {
     if (isLast) {
+      if (!state.mockConfirmFinish) {
+        state.mockConfirmFinish = true;
+        renderMockPractice();
+        return;
+      }
       finishMockPart();
       return;
     }
+    state.mockConfirmFinish = false;
     state.currentIndex += 1;
-    renderMockPractice();
-  });
-
-  document.querySelector('#mock-back').addEventListener('click', () => {
-    if (state.currentIndex === 0) {
-      return;
-    }
-    state.currentIndex -= 1;
     renderMockPractice();
   });
 
@@ -511,12 +601,24 @@ function renderMockPractice() {
   });
 }
 
+function startMockIntro() {
+  stopMockTimer();
+  state.mockPartIndex = 0;
+  state.mockResults = [];
+  state.examType = 'mock';
+  state.message = '';
+  state.mockConfirmFinish = false;
+  state.view = 'mock-intro';
+  render();
+}
+
 function startMockExam() {
   stopMockTimer();
   state.mockPartIndex = 0;
   state.mockResults = [];
   state.examType = 'mock';
   state.message = '';
+  state.mockConfirmFinish = false;
   startMockPart();
 }
 
@@ -526,6 +628,7 @@ function startMockPart() {
   state.answers = new Array(state.questions.length).fill(null);
   state.currentIndex = 0;
   state.checked = false;
+  state.mockConfirmFinish = false;
   state.mockSecondsRemaining = part.minutes * 60;
   state.view = 'mock-practice';
   render();
@@ -611,10 +714,13 @@ function finishMockPart() {
 
   if (state.mockPartIndex < mockParts.length - 1) {
     state.mockPartIndex += 1;
-    startMockPart();
+    state.mockConfirmFinish = false;
+    state.view = 'mock-break';
+    render();
     return;
   }
 
+  state.mockConfirmFinish = false;
   state.view = 'results';
   render();
 }
@@ -737,7 +843,7 @@ function renderMockResults() {
     </section>
   `);
 
-  document.querySelector('#again').addEventListener('click', startMockExam);
+  document.querySelector('#again').addEventListener('click', startMockIntro);
   document.querySelector('#export-history').addEventListener('click', exportHistory);
 }
 
