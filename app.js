@@ -53,21 +53,21 @@ const BADGE_REWARDS = {
 };
 
 const BADGE_DEFINITIONS = [
-  { id: 'first-step', name: 'First Step', description: 'Complete your first question.', icon: 'steps', artwork: 'checklist', category: 'Practice Count', tier: 'basic' },
-  { id: 'getting-started', name: 'Getting Started', description: 'Complete 10 questions.', icon: 'spark', artwork: 'star', category: 'Practice Count', tier: 'basic' },
-  { id: 'question-explorer', name: 'Question Explorer', description: 'Complete 50 questions.', icon: 'map', artwork: 'book', category: 'Practice Count', tier: 'medium' },
-  { id: 'century-club', name: 'Century Club', description: 'Complete 100 questions.', icon: 'medal', artwork: 'shapes', category: 'Practice Count', tier: 'advanced' },
-  { id: 'practice-champion', name: 'Practice Champion', description: 'Complete 500 questions.', icon: 'trophy', artwork: 'puzzle', category: 'Practice Count', tier: 'advanced' },
-  { id: 'first-correct', name: 'First Correct', description: 'Answer your first question correctly.', icon: 'check', artwork: 'medal', category: 'Correct Answers', tier: 'basic' },
-  { id: 'sharp-thinker', name: 'Sharp Thinker', description: 'Answer 25 questions correctly.', icon: 'bolt', artwork: 'maze', category: 'Correct Answers', tier: 'medium' },
-  { id: 'brain-builder', name: 'Brain Builder', description: 'Answer 100 questions correctly.', icon: 'brain', artwork: 'cards', category: 'Correct Answers', tier: 'advanced' },
-  { id: 'word-wizard', name: 'Word Wizard', description: 'Answer 30 Verbal Battery questions correctly.', icon: 'book', artwork: 'book', category: 'Battery Mastery', tier: 'medium' },
-  { id: 'number-ninja', name: 'Number Ninja', description: 'Answer 30 Quantitative Battery questions correctly.', icon: 'numbers', artwork: 'abacus', category: 'Battery Mastery', tier: 'medium' },
-  { id: 'pattern-pro', name: 'Pattern Pro', description: 'Answer 30 Nonverbal Battery questions correctly.', icon: 'pattern', artwork: 'shapes', category: 'Battery Mastery', tier: 'medium' },
-  { id: 'perfect-set', name: 'Perfect Set', description: 'Finish a practice set of at least 10 questions with every answer correct.', icon: 'star', artwork: 'star', category: 'Special', tier: 'medium' },
-  { id: 'comeback-kid', name: 'Comeback Kid', description: 'Correctly answer a question you missed before.', icon: 'return', artwork: 'checklist', category: 'Special', tier: 'basic' },
-  { id: 'mock-exam-finisher', name: 'Mock Exam Finisher', description: 'Complete one full mock exam.', icon: 'clock', artwork: 'medal', category: 'Special', tier: 'medium' },
-  { id: 'balanced-brain', name: 'Balanced Brain', description: 'Complete at least 20 questions in each Battery.', icon: 'balance', artwork: 'lightbulb', category: 'Special', tier: 'medium' },
+  { id: 'first-step', name: 'First Step', description: 'Complete your first question.', icon: 'steps', artwork: 'checklist', category: 'Practice Count', tier: 'basic', price: 30 },
+  { id: 'getting-started', name: 'Getting Started', description: 'Complete 10 questions.', icon: 'spark', artwork: 'star', category: 'Practice Count', tier: 'basic', price: 35 },
+  { id: 'question-explorer', name: 'Question Explorer', description: 'Complete 50 questions.', icon: 'map', artwork: 'book', category: 'Practice Count', tier: 'medium', price: 45 },
+  { id: 'century-club', name: 'Century Club', description: 'Complete 100 questions.', icon: 'medal', artwork: 'shapes', category: 'Practice Count', tier: 'advanced', price: 75 },
+  { id: 'practice-champion', name: 'Practice Champion', description: 'Complete 500 questions.', icon: 'trophy', artwork: 'puzzle', category: 'Practice Count', tier: 'advanced', price: 100 },
+  { id: 'first-correct', name: 'First Correct', description: 'Answer your first question correctly.', icon: 'check', artwork: 'medal', category: 'Correct Answers', tier: 'basic', price: 30 },
+  { id: 'sharp-thinker', name: 'Sharp Thinker', description: 'Answer 25 questions correctly.', icon: 'bolt', artwork: 'maze', category: 'Correct Answers', tier: 'medium', price: 50 },
+  { id: 'brain-builder', name: 'Brain Builder', description: 'Answer 100 questions correctly.', icon: 'brain', artwork: 'cards', category: 'Correct Answers', tier: 'advanced', price: 85 },
+  { id: 'word-wizard', name: 'Word Wizard', description: 'Answer 30 Verbal Battery questions correctly.', icon: 'book', artwork: 'book', category: 'Battery Mastery', tier: 'medium', price: 55 },
+  { id: 'number-ninja', name: 'Number Ninja', description: 'Answer 30 Quantitative Battery questions correctly.', icon: 'numbers', artwork: 'abacus', category: 'Battery Mastery', tier: 'medium', price: 55 },
+  { id: 'pattern-pro', name: 'Pattern Pro', description: 'Answer 30 Nonverbal Battery questions correctly.', icon: 'pattern', artwork: 'shapes', category: 'Battery Mastery', tier: 'medium', price: 55 },
+  { id: 'perfect-set', name: 'Perfect Set', description: 'Finish a practice set of at least 10 questions with every answer correct.', icon: 'star', artwork: 'star', category: 'Special', tier: 'medium', price: 60 },
+  { id: 'comeback-kid', name: 'Comeback Kid', description: 'Correctly answer a question you missed before.', icon: 'return', artwork: 'checklist', category: 'Special', tier: 'basic', price: 40 },
+  { id: 'mock-exam-finisher', name: 'Mock Exam Finisher', description: 'Complete one full mock exam.', icon: 'clock', artwork: 'medal', category: 'Special', tier: 'medium', price: 70 },
+  { id: 'balanced-brain', name: 'Balanced Brain', description: 'Complete at least 20 questions in each Battery.', icon: 'balance', artwork: 'lightbulb', category: 'Special', tier: 'medium', price: 65 },
 ];
 
 const SHOP_ITEMS = [
@@ -1787,6 +1787,11 @@ function renderGameCenter() {
       handleShopAction(button.dataset.shopAction);
     });
   });
+  document.querySelectorAll('[data-badge-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+      handleBadgePurchase(button.dataset.badgeAction);
+    });
+  });
 }
 
 function renderGameCenterPanel() {
@@ -1804,29 +1809,26 @@ function renderBadgesPanel() {
   return `
     <div class="game-section-head">
       <div>
-        <span class="eyebrow">Badge gallery</span>
-        <h2>${state.history.badges.length} earned</h2>
+        <span class="eyebrow">Badge shop</span>
+        <h2>${state.history.badges.length} collected</h2>
       </div>
-      <span>${BADGE_DEFINITIONS.length - state.history.badges.length} locked</span>
+      <span>${renderCoinIcon()}${state.history.currentCoins}</span>
     </div>
     <div class="badge-grid">
       ${BADGE_DEFINITIONS.map((definition) => {
         const badge = unlocked.get(definition.id);
+        const canBuy = state.history.currentCoins >= definition.price;
+        const buttonLabel = badge ? 'Collected' : canBuy ? 'Buy' : `Need ${definition.price - state.history.currentCoins}`;
         return `
           <article class="badge-card badge-tier-${definition.tier} ${badge ? 'is-unlocked' : 'is-locked'} ${getEquippedClass('badge')}">
             <div class="badge-icon-shell">
-              <div class="badge-icon">${renderBadgeArtwork(definition)}</div>
+              <div class="badge-icon">${badge ? renderBadgeArtwork(definition) : '<span class="badge-question-mark" aria-label="Mystery badge">?</span>'}</div>
             </div>
             <div class="badge-copy">
-              <div class="badge-card-top">
-                <span class="badge-category">${escapeHtml(definition.category)}</span>
-                <em>${badge ? 'Unlocked' : `${BADGE_REWARDS[definition.tier]} coins`}</em>
-              </div>
               <b>${escapeHtml(definition.name)}</b>
-              <p>${escapeHtml(definition.description)}</p>
               <div class="badge-card-foot">
-                <small>${badge ? `Unlocked ${formatShortDate(badge.unlockedAt)}` : 'Locked'}</small>
-                <span class="badge-tier-pill badge-tier-pill-${definition.tier}">${definition.tier}</span>
+                <span class="badge-price">${renderCoinIcon()}${definition.price}</span>
+                <button class="${badge ? 'ghost' : 'primary'}" type="button" data-badge-action="${definition.id}" aria-label="${badge ? `${escapeHtml(definition.name)} badge collected` : `Buy ${escapeHtml(definition.name)} badge for ${definition.price} coins`}" ${badge || !canBuy ? 'disabled' : ''}>${buttonLabel}</button>
               </div>
             </div>
           </article>
@@ -1834,6 +1836,31 @@ function renderBadgesPanel() {
       }).join('')}
     </div>
   `;
+}
+
+function handleBadgePurchase(badgeId) {
+  const definition = BADGE_DEFINITIONS.find((badge) => badge.id === badgeId);
+  if (!definition || state.history.badges.some((badge) => badge.id === definition.id) || state.history.currentCoins < definition.price) {
+    return;
+  }
+
+  if (!window.confirm(`Buy ${definition.name} for ${definition.price} coins?`)) {
+    return;
+  }
+
+  state.history.currentCoins -= definition.price;
+  state.history.badges.push({
+    id: definition.id,
+    name: definition.name,
+    description: definition.description,
+    icon: definition.icon,
+    category: definition.category,
+    unlockedAt: new Date().toISOString(),
+  });
+  addCoinHistory(-definition.price, 'badge-shop', `${definition.name} badge`);
+  state.history.updatedAt = new Date().toISOString();
+  saveHistory();
+  renderGameCenter();
 }
 
 function renderRewardShop() {
@@ -2447,24 +2474,12 @@ function addCoinHistory(amount, reason, label) {
 
 function checkAndUnlockBadges(context = {}) {
   BADGE_DEFINITIONS.forEach((definition) => {
-    if (state.history.badges.some((badge) => badge.id === definition.id) || !isBadgeEarned(definition.id, context)) {
+    if (state.history.claimedMilestones[definition.id] || !isBadgeEarned(definition.id, context)) {
       return;
     }
 
-    const unlockedAt = new Date().toISOString();
-    state.history.badges.push({
-      id: definition.id,
-      name: definition.name,
-      description: definition.description,
-      icon: definition.icon,
-      category: definition.category,
-      unlockedAt,
-    });
-
-    if (!state.history.claimedMilestones[definition.id]) {
-      state.history.claimedMilestones[definition.id] = true;
-      awardCoins(BADGE_REWARDS[definition.tier], 'badge', `${definition.name} badge`);
-    }
+    state.history.claimedMilestones[definition.id] = true;
+    awardCoins(BADGE_REWARDS[definition.tier], 'milestone', `${definition.name} milestone`);
   });
 }
 
