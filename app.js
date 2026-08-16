@@ -99,6 +99,8 @@ const state = {
   mockResults: [],
   mockSecondsRemaining: 0,
   mockConfirmFinish: false,
+  mockConfirmExamSubmit: false,
+  mockSubmittedEarly: false,
   mockExitConfirm: false,
   mockMode: 'sheet',
   gameCenterTab: 'badges',
@@ -708,15 +710,19 @@ function renderMockBreak() {
 
       <div class="footer-actions">
         <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+        <button class="ghost mock-submit-now" type="button" id="submit-mock-now">Submit exam now</button>
         <button class="primary" type="button" id="continue-mock">Start next part</button>
       </div>
     </section>
     ${renderMockExitDialog()}
+    ${renderMockExamSubmitDialog()}
   `);
 
   document.querySelector('#continue-mock').addEventListener('click', startMockPart);
   document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
+  document.querySelector('#submit-mock-now').addEventListener('click', requestMockExamSubmit);
   attachMockExitDialogHandlers();
+  attachMockExamSubmitDialogHandlers();
 }
 
 function renderMockPractice() {
@@ -856,8 +862,41 @@ function renderMockSubmitDialog(unansweredCount) {
   `;
 }
 
+function renderMockExamSubmitDialog() {
+  if (!state.mockConfirmExamSubmit) {
+    return '';
+  }
+
+  const hasActivePart = state.view === 'mock-practice';
+  const unansweredCount = hasActivePart ? state.answers.filter((answer) => !answer).length : 0;
+  const remainingParts = hasActivePart
+    ? mockParts.length - state.mockPartIndex - 1
+    : mockParts.length - state.mockPartIndex;
+  const blankCopy = hasActivePart && unansweredCount
+    ? `${unansweredCount} blank ${unansweredCount === 1 ? 'answer' : 'answers'} in this part will be scored as missed. `
+    : '';
+  const remainingCopy = remainingParts
+    ? `${remainingParts} later ${remainingParts === 1 ? 'part' : 'parts'} will not be included in this result.`
+    : 'This is the final part of the exam.';
+
+  return `
+    <div class="mock-exit-backdrop" role="presentation">
+      <div class="mock-exit-dialog mock-submit-dialog" role="dialog" aria-modal="true" aria-labelledby="mock-submit-exam-title" aria-describedby="mock-submit-exam-copy">
+        <h2 id="mock-submit-exam-title">Submit exam now?</h2>
+        <p id="mock-submit-exam-copy">${blankCopy}${remainingCopy}</p>
+        <div class="mock-exit-actions">
+          <button class="ghost" type="button" id="mock-keep-exam">Keep working</button>
+          <button class="primary danger" type="button" id="mock-confirm-exam-submit">Submit exam now</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function requestMockExit() {
   state.mockExitConfirm = true;
+  state.mockConfirmFinish = false;
+  state.mockConfirmExamSubmit = false;
   render();
 }
 
@@ -870,6 +909,7 @@ function confirmMockExit() {
   stopMockTimer();
   state.mockExitConfirm = false;
   state.mockConfirmFinish = false;
+  state.mockConfirmExamSubmit = false;
   state.view = 'setup';
   state.examType = 'mock';
   render();
@@ -889,6 +929,7 @@ function requestMockPartSubmit(unansweredCount) {
     return;
   }
   state.mockConfirmFinish = true;
+  state.mockConfirmExamSubmit = false;
   renderMockPractice();
 }
 
@@ -902,6 +943,34 @@ function attachMockSubmitDialogHandlers() {
   document.querySelector('#mock-confirm-submit')?.addEventListener('click', finishMockPart);
   if (state.mockConfirmFinish) {
     window.requestAnimationFrame(() => document.querySelector('#mock-keep-working')?.focus());
+  }
+}
+
+function requestMockExamSubmit() {
+  state.mockConfirmFinish = false;
+  state.mockExitConfirm = false;
+  state.mockConfirmExamSubmit = true;
+  if (state.view === 'mock-break') {
+    renderMockBreak();
+    return;
+  }
+  renderMockPractice();
+}
+
+function cancelMockExamSubmit() {
+  state.mockConfirmExamSubmit = false;
+  if (state.view === 'mock-break') {
+    renderMockBreak();
+    return;
+  }
+  renderMockPractice();
+}
+
+function attachMockExamSubmitDialogHandlers() {
+  document.querySelector('#mock-keep-exam')?.addEventListener('click', cancelMockExamSubmit);
+  document.querySelector('#mock-confirm-exam-submit')?.addEventListener('click', submitMockExamNow);
+  if (state.mockConfirmExamSubmit) {
+    window.requestAnimationFrame(() => document.querySelector('#mock-keep-exam')?.focus());
   }
 }
 
@@ -950,16 +1019,19 @@ function renderMockGuidedPractice() {
 
       <div class="footer-actions">
         <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+        <button class="ghost mock-submit-now" type="button" id="submit-mock-now">Submit exam now</button>
         <button class="primary" type="button" id="mock-next">${isLast ? 'Submit part' : 'Next'}</button>
       </div>
     </section>
     ${renderMockExitDialog()}
     ${renderMockSubmitDialog(unansweredCount)}
+    ${renderMockExamSubmitDialog()}
   `);
 
   startMockTimer();
   attachMockExitDialogHandlers();
   attachMockSubmitDialogHandlers();
+  attachMockExamSubmitDialogHandlers();
 
   document.querySelectorAll('[data-option]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -979,6 +1051,7 @@ function renderMockGuidedPractice() {
   });
 
   document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
+  document.querySelector('#submit-mock-now').addEventListener('click', requestMockExamSubmit);
 }
 
 function renderMockGuidedPracticeWithCard() {
@@ -1031,6 +1104,7 @@ function renderMockGuidedPracticeWithCard() {
 
         <div class="footer-actions">
           <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+          <button class="ghost mock-submit-now" type="button" id="submit-mock-now">Submit exam now</button>
           <button class="primary" type="button" id="mock-next">${isLast ? 'Submit part' : 'Next'}</button>
         </div>
       </div>
@@ -1038,12 +1112,14 @@ function renderMockGuidedPracticeWithCard() {
     </section>
     ${renderMockExitDialog()}
     ${renderMockSubmitDialog(unansweredCount)}
+    ${renderMockExamSubmitDialog()}
   `);
 
   startMockTimer();
   attachMockAnswerCardHandlers();
   attachMockExitDialogHandlers();
   attachMockSubmitDialogHandlers();
+  attachMockExamSubmitDialogHandlers();
 
   document.querySelectorAll('[data-option]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1064,6 +1140,7 @@ function renderMockGuidedPracticeWithCard() {
   });
 
   document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
+  document.querySelector('#submit-mock-now').addEventListener('click', requestMockExamSubmit);
 }
 
 function renderMockSheetPractice() {
@@ -1121,6 +1198,7 @@ function renderMockSheetPractice() {
 
         <div class="footer-actions">
           <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+          <button class="ghost mock-submit-now" type="button" id="submit-mock-now">Submit exam now</button>
           <button class="primary" type="button" id="mock-next">Submit part</button>
         </div>
       </div>
@@ -1128,12 +1206,14 @@ function renderMockSheetPractice() {
     </section>
     ${renderMockExitDialog()}
     ${renderMockSubmitDialog(unansweredCount)}
+    ${renderMockExamSubmitDialog()}
   `);
 
   startMockTimer();
   attachMockAnswerCardHandlers({ renderOnJump: false });
   attachMockExitDialogHandlers();
   attachMockSubmitDialogHandlers();
+  attachMockExamSubmitDialogHandlers();
 
   document.querySelectorAll('[data-sheet-option]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1157,6 +1237,7 @@ function renderMockSheetPractice() {
   });
 
   document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
+  document.querySelector('#submit-mock-now').addEventListener('click', requestMockExamSubmit);
 }
 
 function renderMockBubblePractice() {
@@ -1235,17 +1316,20 @@ function renderMockBubblePractice() {
 
         <div class="footer-actions">
           <button class="ghost" type="button" id="exit-mock">Leave exam</button>
+          <button class="ghost mock-submit-now" type="button" id="submit-mock-now">Submit exam now</button>
           <button class="primary" type="button" id="mock-next">Submit part</button>
         </div>
       </div>
     </section>
     ${renderMockExitDialog()}
     ${renderMockSubmitDialog(unansweredCount)}
+    ${renderMockExamSubmitDialog()}
   `);
 
   startMockTimer();
   attachMockExitDialogHandlers();
   attachMockSubmitDialogHandlers();
+  attachMockExamSubmitDialogHandlers();
 
   document.querySelectorAll('[data-bubble-jump]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1279,6 +1363,7 @@ function renderMockBubblePractice() {
   });
 
   document.querySelector('#exit-mock').addEventListener('click', requestMockExit);
+  document.querySelector('#submit-mock-now').addEventListener('click', requestMockExamSubmit);
 }
 
 function updateMockBubbleState() {
@@ -1317,6 +1402,8 @@ function startMockIntro() {
   state.examType = 'mock';
   state.message = '';
   state.mockConfirmFinish = false;
+  state.mockConfirmExamSubmit = false;
+  state.mockSubmittedEarly = false;
   state.mockExitConfirm = false;
   state.view = 'mock-intro';
   render();
@@ -1329,6 +1416,8 @@ function startMockExam() {
   state.examType = 'mock';
   state.message = '';
   state.mockConfirmFinish = false;
+  state.mockConfirmExamSubmit = false;
+  state.mockSubmittedEarly = false;
   state.mockExitConfirm = false;
   startMockPart();
 }
@@ -1340,6 +1429,7 @@ function startMockPart() {
   state.currentIndex = 0;
   state.checked = false;
   state.mockConfirmFinish = false;
+  state.mockConfirmExamSubmit = false;
   state.mockExitConfirm = false;
   state.mockSecondsRemaining = part.minutes * 60;
   state.view = 'mock-practice';
@@ -1438,8 +1528,7 @@ function stopMockTimer() {
   }
 }
 
-function finishMockPart() {
-  stopMockTimer();
+function recordMockPartResult() {
   const part = mockParts[state.mockPartIndex];
   let correct = 0;
 
@@ -1454,7 +1543,7 @@ function finishMockPart() {
     recordAnswer(question, answer, { save: false });
   });
 
-  state.mockResults.push({
+  const result = {
     key: part.key,
     battery: part.battery,
     subtest: part.subtest,
@@ -1463,11 +1552,19 @@ function finishMockPart() {
     total: state.questions.length,
     unanswered: state.answers.filter((answer) => !answer).length,
     secondsUsed: (part.minutes * 60) - state.mockSecondsRemaining,
-  });
+  };
+  state.mockResults.push(result);
+  return result;
+}
+
+function finishMockPart() {
+  stopMockTimer();
+  recordMockPartResult();
 
   if (state.mockPartIndex < mockParts.length - 1) {
     state.mockPartIndex += 1;
     state.mockConfirmFinish = false;
+    state.mockConfirmExamSubmit = false;
     state.mockExitConfirm = false;
     state.view = 'mock-break';
     state.history.updatedAt = new Date().toISOString();
@@ -1476,13 +1573,29 @@ function finishMockPart() {
     return;
   }
 
-  checkAndUnlockBadges({ type: 'mock-complete' });
+  finishMockExam();
+}
+
+function finishMockExam({ submittedEarly = false } = {}) {
+  if (!submittedEarly) {
+    checkAndUnlockBadges({ type: 'mock-complete' });
+  }
+  state.mockSubmittedEarly = submittedEarly;
+  state.mockConfirmExamSubmit = false;
   state.mockConfirmFinish = false;
   state.mockExitConfirm = false;
   state.view = 'results';
   state.history.updatedAt = new Date().toISOString();
   saveHistory();
   render();
+}
+
+function submitMockExamNow() {
+  stopMockTimer();
+  if (state.view === 'mock-practice') {
+    recordMockPartResult();
+  }
+  finishMockExam({ submittedEarly: true });
 }
 
 function formatTime(seconds) {
@@ -1562,15 +1675,16 @@ function renderResults() {
 function renderMockResults() {
   const total = state.mockResults.reduce((sum, part) => sum + part.total, 0);
   const correct = state.mockResults.reduce((sum, part) => sum + part.correct, 0);
+  const submittedPartCount = state.mockResults.length;
   const report = buildMockScoreReport();
   const batteryScores = report.batteries;
 
   renderShell(`
     <section class="results mock-results">
       <div class="panel score">
-        <span class="eyebrow">Mock exam complete</span>
+        <span class="eyebrow">${state.mockSubmittedEarly ? 'Mock exam submitted early' : 'Mock exam complete'}</span>
         <h1>${report.overall.accuracy}%</h1>
-        <p>${correct}/${total} correct · practice accuracy</p>
+        <p>${correct}/${total} correct · practice accuracy${state.mockSubmittedEarly ? ' · early submission' : ''}</p>
         <div class="estimate-grid" aria-label="Practice score estimate">
           <article class="estimate-card"><span>Estimated SAS</span><strong>${report.overall.sas}</strong><small>Mean 100 · SD 16</small></article>
           <article class="estimate-card"><span>Estimated percentile</span><strong>${formatOrdinal(report.overall.percentile)}</strong><small>Grade 4 practice model</small></article>
@@ -1598,7 +1712,7 @@ function renderMockResults() {
             <b>${part.unanswered ? `${part.unanswered} blank` : 'Complete'}</b>
           </div>
         `).join('')}
-        <p class="microcopy mock-result-note">This estimate converts practice accuracy into a simple normalized score for motivation. Official CogAT results use the test form, level, age or grade norms, and Riverside conversion tables.</p>
+        <p class="microcopy mock-result-note">${state.mockSubmittedEarly ? `Early submission: ${submittedPartCount} of ${mockParts.length} parts were scored. The remaining parts were not included, so this estimate is less reliable. ` : ''}This estimate converts practice accuracy into a simple normalized score for motivation. Official CogAT results use the test form, level, age or grade norms, and Riverside conversion tables.</p>
       </div>
     </section>
   `);

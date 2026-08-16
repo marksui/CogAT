@@ -253,7 +253,7 @@ const quantitativeSeriesQuestions = seriesSeeds.map(([sequence, answer, explanat
 
 function shapeSvg(shape, size = 64) {
   const stroke = '#334155';
-  const common = `width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" stroke="${stroke}" stroke-width="2"`;
+  const common = `fill="none" stroke="${stroke}" stroke-width="2"`;
   const shapes = {
     triangle: `<polygon points="32,7 57,55 7,55" ${common}/>` ,
     square: `<rect x="10" y="10" width="44" height="44" ${common}/>` ,
@@ -265,7 +265,7 @@ function shapeSvg(shape, size = 64) {
     oval: `<ellipse cx="32" cy="32" rx="26" ry="17" ${common}/>` ,
     star: `<polygon points="32,5 38,25 59,25 42,37 48,58 32,45 16,58 22,37 5,25 26,25" ${common}/>` ,
   };
-  return shapes[shape] ?? shapes.circle;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true">${shapes[shape] ?? shapes.circle}</svg>`;
 }
 
 function groupSvg(shapes) {
