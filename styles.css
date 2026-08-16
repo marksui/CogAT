@@ -1064,6 +1064,31 @@ button:disabled {
   font-weight: 950;
 }
 
+.shape-group,
+.matrix-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.shape-group svg {
+  flex: 0 0 auto;
+}
+
+.matrix-question {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border: 2px dashed #94a3b8;
+  border-radius: 10px;
+  color: var(--blue);
+  font-size: 32px;
+  font-weight: 950;
+}
+
 @media (max-width: 640px) {
   .number-analogy {
     flex-wrap: wrap;
@@ -1216,6 +1241,23 @@ button:disabled {
 .result-actions {
   gap: 10px;
   margin-top: 18px;
+}
+
+.mock-practice .footer-actions,
+.mock-sheet .footer-actions,
+.mock-bubble-sheet .footer-actions,
+.mock-break .footer-actions {
+  flex-wrap: wrap;
+}
+
+.ghost.mock-submit-now {
+  border-color: rgba(146, 55, 55, 0.28);
+  color: #923737;
+}
+
+.ghost.mock-submit-now:hover {
+  border-color: rgba(146, 55, 55, 0.5);
+  background: #fff5f5;
 }
 
 .mock-topline {
@@ -3318,6 +3360,13 @@ summary:focus-visible {
 
   .mock-exit-actions {
     grid-template-columns: 1fr;
+  }
+
+  .mock-practice .footer-actions > button,
+  .mock-sheet .footer-actions > button,
+  .mock-bubble-sheet .footer-actions > button,
+  .mock-break .footer-actions > button {
+    flex: 1 1 100%;
   }
 
   .mock-launch h1,
