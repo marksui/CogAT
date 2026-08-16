@@ -97,6 +97,74 @@ body[data-theme="gold"] {
   --theme-bg-end: #fffaf0;
 }
 
+body[data-theme="purple"] {
+  --bg: #faf7ff;
+  --ink: #2d1d4a;
+  --muted: #6f6086;
+  --line: #e1d7f2;
+  --soft: #f2ecff;
+  --green: #4e806c;
+  --red: #b64d70;
+  --blue: #7554bd;
+  --orange: #b6792f;
+  --purple: #7554bd;
+  --yellow: #a47b1d;
+  --shadow: 0 18px 42px rgba(92, 61, 157, 0.1);
+  --theme-bg-start: #f8f4ff;
+  --theme-bg-end: #fcf9ff;
+}
+
+body[data-theme="pink"] {
+  --bg: #fff7fb;
+  --ink: #4a2034;
+  --muted: #845f71;
+  --line: #f0d5e2;
+  --soft: #ffedf5;
+  --green: #4f806d;
+  --red: #c04772;
+  --blue: #cf5481;
+  --orange: #b87932;
+  --purple: #9161ae;
+  --yellow: #a98423;
+  --shadow: 0 18px 42px rgba(193, 65, 115, 0.1);
+  --theme-bg-start: #fff3f8;
+  --theme-bg-end: #fff8fb;
+}
+
+body[data-theme="navy"] {
+  --bg: #f4f7fc;
+  --ink: #152a4d;
+  --muted: #5b6d8a;
+  --line: #d3deef;
+  --soft: #eaf0fa;
+  --green: #287d6c;
+  --red: #bc4e5e;
+  --blue: #1c4d91;
+  --orange: #ad7430;
+  --purple: #665fa6;
+  --yellow: #9b7a22;
+  --shadow: 0 18px 42px rgba(28, 77, 145, 0.12);
+  --theme-bg-start: #eef4ff;
+  --theme-bg-end: #f6f9ff;
+}
+
+body[data-theme="white"] {
+  --bg: #fbfbfc;
+  --ink: #30343b;
+  --muted: #68717e;
+  --line: #e1e4e8;
+  --soft: #f4f5f6;
+  --green: #46806e;
+  --red: #b5535c;
+  --blue: #697383;
+  --orange: #ab7d32;
+  --purple: #806ca3;
+  --yellow: #a8862e;
+  --shadow: 0 18px 42px rgba(57, 64, 73, 0.08);
+  --theme-bg-start: #ffffff;
+  --theme-bg-end: #ffffff;
+}
+
 button,
 select,
 input {
@@ -3145,6 +3213,34 @@ summary:focus-visible {
   --shop-accent: #9a7318;
   --shop-accent-soft: rgba(154, 115, 24, 0.15);
   --shop-swatch: #c39423;
+}
+
+.shop-card-purple {
+  --shop-accent: #7554bd;
+  --shop-accent-soft: rgba(117, 84, 189, 0.13);
+  --shop-swatch: #8060cb;
+}
+
+.shop-card-pink {
+  --shop-accent: #c95280;
+  --shop-accent-soft: rgba(201, 82, 128, 0.13);
+  --shop-swatch: #ea7da6;
+}
+
+.shop-card-navy {
+  --shop-accent: #1c4d91;
+  --shop-accent-soft: rgba(28, 77, 145, 0.13);
+  --shop-swatch: #1c4d91;
+}
+
+.shop-card-white {
+  --shop-accent: #6c7480;
+  --shop-accent-soft: rgba(108, 116, 128, 0.13);
+  --shop-swatch: #ffffff;
+}
+
+.shop-card-white .theme-swatch {
+  box-shadow: 0 8px 16px rgba(69, 76, 86, 0.16), inset 0 0 0 1px #d9dde3;
 }
 
 .shop-preview {

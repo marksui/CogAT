@@ -73,6 +73,11 @@ const BADGE_DEFINITIONS = [
   { id: 'jewel-shapes', name: 'Shape Parade', description: 'A jeweled shape keepsake.', icon: 'shapes', artwork: 'jewel-shapes', category: 'Collectible', tier: 'advanced', price: 75 },
   { id: 'jewel-crown', name: 'Heart Crown', description: 'A royal heart keepsake.', icon: 'crown', artwork: 'jewel-crown', category: 'Collectible', tier: 'advanced', price: 90 },
   { id: 'jewel-cards', name: 'Card Collection', description: 'A sparkling card keepsake.', icon: 'cards', artwork: 'jewel-cards', category: 'Collectible', tier: 'advanced', price: 70 },
+  { id: 'story-owl', name: 'Story Owl', description: 'A sunset storybook keepsake.', icon: 'book', artwork: 'story-owl', category: 'Collectible', tier: 'advanced', price: 80 },
+  { id: 'trail-marker', name: 'Trail Marker', description: 'A cheerful adventure keepsake.', icon: 'map', artwork: 'trail-marker', category: 'Collectible', tier: 'advanced', price: 75 },
+  { id: 'acorn-friend', name: 'Acorn Friend', description: 'A woodland friend keepsake.', icon: 'spark', artwork: 'acorn-friend', category: 'Collectible', tier: 'advanced', price: 85 },
+  { id: 'shape-garden', name: 'Shape Garden', description: 'A playful shape keepsake.', icon: 'pattern', artwork: 'shape-garden', category: 'Collectible', tier: 'advanced', price: 70 },
+  { id: 'meadow-cards', name: 'Meadow Cards', description: 'A garden card keepsake.', icon: 'cards', artwork: 'meadow-cards', category: 'Collectible', tier: 'advanced', price: 75 },
 ];
 
 const SHOP_ITEMS = [
@@ -81,6 +86,10 @@ const SHOP_ITEMS = [
   { id: 'forest', name: 'Deep Green', description: 'A calm evergreen color.', price: 20 },
   { id: 'crimson', name: 'Deep Red', description: 'A bold berry-red color.', price: 20 },
   { id: 'gold', name: 'Gold', description: 'A bright golden color.', price: 20 },
+  { id: 'purple', name: 'Purple', description: 'A bright violet color.', price: 20 },
+  { id: 'pink', name: 'Pink', description: 'A playful rosy color.', price: 20 },
+  { id: 'navy', name: 'Deep Blue', description: 'A rich navy color.', price: 20 },
+  { id: 'white', name: 'White', description: 'A clean white color.', price: 20 },
 ];
 
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
