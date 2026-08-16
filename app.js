@@ -68,13 +68,19 @@ const BADGE_DEFINITIONS = [
   { id: 'comeback-kid', name: 'Comeback Kid', description: 'Correctly answer a question you missed before.', icon: 'return', artwork: 'checklist', category: 'Special', tier: 'basic', price: 40 },
   { id: 'mock-exam-finisher', name: 'Mock Exam Finisher', description: 'Complete one full mock exam.', icon: 'clock', artwork: 'medal', category: 'Special', tier: 'medium', price: 70 },
   { id: 'balanced-brain', name: 'Balanced Brain', description: 'Complete at least 20 questions in each Battery.', icon: 'balance', artwork: 'lightbulb', category: 'Special', tier: 'medium', price: 65 },
+  { id: 'jewel-maze', name: 'Royal Maze', description: 'A jeweled maze keepsake.', icon: 'maze', artwork: 'jewel-maze', category: 'Collectible', tier: 'advanced', price: 80 },
+  { id: 'jewel-puzzle', name: 'Jewel Puzzle', description: 'A sparkling puzzle keepsake.', icon: 'puzzle', artwork: 'jewel-puzzle', category: 'Collectible', tier: 'advanced', price: 85 },
+  { id: 'jewel-shapes', name: 'Shape Parade', description: 'A jeweled shape keepsake.', icon: 'shapes', artwork: 'jewel-shapes', category: 'Collectible', tier: 'advanced', price: 75 },
+  { id: 'jewel-crown', name: 'Heart Crown', description: 'A royal heart keepsake.', icon: 'crown', artwork: 'jewel-crown', category: 'Collectible', tier: 'advanced', price: 90 },
+  { id: 'jewel-cards', name: 'Card Collection', description: 'A sparkling card keepsake.', icon: 'cards', artwork: 'jewel-cards', category: 'Collectible', tier: 'advanced', price: 70 },
 ];
 
 const SHOP_ITEMS = [
-  { id: 'blue-focus-frame', name: 'Blue Focus Frame', description: 'A crisp blue frame for your badge shelf.', price: 25, icon: 'frame' },
-  { id: 'green-spark-card', name: 'Green Spark Card', description: 'A fresh green card style for unlocked badges.', price: 40, icon: 'spark-card' },
-  { id: 'gold-badge-shelf', name: 'Gold Badge Shelf', description: 'A warm gold shelf accent for Game Center.', price: 60, icon: 'shelf' },
-  { id: 'champion-header-ring', name: 'Champion Header Ring', description: 'A bold ring accent for your coin summary.', price: 100, icon: 'ring' },
+  { id: 'blue', name: 'Blue', description: 'The default CogAT color.', price: 0 },
+  { id: 'black', name: 'Black', description: 'A sharp deep-ink color.', price: 20 },
+  { id: 'forest', name: 'Deep Green', description: 'A calm evergreen color.', price: 20 },
+  { id: 'crimson', name: 'Deep Red', description: 'A bold berry-red color.', price: 20 },
+  { id: 'gold', name: 'Gold', description: 'A bright golden color.', price: 20 },
 ];
 
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
@@ -160,6 +166,7 @@ function render() {
 }
 
 function renderShell(content) {
+  document.body.dataset.theme = getActiveTheme();
   app.innerHTML = `
     <main class="app-shell">
       <header class="topbar">
@@ -304,7 +311,7 @@ function adminResetRewards() {
   state.history.badges = [];
   state.history.claimedMilestones = {};
   state.history.coinHistory = [];
-  state.history.shop = { owned: [], equipped: null };
+  state.history.shop = { owned: ['blue'], equipped: 'blue' };
   state.history.updatedAt = new Date().toISOString();
   saveHistory();
   render();
@@ -1869,31 +1876,31 @@ function renderRewardShop() {
     <div class="game-section-head">
       <div>
         <span class="eyebrow">Reward shop</span>
-        <h2>Cosmetic items</h2>
+        <h2>Choose a theme</h2>
       </div>
-      <span>${state.history.currentCoins} coins</span>
+      <span>${renderCoinIcon()}${state.history.currentCoins}</span>
     </div>
     <div class="shop-grid">
       ${SHOP_ITEMS.map((item) => {
         const isOwned = owned.has(item.id);
         const isEquipped = state.history.shop.equipped === item.id;
         const canBuy = state.history.currentCoins >= item.price;
-        const label = isEquipped ? 'Equipped' : isOwned ? 'Equip' : canBuy ? 'Buy' : `Need ${item.price - state.history.currentCoins}`;
+        const label = isEquipped ? 'Using' : isOwned ? 'Use theme' : canBuy ? 'Buy' : `Need ${item.price - state.history.currentCoins}`;
         return `
-          <article class="shop-card shop-card-${item.id}">
-            <div class="shop-preview">
-              <div class="shop-preview-badge">Cosmetic</div>
-              <div class="shop-preview-art">${renderShopIcon(item.icon)}</div>
+          <article class="shop-card shop-card-${item.id} ${isEquipped ? 'is-equipped' : ''}">
+            <div class="shop-preview" aria-hidden="true">
+              <span class="theme-swatch"></span>
+              <span class="theme-preview-label">${escapeHtml(item.name)}</span>
             </div>
             <div class="shop-copy">
               <div class="shop-card-top">
                 <b>${escapeHtml(item.name)}</b>
-                <span class="shop-price">${item.price} coins</span>
+                <span class="shop-price">${item.price ? `${renderCoinIcon()}${item.price}` : 'Default'}</span>
               </div>
               <span>${escapeHtml(item.description)}</span>
               <div class="shop-card-foot">
                 <span class="shop-state ${isEquipped ? 'is-equipped' : isOwned ? 'is-owned' : canBuy ? 'can-buy' : 'locked'}">${label}</span>
-                <small>${isEquipped ? 'Applied to the Game Center' : isOwned ? 'Ready to equip' : canBuy ? 'Tap to buy' : 'Practice to earn more coins'}</small>
+                <small>${isEquipped ? 'Applied across CogAT' : isOwned ? 'Ready to use' : canBuy ? 'Tap to buy' : 'Practice to earn more coins'}</small>
               </div>
             </div>
             <button class="${isEquipped ? 'ghost' : 'primary'}" type="button" data-shop-action="${item.id}" ${(!isOwned && !canBuy) || isEquipped ? 'disabled' : ''}>${label}</button>
@@ -2610,6 +2617,11 @@ function getEquippedClass(area) {
   return `equipped-${area} equipped-${equipped}`;
 }
 
+function getActiveTheme() {
+  const equipped = state.history.shop?.equipped;
+  return SHOP_ITEMS.some((item) => item.id === equipped) ? equipped : 'blue';
+}
+
 function handleKeyboard(event) {
   if (!['practice', 'mock-practice'].includes(state.view)) {
     return;
@@ -2772,8 +2784,8 @@ function createEmptyHistory() {
     claimedMilestones: {},
     coinHistory: [],
     shop: {
-      owned: [],
-      equipped: null,
+      owned: ['blue'],
+      equipped: 'blue',
     },
   };
 }
@@ -2916,9 +2928,9 @@ function normalizeCoinHistory(input = []) {
 function normalizeShop(input = {}) {
   const validIds = new Set(SHOP_ITEMS.map((item) => item.id));
   const owned = Array.isArray(input?.owned)
-    ? [...new Set(input.owned.filter((id) => validIds.has(id)))]
-    : [];
-  const equipped = owned.includes(input?.equipped) ? input.equipped : null;
+    ? [...new Set(['blue', ...input.owned.filter((id) => validIds.has(id))])]
+    : ['blue'];
+  const equipped = owned.includes(input?.equipped) ? input.equipped : 'blue';
   return { owned, equipped };
 }
 

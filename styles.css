@@ -13,6 +13,8 @@
   --purple: #8b70f7;
   --yellow: #f0bf3d;
   --shadow: 0 18px 42px rgba(58, 88, 130, 0.08);
+  --theme-bg-start: #f5fbff;
+  --theme-bg-end: #f7fff6;
 }
 
 * {
@@ -22,9 +24,77 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(180deg, #f5fbff 0%, #ffffff 52%, #f7fff6 100%);
+  background: linear-gradient(180deg, var(--theme-bg-start) 0%, #ffffff 52%, var(--theme-bg-end) 100%);
   color: var(--ink);
   font-family: Inter, Nunito, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body[data-theme="black"] {
+  --bg: #f5f6f8;
+  --ink: #16191f;
+  --muted: #59616f;
+  --line: #d4d8df;
+  --soft: #eef0f3;
+  --green: #287c67;
+  --red: #b6454e;
+  --blue: #252a33;
+  --orange: #b26d26;
+  --purple: #6750a4;
+  --yellow: #a87e18;
+  --shadow: 0 18px 42px rgba(22, 25, 31, 0.1);
+  --theme-bg-start: #f1f3f5;
+  --theme-bg-end: #f7f8fa;
+}
+
+body[data-theme="forest"] {
+  --bg: #f3faf6;
+  --ink: #17342a;
+  --muted: #557267;
+  --line: #cfe3d9;
+  --soft: #e7f4ec;
+  --green: #176c50;
+  --red: #bd5155;
+  --blue: #1e7658;
+  --orange: #ad7623;
+  --purple: #6f63b4;
+  --yellow: #a88a1d;
+  --shadow: 0 18px 42px rgba(23, 83, 59, 0.1);
+  --theme-bg-start: #effaf4;
+  --theme-bg-end: #f4fbf6;
+}
+
+body[data-theme="crimson"] {
+  --bg: #fff7f7;
+  --ink: #3b1b24;
+  --muted: #805c65;
+  --line: #efd4d8;
+  --soft: #fff0f2;
+  --green: #31785f;
+  --red: #a83242;
+  --blue: #a83242;
+  --orange: #b76d28;
+  --purple: #7c5ca9;
+  --yellow: #aa871d;
+  --shadow: 0 18px 42px rgba(145, 40, 57, 0.1);
+  --theme-bg-start: #fff3f4;
+  --theme-bg-end: #fff8f4;
+}
+
+body[data-theme="gold"] {
+  --bg: #fffaf0;
+  --ink: #3c2b0b;
+  --muted: #7d6b45;
+  --line: #eddfbe;
+  --soft: #fff3d8;
+  --green: #5f8051;
+  --red: #b34f43;
+  --blue: #9a7318;
+  --orange: #b77b1d;
+  --purple: #8067ad;
+  --yellow: #a67812;
+  --shadow: 0 18px 42px rgba(142, 101, 18, 0.1);
+  --theme-bg-start: #fff8e9;
+  --theme-bg-end: #fffaf0;
 }
 
 button,
@@ -3047,24 +3117,34 @@ summary:focus-visible {
   padding: 14px;
 }
 
-.shop-card-blue-focus-frame {
+.shop-card-blue {
   --shop-accent: #2f66d0;
   --shop-accent-soft: rgba(47, 102, 208, 0.12);
+  --shop-swatch: #3479f6;
 }
 
-.shop-card-green-spark-card {
-  --shop-accent: #168267;
-  --shop-accent-soft: rgba(22, 130, 103, 0.12);
+.shop-card-black {
+  --shop-accent: #252a33;
+  --shop-accent-soft: rgba(37, 42, 51, 0.12);
+  --shop-swatch: #252a33;
 }
 
-.shop-card-gold-badge-shelf {
-  --shop-accent: #c08d12;
-  --shop-accent-soft: rgba(192, 141, 18, 0.14);
+.shop-card-forest {
+  --shop-accent: #1e7658;
+  --shop-accent-soft: rgba(30, 118, 88, 0.12);
+  --shop-swatch: #1e7658;
 }
 
-.shop-card-champion-header-ring {
-  --shop-accent: #7b5bd6;
-  --shop-accent-soft: rgba(123, 91, 214, 0.12);
+.shop-card-crimson {
+  --shop-accent: #a83242;
+  --shop-accent-soft: rgba(168, 50, 66, 0.12);
+  --shop-swatch: #a83242;
+}
+
+.shop-card-gold {
+  --shop-accent: #9a7318;
+  --shop-accent-soft: rgba(154, 115, 24, 0.15);
+  --shop-swatch: #c39423;
 }
 
 .shop-preview {
@@ -3085,27 +3165,30 @@ summary:focus-visible {
   background: radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.92), transparent 34%), radial-gradient(circle at 82% 24%, var(--shop-accent-soft, rgba(47, 102, 208, 0.12)), transparent 34%);
 }
 
-.shop-preview-badge {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 0 10px;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.shop-card.is-equipped {
+  border-color: var(--shop-accent);
+  box-shadow: inset 0 0 0 2px var(--shop-accent-soft), 0 18px 42px rgba(54, 83, 119, 0.1);
 }
 
-.shop-preview-art {
+.theme-swatch {
   position: relative;
   z-index: 1;
+  display: inline-flex;
+  width: 68px;
+  height: 68px;
+  border: 7px solid #ffffff;
+  border-radius: 50%;
+  background: var(--shop-swatch, var(--shop-accent));
+  box-shadow: 0 8px 16px var(--shop-accent-soft);
+}
+
+.theme-preview-label {
+  position: relative;
+  z-index: 1;
+  color: var(--shop-accent);
+  font-family: Nunito, Inter, sans-serif;
+  font-size: 16px;
+  font-weight: 1000;
 }
 
 .shop-preview svg {
@@ -3141,6 +3224,14 @@ summary:focus-visible {
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.shop-price .coin-icon,
+.game-section-head > span .coin-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  stroke-width: 2.5;
 }
 
 .shop-copy span {
@@ -3230,26 +3321,6 @@ summary:focus-visible {
   color: var(--muted);
   text-align: center;
   font-weight: 800;
-}
-
-.equipped-blue-focus-frame .badge-card.is-unlocked,
-.badge-card.equipped-blue-focus-frame.is-unlocked {
-  border-color: rgba(47, 102, 208, 0.42);
-  box-shadow: inset 0 0 0 2px rgba(47, 102, 208, 0.08);
-}
-
-.equipped-green-spark-card .badge-card.is-unlocked,
-.badge-card.equipped-green-spark-card.is-unlocked {
-  background: #f0fbf6;
-}
-
-.game-panel.equipped-gold-badge-shelf {
-  border-color: #dfc56a;
-  box-shadow: 0 20px 55px rgba(160, 121, 31, 0.11);
-}
-
-.game-hero.equipped-champion-header-ring {
-  box-shadow: 0 20px 55px rgba(47, 102, 208, 0.12), inset 0 0 0 3px rgba(47, 102, 208, 0.08);
 }
 
 @media (max-width: 900px) {
