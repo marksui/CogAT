@@ -53,21 +53,21 @@ const BADGE_REWARDS = {
 };
 
 const BADGE_DEFINITIONS = [
-  { id: 'first-step', name: 'First Step', description: 'Complete your first question.', icon: 'steps', category: 'Practice Count', tier: 'basic' },
-  { id: 'getting-started', name: 'Getting Started', description: 'Complete 10 questions.', icon: 'spark', category: 'Practice Count', tier: 'basic' },
-  { id: 'question-explorer', name: 'Question Explorer', description: 'Complete 50 questions.', icon: 'map', category: 'Practice Count', tier: 'medium' },
-  { id: 'century-club', name: 'Century Club', description: 'Complete 100 questions.', icon: 'medal', category: 'Practice Count', tier: 'advanced' },
-  { id: 'practice-champion', name: 'Practice Champion', description: 'Complete 500 questions.', icon: 'trophy', category: 'Practice Count', tier: 'advanced' },
-  { id: 'first-correct', name: 'First Correct', description: 'Answer your first question correctly.', icon: 'check', category: 'Correct Answers', tier: 'basic' },
-  { id: 'sharp-thinker', name: 'Sharp Thinker', description: 'Answer 25 questions correctly.', icon: 'bolt', category: 'Correct Answers', tier: 'medium' },
-  { id: 'brain-builder', name: 'Brain Builder', description: 'Answer 100 questions correctly.', icon: 'brain', category: 'Correct Answers', tier: 'advanced' },
-  { id: 'word-wizard', name: 'Word Wizard', description: 'Answer 30 Verbal Battery questions correctly.', icon: 'book', category: 'Battery Mastery', tier: 'medium' },
-  { id: 'number-ninja', name: 'Number Ninja', description: 'Answer 30 Quantitative Battery questions correctly.', icon: 'numbers', category: 'Battery Mastery', tier: 'medium' },
-  { id: 'pattern-pro', name: 'Pattern Pro', description: 'Answer 30 Nonverbal Battery questions correctly.', icon: 'pattern', category: 'Battery Mastery', tier: 'medium' },
-  { id: 'perfect-set', name: 'Perfect Set', description: 'Finish a practice set of at least 10 questions with every answer correct.', icon: 'star', category: 'Special', tier: 'medium' },
-  { id: 'comeback-kid', name: 'Comeback Kid', description: 'Correctly answer a question you missed before.', icon: 'return', category: 'Special', tier: 'basic' },
-  { id: 'mock-exam-finisher', name: 'Mock Exam Finisher', description: 'Complete one full mock exam.', icon: 'clock', category: 'Special', tier: 'medium' },
-  { id: 'balanced-brain', name: 'Balanced Brain', description: 'Complete at least 20 questions in each Battery.', icon: 'balance', category: 'Special', tier: 'medium' },
+  { id: 'first-step', name: 'First Step', description: 'Complete your first question.', icon: 'steps', artwork: 'checklist', category: 'Practice Count', tier: 'basic' },
+  { id: 'getting-started', name: 'Getting Started', description: 'Complete 10 questions.', icon: 'spark', artwork: 'star', category: 'Practice Count', tier: 'basic' },
+  { id: 'question-explorer', name: 'Question Explorer', description: 'Complete 50 questions.', icon: 'map', artwork: 'book', category: 'Practice Count', tier: 'medium' },
+  { id: 'century-club', name: 'Century Club', description: 'Complete 100 questions.', icon: 'medal', artwork: 'shapes', category: 'Practice Count', tier: 'advanced' },
+  { id: 'practice-champion', name: 'Practice Champion', description: 'Complete 500 questions.', icon: 'trophy', artwork: 'puzzle', category: 'Practice Count', tier: 'advanced' },
+  { id: 'first-correct', name: 'First Correct', description: 'Answer your first question correctly.', icon: 'check', artwork: 'medal', category: 'Correct Answers', tier: 'basic' },
+  { id: 'sharp-thinker', name: 'Sharp Thinker', description: 'Answer 25 questions correctly.', icon: 'bolt', artwork: 'maze', category: 'Correct Answers', tier: 'medium' },
+  { id: 'brain-builder', name: 'Brain Builder', description: 'Answer 100 questions correctly.', icon: 'brain', artwork: 'cards', category: 'Correct Answers', tier: 'advanced' },
+  { id: 'word-wizard', name: 'Word Wizard', description: 'Answer 30 Verbal Battery questions correctly.', icon: 'book', artwork: 'book', category: 'Battery Mastery', tier: 'medium' },
+  { id: 'number-ninja', name: 'Number Ninja', description: 'Answer 30 Quantitative Battery questions correctly.', icon: 'numbers', artwork: 'abacus', category: 'Battery Mastery', tier: 'medium' },
+  { id: 'pattern-pro', name: 'Pattern Pro', description: 'Answer 30 Nonverbal Battery questions correctly.', icon: 'pattern', artwork: 'shapes', category: 'Battery Mastery', tier: 'medium' },
+  { id: 'perfect-set', name: 'Perfect Set', description: 'Finish a practice set of at least 10 questions with every answer correct.', icon: 'star', artwork: 'star', category: 'Special', tier: 'medium' },
+  { id: 'comeback-kid', name: 'Comeback Kid', description: 'Correctly answer a question you missed before.', icon: 'return', artwork: 'checklist', category: 'Special', tier: 'basic' },
+  { id: 'mock-exam-finisher', name: 'Mock Exam Finisher', description: 'Complete one full mock exam.', icon: 'clock', artwork: 'medal', category: 'Special', tier: 'medium' },
+  { id: 'balanced-brain', name: 'Balanced Brain', description: 'Complete at least 20 questions in each Battery.', icon: 'balance', artwork: 'lightbulb', category: 'Special', tier: 'medium' },
 ];
 
 const SHOP_ITEMS = [
@@ -361,6 +361,10 @@ function renderBadgeIcon(name) {
     balance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M5 7h14M7 7l-4 7h8L7 7zM17 7l-4 7h8l-4-7z"/></svg>',
   };
   return icons[name] ?? icons.star;
+}
+
+function renderBadgeArtwork(definition) {
+  return `<img src="assets/badges/${definition.artwork}.png" alt="" width="320" height="320" loading="lazy" decoding="async">`;
 }
 
 function renderShopIcon(name) {
@@ -1552,6 +1556,10 @@ function recordMockPartResult() {
     total: state.questions.length,
     unanswered: state.answers.filter((answer) => !answer).length,
     secondsUsed: (part.minutes * 60) - state.mockSecondsRemaining,
+    questionIds: state.questions.map((question) => String(question.id)),
+    missedQuestionIds: state.questions
+      .filter((question, index) => state.answers[index] !== getCorrectAnswer(question))
+      .map((question) => String(question.id)),
   };
   state.mockResults.push(result);
   return result;
@@ -1678,6 +1686,7 @@ function renderMockResults() {
   const submittedPartCount = state.mockResults.length;
   const report = buildMockScoreReport();
   const batteryScores = report.batteries;
+  const prescription = buildMockPrescription();
 
   renderShell(`
     <section class="results mock-results">
@@ -1690,6 +1699,16 @@ function renderMockResults() {
           <article class="estimate-card"><span>Estimated percentile</span><strong>${formatOrdinal(report.overall.percentile)}</strong><small>Grade 4 practice model</small></article>
           <article class="estimate-card"><span>Estimated stanine</span><strong>${report.overall.stanine}</strong><small>Scale from 1 to 9</small></article>
         </div>
+        ${prescription ? `
+          <section class="mock-prescription" aria-label="Your next practice">
+            <div>
+              <span class="eyebrow">Your next practice</span>
+              <h2>${escapeHtml(prescription.label)}</h2>
+              <p>${prescription.accuracy}% accuracy · ${formatQuestionCount(prescription.missedCount)} missed. ${prescription.missedCount ? 'Review the questions that were hardest today, then build confidence with similar ones.' : 'You got this section right today. Keep that skill strong with a fresh set.'}</p>
+            </div>
+            <button class="primary" type="button" id="start-mock-prescription">Start ${prescription.questionCount}-question practice</button>
+          </section>
+        ` : ''}
         <div class="result-actions">
           <button class="primary" type="button" id="again">Try again</button>
           <button class="ghost" type="button" id="export-history">Export JSON</button>
@@ -1718,6 +1737,7 @@ function renderMockResults() {
   `);
 
   document.querySelector('#again').addEventListener('click', startMockIntro);
+  document.querySelector('#start-mock-prescription')?.addEventListener('click', () => startMockPrescription(prescription));
   document.querySelector('#export-history').addEventListener('click', exportHistory);
 }
 
@@ -1795,7 +1815,7 @@ function renderBadgesPanel() {
         return `
           <article class="badge-card badge-tier-${definition.tier} ${badge ? 'is-unlocked' : 'is-locked'} ${getEquippedClass('badge')}">
             <div class="badge-icon-shell">
-              <div class="badge-icon"><span>${renderBadgeIcon(definition.icon)}</span></div>
+              <div class="badge-icon">${renderBadgeArtwork(definition)}</div>
             </div>
             <div class="badge-copy">
               <div class="badge-card-top">
@@ -1918,6 +1938,65 @@ function buildMockScoreReport() {
       stanine: stanineFromPercentile(percentileFromSas(compositeSas)),
     },
   };
+}
+
+function buildMockPrescription() {
+  const parts = state.mockResults
+    .filter((part) => part.total > 0)
+    .map((part) => ({
+      ...part,
+      accuracy: scorePracticeAccuracy(part.correct, part.total),
+      missedCount: part.total - part.correct,
+    }))
+    .sort((first, second) => (
+      first.accuracy - second.accuracy
+      || second.missedCount - first.missedCount
+      || first.label.localeCompare(second.label)
+    ));
+  const target = parts[0];
+  if (!target) {
+    return null;
+  }
+  const questionCount = Math.min(10, buildMockPrescriptionPool(target).length);
+  return { ...target, questionCount };
+}
+
+function buildMockPrescriptionPool(prescription, limit = 10) {
+  const selected = [];
+  const seen = new Set();
+  const addQuestion = (question) => {
+    if (!question || selected.length >= limit || seen.has(String(question.id))) {
+      return;
+    }
+    seen.add(String(question.id));
+    selected.push(question);
+  };
+  const missedQuestions = (prescription.missedQuestionIds ?? [])
+    .map((id) => questionById.get(String(id)))
+    .filter(Boolean);
+  const subtestQuestions = (batteryMap.get(prescription.key)?.questions ?? [])
+    .filter((question) => question.subtest === prescription.subtest);
+
+  shuffle(missedQuestions).forEach(addQuestion);
+  shuffle(subtestQuestions.filter((question) => !state.history.stats[String(question.id)])).forEach(addQuestion);
+  shuffle(subtestQuestions).forEach(addQuestion);
+  return selected;
+}
+
+function startMockPrescription(prescription) {
+  const pool = buildMockPrescriptionPool(prescription);
+  if (!pool.length) {
+    state.message = 'No practice questions are available for this subtest yet.';
+    state.view = 'setup';
+    state.examType = 'practice';
+    render();
+    return;
+  }
+  state.examType = 'practice';
+  state.battery = prescription.key;
+  state.subtest = prescription.subtest;
+  state.mode = prescription.missedCount ? 'missed' : 'all';
+  startPractice({ kind: 'review', pool, limit: 10 });
 }
 
 function scorePracticeEstimate(correct, total) {
