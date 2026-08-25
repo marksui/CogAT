@@ -670,7 +670,7 @@ function renderMockIntro() {
         </button>
         <button class="${state.mockMode === 'bubble' ? 'selected' : ''}" type="button" role="radio" aria-checked="${state.mockMode === 'bubble'}" data-mock-mode="bubble">
           <b>Bubble sheet</b>
-          <span>Fill A-E bubbles in compact exam rows.</span>
+          <span>Read prompts on the left and fill A-E bubbles on the answer sheet.</span>
         </button>
         <button class="${state.mockMode === 'guided' ? 'selected' : ''}" type="button" role="radio" aria-checked="${state.mockMode === 'guided'}" data-mock-mode="guided">
           <b>Question by question</b>
@@ -1260,6 +1260,15 @@ function renderMockSheetPractice() {
   document.querySelector('#submit-mock-now').addEventListener('click', requestMockExamSubmit);
 }
 
+function renderMockBubblePrompt(question) {
+  return `
+    <div class="mock-bubble-question-prompt" data-bubble-prompt>
+      ${question.question}
+    </div>
+    ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
+  `;
+}
+
 function renderMockBubblePractice() {
   const part = mockParts[state.mockPartIndex];
   const total = state.questions.length;
@@ -1292,8 +1301,7 @@ function renderMockBubblePractice() {
               <article class="mock-bubble-question-item ${index === state.currentIndex ? 'current' : ''} ${state.answers[index] ? 'answered' : ''}" id="mock-bubble-question-${index}">
                 <button class="mock-bubble-number" type="button" data-bubble-jump="${index}" aria-label="Go to question ${index + 1}">${index + 1}</button>
                 <div class="mock-bubble-question">
-                  <div>${question.question}</div>
-                  ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
+                  ${renderMockBubblePrompt(question)}
                 </div>
               </article>
             `).join('')}
