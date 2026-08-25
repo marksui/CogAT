@@ -2352,12 +2352,40 @@ button:disabled {
 
 .daily-card {
   position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.daily-card::before,
+.daily-card::after {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.daily-card::before {
+  width: 360px;
+  height: 360px;
+  right: -176px;
+  top: -210px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--blue) 16%, transparent) 0%, transparent 70%);
+}
+
+.daily-card::after {
+  width: 190px;
+  height: 190px;
+  left: 32%;
+  bottom: -162px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--yellow) 18%, transparent) 0%, transparent 72%);
 }
 
 .daily-copy {
   display: grid;
   gap: 18px;
   align-content: center;
+  max-width: 560px;
 }
 
 .daily-copy h1 {
@@ -2367,6 +2395,53 @@ button:disabled {
   font-size: clamp(46px, 8vw, 76px);
   line-height: 0.95;
   letter-spacing: -0.055em;
+}
+
+.daily-eyebrow {
+  width: fit-content;
+  margin-bottom: -8px;
+}
+
+.daily-message {
+  max-width: 490px;
+  margin: -5px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.daily-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.daily-highlights span {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--blue) 16%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, #ffffff 80%, var(--soft));
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.daily-highlights b {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.daily-highlights .coin-icon {
+  width: 15px;
+  height: 15px;
+  color: var(--yellow);
+  stroke-width: 2.5;
 }
 
 .daily-cta {
@@ -2390,9 +2465,51 @@ button:disabled {
 
 .daily-progress-wrap {
   display: grid;
+  position: relative;
+  z-index: 1;
   justify-items: center;
   gap: 12px;
 }
+
+.daily-visual {
+  position: relative;
+  display: grid;
+  min-width: 174px;
+  min-height: 190px;
+  place-items: center;
+}
+
+.home-decoration {
+  position: absolute;
+  right: -30px;
+  top: -2px;
+  z-index: 0;
+  width: 148px;
+  height: 124px;
+  border-radius: 38px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--blue) 16%, #ffffff), color-mix(in srgb, var(--purple) 12%, #ffffff));
+  color: var(--blue);
+  opacity: 0.66;
+  transform: rotate(7deg);
+}
+
+.home-decoration svg {
+  position: absolute;
+  left: 22px;
+  top: 28px;
+  width: 104px;
+  height: 74px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+body[data-decor="star-frame"] .home-decoration { color: var(--yellow); }
+body[data-decor="spark-card"] .home-decoration { color: var(--purple); }
+body[data-decor="study-shelf"] .home-decoration { color: var(--green); }
+body[data-decor="focus-ring"] .home-decoration { color: var(--orange); }
 
 .daily-progress {
   display: grid;
@@ -2977,6 +3094,46 @@ summary:focus-visible {
   gap: 12px;
 }
 
+.shop-collection + .shop-collection {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+
+.shop-collection-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 12px;
+}
+
+.shop-collection-head h3,
+.shop-collection-head p {
+  margin: 0;
+}
+
+.shop-collection-head h3 {
+  color: var(--ink);
+  font-family: Nunito, Inter, sans-serif;
+  font-size: 20px;
+  letter-spacing: -0.025em;
+}
+
+.shop-collection-head p,
+.shop-collection-head > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.shop-collection-head > span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--soft);
+  padding: 6px 9px;
+}
+
 .badge-card,
 .shop-card {
   position: relative;
@@ -3244,6 +3401,26 @@ summary:focus-visible {
   --shop-swatch: #ffffff;
 }
 
+.shop-card-star-frame {
+  --shop-accent: #b7841d;
+  --shop-accent-soft: rgba(183, 132, 29, 0.15);
+}
+
+.shop-card-spark-card {
+  --shop-accent: #7560bf;
+  --shop-accent-soft: rgba(117, 96, 191, 0.15);
+}
+
+.shop-card-study-shelf {
+  --shop-accent: #287d63;
+  --shop-accent-soft: rgba(40, 125, 99, 0.14);
+}
+
+.shop-card-focus-ring {
+  --shop-accent: #bb7331;
+  --shop-accent-soft: rgba(187, 115, 49, 0.15);
+}
+
 .shop-card-white .theme-swatch {
   box-shadow: 0 8px 16px rgba(69, 76, 86, 0.16), inset 0 0 0 1px #d9dde3;
 }
@@ -3296,6 +3473,10 @@ summary:focus-visible {
   width: 84px;
   height: 64px;
   stroke-width: 2.25;
+}
+
+.shop-card-decor .shop-preview {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--shop-accent) 17%, #ffffff), color-mix(in srgb, var(--shop-accent) 6%, #f7fbff));
 }
 
 .shop-copy {
@@ -3600,6 +3781,11 @@ summary:focus-visible {
     flex-direction: column;
   }
 
+  .shop-collection-head {
+    align-items: start;
+    flex-direction: column;
+  }
+
   .coin-history-row {
     grid-template-columns: 64px minmax(0, 1fr);
   }
@@ -3614,6 +3800,37 @@ summary:focus-visible {
 
   .daily-card {
     gap: 16px;
+  }
+
+  .daily-copy {
+    gap: 14px;
+  }
+
+  .daily-message {
+    font-size: 13px;
+  }
+
+  .daily-highlights {
+    gap: 6px;
+  }
+
+  .daily-visual {
+    min-width: 122px;
+    min-height: 156px;
+  }
+
+  .home-decoration {
+    right: -40px;
+    top: -6px;
+    width: 112px;
+    height: 92px;
+  }
+
+  .home-decoration svg {
+    left: 16px;
+    top: 20px;
+    width: 80px;
+    height: 56px;
   }
 
   .daily-progress-wrap {

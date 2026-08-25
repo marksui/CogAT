@@ -17,11 +17,42 @@ const DEFAULT_DAILY_GOAL = 10;
 const STORAGE_KEY = 'grade4-cogat-history-v2';
 const LEGACY_STORAGE_KEY = 'grade4-cogat-history-v1';
 
-const questionSets = {
+const rawQuestionSets = {
   verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalWorkbookQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
   quantitative: [...quantitativeQuestions, ...quantitativeExtraQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...bonusQuestions.filter((question) => question.battery === 'Quantitative Battery')],
   nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Nonverbal Battery')],
 };
+
+function normalizeQuestionContent(value = '') {
+  return String(value).replace(/\s+/g, ' ').trim();
+}
+
+function getQuestionDedupKeys(question) {
+  const prompt = normalizeQuestionContent(question.question);
+  const note = normalizeQuestionContent(question.questionNote);
+  const options = (question.options ?? []).map((option) => `${option.label}:${normalizeQuestionContent(option.text)}`).join('|');
+  const exactKey = `exact|${question.battery}|${question.subtest}|${prompt}|${note}|${options}|${getCorrectAnswer(question)}`;
+  const isPlainTextPrompt = !/<[a-z][\s\S]*>/i.test(prompt);
+  const correctOption = (question.options ?? []).find((option) => getOptionValue(option) === getCorrectAnswer(question));
+  const meaningKey = isPlainTextPrompt && correctOption
+    ? `meaning|${question.battery}|${question.subtest}|${prompt}|${note}|${normalizeQuestionContent(correctOption.text)}`
+    : '';
+  return [exactKey, meaningKey].filter(Boolean);
+}
+
+function dedupeQuestions(questions) {
+  const seen = new Set();
+  return questions.filter((question) => {
+    const keys = getQuestionDedupKeys(question);
+    if (keys.some((key) => seen.has(key))) {
+      return false;
+    }
+    keys.forEach((key) => seen.add(key));
+    return true;
+  });
+}
+
+const questionSets = Object.fromEntries(Object.entries(rawQuestionSets).map(([battery, questions]) => [battery, dedupeQuestions(questions)]));
 
 const batteries = [
   { key: 'all', label: 'Mixed', kidLabel: 'Mixed', questions: [...questionSets.verbal, ...questionSets.quantitative, ...questionSets.nonverbal] },
@@ -80,21 +111,30 @@ const BADGE_DEFINITIONS = [
   { id: 'meadow-cards', name: 'Meadow Cards', description: 'A garden card keepsake.', icon: 'cards', artwork: 'meadow-cards', category: 'Collectible', tier: 'advanced', price: 75 },
 ];
 
-const SHOP_ITEMS = [
-  { id: 'blue', name: 'Blue', description: 'The default CogAT color.', price: 0 },
-  { id: 'black', name: 'Black', description: 'A sharp deep-ink color.', price: 20 },
-  { id: 'forest', name: 'Deep Green', description: 'A calm evergreen color.', price: 20 },
-  { id: 'crimson', name: 'Deep Red', description: 'A bold berry-red color.', price: 20 },
-  { id: 'gold', name: 'Gold', description: 'A bright golden color.', price: 20 },
-  { id: 'purple', name: 'Purple', description: 'A bright violet color.', price: 20 },
-  { id: 'pink', name: 'Pink', description: 'A playful rosy color.', price: 20 },
-  { id: 'navy', name: 'Deep Blue', description: 'A rich navy color.', price: 20 },
-  { id: 'white', name: 'White', description: 'A clean white color.', price: 20 },
+const SHOP_THEMES = [
+  { id: 'blue', kind: 'theme', name: 'Blue', description: 'The default CogAT color.', price: 0 },
+  { id: 'black', kind: 'theme', name: 'Black', description: 'A sharp deep-ink color.', price: 20 },
+  { id: 'forest', kind: 'theme', name: 'Deep Green', description: 'A calm evergreen color.', price: 20 },
+  { id: 'crimson', kind: 'theme', name: 'Deep Red', description: 'A bold berry-red color.', price: 20 },
+  { id: 'gold', kind: 'theme', name: 'Gold', description: 'A bright golden color.', price: 20 },
+  { id: 'purple', kind: 'theme', name: 'Purple', description: 'A bright violet color.', price: 20 },
+  { id: 'pink', kind: 'theme', name: 'Pink', description: 'A playful rosy color.', price: 20 },
+  { id: 'navy', kind: 'theme', name: 'Deep Blue', description: 'A rich navy color.', price: 20 },
+  { id: 'white', kind: 'theme', name: 'White', description: 'A clean white color.', price: 20 },
 ];
+
+const SHOP_DECOR = [
+  { id: 'star-frame', kind: 'decor', name: 'Star Frame', description: 'A bright accent for your Today card.', price: 25, icon: 'frame' },
+  { id: 'spark-card', kind: 'decor', name: 'Spark Card', description: 'A little extra energy for daily practice.', price: 30, icon: 'spark-card' },
+  { id: 'study-shelf', kind: 'decor', name: 'Study Shelf', description: 'A tidy learning-room accent.', price: 35, icon: 'shelf' },
+  { id: 'focus-ring', kind: 'decor', name: 'Focus Ring', description: 'A calm focus accent for your dashboard.', price: 40, icon: 'ring' },
+];
+
+const SHOP_ITEMS = [...SHOP_THEMES, ...SHOP_DECOR];
 
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
 const allQuestions = batteries[0].questions;
-const questionById = new Map(allQuestions.map((question) => [String(question.id), question]));
+const questionById = new Map(Object.values(rawQuestionSets).flat().map((question) => [String(question.id), question]));
 
 const state = {
   view: 'setup',
@@ -176,6 +216,7 @@ function render() {
 
 function renderShell(content) {
   document.body.dataset.theme = getActiveTheme();
+  document.body.dataset.decor = getActiveDecor()?.id ?? 'none';
   app.innerHTML = `
     <main class="app-shell">
       <header class="topbar">
@@ -320,7 +361,7 @@ function adminResetRewards() {
   state.history.badges = [];
   state.history.claimedMilestones = {};
   state.history.coinHistory = [];
-  state.history.shop = { owned: ['blue'], equipped: 'blue' };
+  state.history.shop = { owned: ['blue'], equipped: 'blue', decor: '' };
   state.history.updatedAt = new Date().toISOString();
   saveHistory();
   render();
@@ -406,15 +447,25 @@ function renderSetup() {
   renderShell(`
     <section class="panel daily-card ${dailyComplete ? 'is-complete' : ''}">
       <div class="daily-copy">
-        <h1>Today</h1>
+        <span class="eyebrow daily-eyebrow">Today&rsquo;s practice</span>
+        <h1>${dailyComplete ? 'Great work!' : hasActiveDaily ? 'Keep going!' : 'Ready to think?'}</h1>
+        <p class="daily-message">${dailyComplete ? 'Your goal is complete. Come back for an extra challenge anytime.' : hasActiveDaily ? 'Your practice set is waiting exactly where you left it.' : 'A short daily set builds stronger thinking habits.'}</p>
+        <div class="daily-highlights" aria-label="Today&rsquo;s learning highlights">
+          <span><b>${summary.streak}</b> day streak</span>
+          <span><b>${summary.totalAnswered}</b> answered</span>
+          <span>${renderCoinIcon()}<b>${state.history.currentCoins}</b> coins</span>
+        </div>
         <button class="primary daily-cta" type="button" data-start-daily>${dailyComplete ? 'Practice more' : hasActiveDaily ? 'Continue' : 'Start'}</button>
       </div>
-      <div class="daily-progress-wrap">
-        <div class="daily-progress" style="--progress:${dailyPercent}%" aria-label="${daily.answered} of ${dailyGoal} questions complete">
-          <div><strong>${daily.answered}</strong><span>of ${dailyGoal}</span></div>
-        </div>
-        <div class="goal-options" aria-label="Daily goal">
-          ${DAILY_GOAL_OPTIONS.map((goal) => `<button class="goal-option ${goal === dailyGoal ? 'selected' : ''}" type="button" data-daily-goal="${goal}">${goal}<span>q</span></button>`).join('')}
+      <div class="daily-visual">
+        <div class="home-decoration" aria-hidden="true">${renderShopIcon(getActiveDecor()?.icon ?? 'spark-card')}</div>
+        <div class="daily-progress-wrap">
+          <div class="daily-progress" style="--progress:${dailyPercent}%" aria-label="${daily.answered} of ${dailyGoal} questions complete">
+            <div><strong>${daily.answered}</strong><span>of ${dailyGoal}</span></div>
+          </div>
+          <div class="goal-options" aria-label="Daily goal">
+            ${DAILY_GOAL_OPTIONS.map((goal) => `<button class="goal-option ${goal === dailyGoal ? 'selected' : ''}" type="button" data-daily-goal="${goal}">${goal}<span>q</span></button>`).join('')}
+          </div>
         </div>
       </div>
     </section>
@@ -1897,34 +1948,49 @@ function renderRewardShop() {
       </div>
       <span>${renderCoinIcon()}${state.history.currentCoins}</span>
     </div>
-    <div class="shop-grid">
-      ${SHOP_ITEMS.map((item) => {
-        const isOwned = owned.has(item.id);
-        const isEquipped = state.history.shop.equipped === item.id;
-        const canBuy = state.history.currentCoins >= item.price;
-        const label = isEquipped ? 'Using' : isOwned ? 'Use theme' : canBuy ? 'Buy' : `Need ${item.price - state.history.currentCoins}`;
-        return `
-          <article class="shop-card shop-card-${item.id} ${isEquipped ? 'is-equipped' : ''}">
-            <div class="shop-preview" aria-hidden="true">
-              <span class="theme-swatch"></span>
-              <span class="theme-preview-label">${escapeHtml(item.name)}</span>
-            </div>
-            <div class="shop-copy">
-              <div class="shop-card-top">
-                <b>${escapeHtml(item.name)}</b>
-                <span class="shop-price">${item.price ? `${renderCoinIcon()}${item.price}` : 'Default'}</span>
-              </div>
-              <span>${escapeHtml(item.description)}</span>
-              <div class="shop-card-foot">
-                <span class="shop-state ${isEquipped ? 'is-equipped' : isOwned ? 'is-owned' : canBuy ? 'can-buy' : 'locked'}">${label}</span>
-                <small>${isEquipped ? 'Applied across CogAT' : isOwned ? 'Ready to use' : canBuy ? 'Tap to buy' : 'Practice to earn more coins'}</small>
-              </div>
-            </div>
-            <button class="${isEquipped ? 'ghost' : 'primary'}" type="button" data-shop-action="${item.id}" ${(!isOwned && !canBuy) || isEquipped ? 'disabled' : ''}>${label}</button>
-          </article>
-        `;
-      }).join('')}
-    </div>
+    ${renderShopCollection('Color themes', 'Change the colors across CogAT.', SHOP_THEMES, owned)}
+    ${renderShopCollection('Today card decor', 'Choose one accent for your home dashboard.', SHOP_DECOR, owned)}
+  `;
+}
+
+function renderShopCollection(title, description, items, owned) {
+  return `
+    <section class="shop-collection">
+      <div class="shop-collection-head"><div><h3>${title}</h3><p>${description}</p></div><span>${items.length} items</span></div>
+      <div class="shop-grid">
+        ${items.map((item) => renderShopCard(item, owned)).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderShopCard(item, owned) {
+  const isOwned = owned.has(item.id);
+  const isEquipped = item.kind === 'theme'
+    ? state.history.shop.equipped === item.id
+    : state.history.shop.decor === item.id;
+  const canBuy = state.history.currentCoins >= item.price;
+  const useLabel = item.kind === 'theme' ? 'Use theme' : 'Use decor';
+  const label = isEquipped ? 'Using' : isOwned ? useLabel : canBuy ? 'Buy' : `Need ${item.price - state.history.currentCoins}`;
+  const preview = item.kind === 'theme'
+    ? `<span class="theme-swatch"></span><span class="theme-preview-label">${escapeHtml(item.name)}</span>`
+    : renderShopIcon(item.icon);
+  return `
+    <article class="shop-card shop-card-${item.id} shop-card-${item.kind} ${isEquipped ? 'is-equipped' : ''}">
+      <div class="shop-preview" aria-hidden="true">${preview}</div>
+      <div class="shop-copy">
+        <div class="shop-card-top">
+          <b>${escapeHtml(item.name)}</b>
+          <span class="shop-price">${item.price ? `${renderCoinIcon()}${item.price}` : 'Default'}</span>
+        </div>
+        <span>${escapeHtml(item.description)}</span>
+        <div class="shop-card-foot">
+          <span class="shop-state ${isEquipped ? 'is-equipped' : isOwned ? 'is-owned' : canBuy ? 'can-buy' : 'locked'}">${label}</span>
+          <small>${isEquipped ? 'Showing on your dashboard' : isOwned ? 'Ready to use' : canBuy ? 'Tap to buy' : 'Practice to earn more coins'}</small>
+        </div>
+      </div>
+      <button class="${isEquipped ? 'ghost' : 'primary'}" type="button" data-shop-action="${item.id}" ${(!isOwned && !canBuy) || isEquipped ? 'disabled' : ''}>${label}</button>
+    </article>
   `;
 }
 
@@ -1955,14 +2021,22 @@ function handleShopAction(itemId) {
 
   const owned = new Set(state.history.shop.owned);
   if (owned.has(item.id)) {
-    state.history.shop.equipped = item.id;
+    if (item.kind === 'theme') {
+      state.history.shop.equipped = item.id;
+    } else {
+      state.history.shop.decor = item.id;
+    }
   } else {
     if (state.history.currentCoins < item.price) {
       return;
     }
     state.history.currentCoins -= item.price;
     state.history.shop.owned = [...owned, item.id];
-    state.history.shop.equipped = item.id;
+    if (item.kind === 'theme') {
+      state.history.shop.equipped = item.id;
+    } else {
+      state.history.shop.decor = item.id;
+    }
     addCoinHistory(-item.price, 'shop', item.name);
   }
   state.history.updatedAt = new Date().toISOString();
@@ -2636,7 +2710,12 @@ function getEquippedClass(area) {
 
 function getActiveTheme() {
   const equipped = state.history.shop?.equipped;
-  return SHOP_ITEMS.some((item) => item.id === equipped) ? equipped : 'blue';
+  return SHOP_THEMES.some((item) => item.id === equipped) ? equipped : 'blue';
+}
+
+function getActiveDecor() {
+  const decor = state.history.shop?.decor;
+  return SHOP_DECOR.find((item) => item.id === decor) ?? null;
 }
 
 function handleKeyboard(event) {
@@ -2803,6 +2882,7 @@ function createEmptyHistory() {
     shop: {
       owned: ['blue'],
       equipped: 'blue',
+      decor: '',
     },
   };
 }
@@ -2947,8 +3027,9 @@ function normalizeShop(input = {}) {
   const owned = Array.isArray(input?.owned)
     ? [...new Set(['blue', ...input.owned.filter((id) => validIds.has(id))])]
     : ['blue'];
-  const equipped = owned.includes(input?.equipped) ? input.equipped : 'blue';
-  return { owned, equipped };
+  const equipped = owned.includes(input?.equipped) && SHOP_THEMES.some((item) => item.id === input.equipped) ? input.equipped : 'blue';
+  const decor = owned.includes(input?.decor) && SHOP_DECOR.some((item) => item.id === input.decor) ? input.decor : '';
+  return { owned, equipped, decor };
 }
 
 function saveHistory({ queueSync = true } = {}) {
@@ -3143,7 +3224,8 @@ function mergeCoinHistory(localEntries = [], remoteEntries = []) {
 function mergeShops(localShop = {}, remoteShop = {}, preferredShop = {}) {
   const owned = [...new Set([...(localShop.owned ?? []), ...(remoteShop.owned ?? [])])];
   const equipped = owned.includes(preferredShop.equipped) ? preferredShop.equipped : (owned.includes(localShop.equipped) ? localShop.equipped : null);
-  return { owned, equipped };
+  const decor = owned.includes(preferredShop.decor) ? preferredShop.decor : (owned.includes(localShop.decor) ? localShop.decor : null);
+  return { owned, equipped, decor };
 }
 
 function mergeRecordMaps(localRecords = {}, remoteRecords = {}) {
