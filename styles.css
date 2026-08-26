@@ -2334,12 +2334,6 @@ button:disabled {
   color: var(--blue);
 }
 
-.goal-option span {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
-}
-
 .daily-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2446,10 +2440,26 @@ button:disabled {
 
 .daily-cta {
   width: fit-content;
-  min-height: 52px;
-  padding: 0 24px;
+  min-width: 190px;
+  min-height: 56px;
+  padding: 0 26px;
   background: linear-gradient(180deg, #4b88ff 0%, var(--blue) 100%);
   box-shadow: 0 10px 18px rgba(52, 121, 246, 0.2);
+  font-size: 15px;
+}
+
+.daily-start-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.daily-start-row small {
+  max-width: 180px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.4;
 }
 
 .daily-cta:hover,
@@ -2545,33 +2555,26 @@ body[data-decor="focus-ring"] .home-decoration { color: var(--orange); }
   font-weight: 850;
 }
 
-.goal-options {
-  display: flex;
-  gap: 5px;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #ffffff;
+.daily-plan-label {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  border: 1px solid color-mix(in srgb, var(--blue) 18%, var(--line));
+  border-radius: 16px;
+  background: color-mix(in srgb, #ffffff 88%, var(--soft));
+  padding: 8px 12px;
+  text-align: center;
 }
 
-.goal-option {
-  min-width: 44px;
-  min-height: 44px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
+.daily-plan-label b {
+  color: var(--ink);
   font-size: 12px;
-  font-weight: 900;
 }
 
-.goal-option.selected {
-  background: var(--blue);
-  color: #ffffff;
-}
-
-.goal-option.selected span {
-  color: #dce7f8;
+.daily-plan-label span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
 }
 
 .dashboard-grid {
@@ -2715,8 +2718,72 @@ body[data-decor="focus-ring"] .home-decoration { color: var(--orange); }
   margin-top: 18px;
 }
 
-.custom-practice .section-heading h2 {
-  margin-bottom: 14px;
+.home-advanced {
+  padding: 0;
+}
+
+.custom-practice-summary {
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  list-style: none;
+}
+
+.custom-practice-summary::-webkit-details-marker {
+  display: none;
+}
+
+.custom-practice-summary > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.custom-practice-summary b {
+  color: var(--ink);
+  font-family: Nunito, Inter, sans-serif;
+  font-size: 17px;
+}
+
+.custom-practice-summary small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.custom-summary-arrow {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--soft);
+  color: var(--blue);
+  transition: transform 180ms ease, background 180ms ease;
+}
+
+.custom-summary-arrow svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  transform: rotate(90deg);
+}
+
+.home-advanced details[open] .custom-summary-arrow {
+  background: color-mix(in srgb, var(--blue) 12%, #ffffff);
+  transform: rotate(180deg);
+}
+
+.custom-practice-body {
+  border-top: 1px solid var(--line);
+  padding: 20px;
 }
 
 .custom-practice .controls {
@@ -3851,10 +3918,6 @@ summary:focus-visible {
     font-size: 28px;
   }
 
-  .goal-options {
-    align-self: end;
-  }
-
   .controls .primary {
     width: 100%;
   }
@@ -3885,6 +3948,48 @@ summary:focus-visible {
 
   .summary .row > b {
     font-size: 12px;
+  }
+}
+
+@media (max-width: 620px) {
+  .daily-card {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-copy h1 {
+    font-size: clamp(42px, 14vw, 58px);
+  }
+
+  .daily-start-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .daily-cta {
+    width: 100%;
+  }
+
+  .daily-start-row small {
+    max-width: none;
+    text-align: center;
+  }
+
+  .daily-visual {
+    width: 100%;
+    min-height: 158px;
+  }
+
+  .daily-progress-wrap {
+    justify-items: center;
+  }
+
+  .home-decoration {
+    right: calc(50% - 126px);
+  }
+
+  .custom-practice-summary {
+    min-height: 82px;
   }
 }
 

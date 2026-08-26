@@ -12,8 +12,7 @@ import { bonusQuestions } from './data/bonusQuestions.js';
 import { supabaseConfig } from './supabase-config.js';
 
 const QUESTION_LIMIT = 30;
-const DAILY_GOAL_OPTIONS = [5, 10, 15];
-const DEFAULT_DAILY_GOAL = 10;
+const DEFAULT_DAILY_GOAL = 30;
 const STORAGE_KEY = 'grade4-cogat-history-v2';
 const LEGACY_STORAGE_KEY = 'grade4-cogat-history-v1';
 
@@ -147,7 +146,7 @@ const state = {
   currentIndex: 0,
   checked: false,
   history: loadHistory(),
-  dailyGoal: 10,
+  dailyGoal: DEFAULT_DAILY_GOAL,
   sessionKind: 'custom',
   message: '',
   mockPartIndex: 0,
@@ -172,6 +171,7 @@ let authMode = 'signin';
 let authMenuOpen = false;
 let aboutMenuOpen = false;
 let adminTestModeOpen = false;
+let customPracticeOpen = false;
 let coinDisplayValue = null;
 let coinAnimationHandle = null;
 const authState = {
@@ -232,7 +232,7 @@ function renderShell(content) {
               </div>
               <p>Focused Grade 4 practice for verbal, quantitative, and nonverbal questions.</p>
               <div class="about-points">
-                <span><b>Practice</b> Question bank and daily goals.</span>
+                <span><b>Practice</b> One-tap 30-question daily practice and question bank.</span>
                 <span><b>Test mode</b> Timed mock exam with section checkpoints.</span>
                 <span><b>Rewards</b> Coins, badges, and cosmetic items in Game Center.</span>
               </div>
@@ -449,23 +449,24 @@ function renderSetup() {
       <div class="daily-copy">
         <span class="eyebrow daily-eyebrow">Today&rsquo;s practice</span>
         <h1>${dailyComplete ? 'Great work!' : hasActiveDaily ? 'Keep going!' : 'Ready to think?'}</h1>
-        <p class="daily-message">${dailyComplete ? 'Your goal is complete. Come back for an extra challenge anytime.' : hasActiveDaily ? 'Your practice set is waiting exactly where you left it.' : 'A short daily set builds stronger thinking habits.'}</p>
+        <p class="daily-message">${dailyComplete ? 'Your 30-question goal is complete. Start another mixed set whenever you want.' : hasActiveDaily ? 'Your 30-question practice is saved exactly where you left it.' : 'One smart mix of verbal, quantitative, and nonverbal questions.'}</p>
         <div class="daily-highlights" aria-label="Today&rsquo;s learning highlights">
           <span><b>${summary.streak}</b> day streak</span>
           <span><b>${summary.totalAnswered}</b> answered</span>
           <span>${renderCoinIcon()}<b>${state.history.currentCoins}</b> coins</span>
         </div>
-        <button class="primary daily-cta" type="button" data-start-daily>${dailyComplete ? 'Practice more' : hasActiveDaily ? 'Continue' : 'Start'}</button>
+        <div class="daily-start-row">
+          <button class="primary daily-cta" type="button" data-start-daily>${dailyComplete ? 'Start 30 more' : hasActiveDaily ? 'Continue practice' : 'Start 30 questions'}</button>
+          <small>No timer &middot; progress saves automatically</small>
+        </div>
       </div>
       <div class="daily-visual">
         <div class="home-decoration" aria-hidden="true">${renderShopIcon(getActiveDecor()?.icon ?? 'spark-card')}</div>
         <div class="daily-progress-wrap">
           <div class="daily-progress" style="--progress:${dailyPercent}%" aria-label="${daily.answered} of ${dailyGoal} questions complete">
-            <div><strong>${daily.answered}</strong><span>of ${dailyGoal}</span></div>
+            <div><strong>${daily.answered}</strong><span>of ${dailyGoal} done</span></div>
           </div>
-          <div class="goal-options" aria-label="Daily goal">
-            ${DAILY_GOAL_OPTIONS.map((goal) => `<button class="goal-option ${goal === dailyGoal ? 'selected' : ''}" type="button" data-daily-goal="${goal}">${goal}<span>q</span></button>`).join('')}
-          </div>
+          <div class="daily-plan-label"><b>30 questions</b><span>Smart mixed practice</span></div>
         </div>
       </div>
     </section>
@@ -482,7 +483,7 @@ function renderSetup() {
       </div>
 
       <div class="panel quick-panel">
-        <div class="section-heading"><h2>Start</h2></div>
+        <div class="section-heading"><h2>More practice</h2></div>
         <div class="quick-actions">
           <button class="quick-action" type="button" data-quick-mode="missed"><span class="quick-action-icon">${renderDashboardIcon('missed')}</span><b>Missed</b><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
           <button class="quick-action" type="button" data-quick-mode="new"><span class="quick-action-icon">${renderDashboardIcon('new')}</span><b>New</b><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
@@ -491,9 +492,14 @@ function renderSetup() {
       </div>
     </section>
 
-    <section class="panel custom-practice">
-      <div class="section-heading"><h2>Practice</h2></div>
-      <form class="controls" id="setup-form">
+    <section class="panel custom-practice home-advanced">
+      <details id="custom-practice-details" ${customPracticeOpen ? 'open' : ''}>
+        <summary class="custom-practice-summary">
+          <span><b>Build a custom practice set</b><small>Choose a Battery, Subtest, or review mode.</small></span>
+          <span class="custom-summary-arrow">${renderDashboardIcon('arrow')}</span>
+        </summary>
+        <div class="custom-practice-body">
+          <form class="controls" id="setup-form">
         <div class="exam-switch" aria-label="Choose exam type">
           <button class="${state.examType === 'practice' ? 'selected' : ''}" type="button" data-exam-type="practice">Practice set</button>
           <button class="${state.examType === 'mock' ? 'selected' : ''}" type="button" data-exam-type="mock">Mock exam</button>
@@ -514,7 +520,9 @@ function renderSetup() {
         `}
         <button class="primary" type="submit" ${state.examType === 'practice' && pool.length === 0 ? 'disabled' : ''}>${state.examType === 'mock' ? 'Start mock exam' : `Start ${Math.min(pool.length, QUESTION_LIMIT)}`}</button>
         ${state.message ? `<p class="message">${escapeHtml(state.message)}</p>` : ''}
-      </form>
+          </form>
+        </div>
+      </details>
     </section>
 
     <details class="data-box dashboard-data"><summary>Progress backup</summary><div class="data-actions"><button class="ghost" type="button" id="export-history">Export JSON</button><button class="ghost" type="button" id="import-history">Import JSON</button><button class="ghost" type="button" id="clear-history">Clear progress</button><input id="history-file" type="file" accept="application/json,.json" hidden></div></details>
@@ -528,13 +536,8 @@ function renderSetup() {
     });
   });
 
-  document.querySelectorAll('[data-daily-goal]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.dailyGoal = Number(button.dataset.dailyGoal);
-      state.history.dailyGoal = state.dailyGoal;
-      saveHistory();
-      render();
-    });
+  document.querySelector('#custom-practice-details').addEventListener('toggle', (event) => {
+    customPracticeOpen = event.currentTarget.open;
   });
 
   document.querySelector('[data-start-daily]').addEventListener('click', startDailyPractice);
@@ -2372,7 +2375,7 @@ function selectDailyQuestions(goal) {
 
 function hasResumableDailySession() {
   const active = state.history.activeSession;
-  return Boolean(active && active.kind === 'daily' && active.date === getDateKey() && !getDailyProgress().completed);
+  return Boolean(hasStoredActiveDailySession() && active && !getDailyProgress().completed);
 }
 
 function persistActiveSession() {
@@ -2446,6 +2449,7 @@ function goHome() {
   stopMockTimer();
   state.view = 'setup';
   state.examType = 'practice';
+  customPracticeOpen = false;
   state.message = '';
   render();
 }
@@ -2821,7 +2825,8 @@ function getDailyProgress() {
 
 function hasStoredActiveDailySession() {
   const active = state.history.activeSession;
-  return Boolean(active && active.kind === 'daily' && active.date === getDateKey());
+  const activeGoal = Number(active?.goal ?? active?.questionIds?.length ?? 0);
+  return Boolean(active && active.kind === 'daily' && active.date === getDateKey() && activeGoal === DEFAULT_DAILY_GOAL);
 }
 
 function getCurrentStreak() {
@@ -2919,7 +2924,7 @@ function normalizeHistory(input) {
     };
   });
 
-  next.dailyGoal = DAILY_GOAL_OPTIONS.includes(Number(input?.dailyGoal)) ? Number(input.dailyGoal) : DEFAULT_DAILY_GOAL;
+  next.dailyGoal = DEFAULT_DAILY_GOAL;
   next.daily = Object.entries(input?.daily ?? {}).reduce((daily, [date, record]) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return daily;
