@@ -9,15 +9,17 @@ import { mockExamQuestions } from './data/mockExamQuestions.js';
 import { level10OriginalQuestions } from './data/level10OriginalQuestions.js';
 import { g4WorkbookQuestions } from './data/g4WorkbookQuestions.js';
 import { bonusQuestions } from './data/bonusQuestions.js';
+import { verbalVocabularyQuestions } from './data/verbalVocabularyQuestions.js';
 import { supabaseConfig } from './supabase-config.js';
 
 const QUESTION_LIMIT = 30;
 const DEFAULT_DAILY_GOAL = 30;
+const DONT_KNOW_ANSWER = '__dont_know__';
 const STORAGE_KEY = 'grade4-cogat-history-v2';
 const LEGACY_STORAGE_KEY = 'grade4-cogat-history-v1';
 
 const rawQuestionSets = {
-  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalWorkbookQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
+  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalVocabularyQuestions, ...verbalWorkbookQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
   quantitative: [...quantitativeQuestions, ...quantitativeExtraQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...bonusQuestions.filter((question) => question.battery === 'Quantitative Battery')],
   nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Nonverbal Battery')],
 };
@@ -131,6 +133,16 @@ const SHOP_DECOR = [
 
 const SHOP_ITEMS = [...SHOP_THEMES, ...SHOP_DECOR];
 
+const PRACTICE_MODES = [
+  { id: 'all', label: 'Mixed' },
+  { id: 'new', label: 'New' },
+  { id: 'missed', label: 'Missed' },
+  { id: 'weak', label: 'Weak' },
+  { id: 'very-hard', label: 'Challenge' },
+  { id: 'pdf', label: 'Workbook' },
+  { id: 'correct', label: 'Correct' },
+];
+
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
 const allQuestions = batteries[0].questions;
 const questionById = new Map(Object.values(rawQuestionSets).flat().map((question) => [String(question.id), question]));
@@ -171,7 +183,7 @@ let authMode = 'signin';
 let authMenuOpen = false;
 let aboutMenuOpen = false;
 let adminTestModeOpen = false;
-let customPracticeOpen = false;
+let customPracticeOpen = true;
 let coinDisplayValue = null;
 let coinAnimationHandle = null;
 const authState = {
@@ -226,18 +238,21 @@ function renderShell(content) {
             <summary aria-label="About this site">?</summary>
             <div class="about-card">
               <div class="about-head">
-                <span class="about-kicker">About</span>
-                <b>CogAT 4</b>
-                <small>Updated July 27, 2026.</small>
+                <span class="about-mark" aria-hidden="true">4</span>
+                <span class="about-title">
+                  <span class="about-kicker">About</span>
+                  <b>CogAT 4</b>
+                </span>
+                <small class="about-updated"><i aria-hidden="true"></i>Updated August 27, 2026</small>
               </div>
-              <p>Focused Grade 4 practice for verbal, quantitative, and nonverbal questions.</p>
+              <p>Grade 4 verbal, quantitative, and nonverbal practice.</p>
               <div class="about-points">
-                <span><b>Practice</b> One-tap 30-question daily practice and question bank.</span>
-                <span><b>Test mode</b> Timed mock exam with section checkpoints.</span>
-                <span><b>Rewards</b> Coins, badges, and cosmetic items in Game Center.</span>
+                <span><b>Practice</b><small>30-question daily sets</small></span>
+                <span><b>Mock</b><small>Timed section practice</small></span>
+                <span><b>Rewards</b><small>Coins, badges, and themes</small></span>
               </div>
               <div class="about-foot">
-                <span>Progress stays local, with optional sync and JSON backup.</span>
+                <span>Local progress · Optional sync · JSON backup</span>
                 <a href="https://github.com/marksui/CogAT" target="_blank" rel="noopener noreferrer">View source</a>
               </div>
               <details class="about-admin" ${adminTestModeOpen ? 'open' : ''}>
@@ -284,15 +299,17 @@ function renderShell(content) {
     render();
   });
 
-  document.querySelector('[data-game-center]')?.addEventListener('click', () => {
-    authMenuOpen = false;
-    aboutMenuOpen = false;
-    adminTestModeOpen = false;
-    persistActiveSession();
-    stopMockTimer();
-    state.view = 'game-center';
-    state.message = '';
-    render();
+  document.querySelectorAll('[data-game-center]').forEach((button) => {
+    button.addEventListener('click', () => {
+      authMenuOpen = false;
+      aboutMenuOpen = false;
+      adminTestModeOpen = false;
+      persistActiveSession();
+      stopMockTimer();
+      state.view = 'game-center';
+      state.message = '';
+      render();
+    });
   });
 
   document.querySelector('#auth-form')?.addEventListener('submit', sendMagicLink);
@@ -443,82 +460,136 @@ function renderSetup() {
   const summary = getProgressSummary();
   const hasActiveDaily = hasResumableDailySession();
   const dailyComplete = daily.completed;
+  const selectedBattery = batteryMap.get(state.battery) ?? batteryMap.get('all');
+  const selectedMode = PRACTICE_MODES.find((mode) => mode.id === state.mode) ?? PRACTICE_MODES[0];
+  const newQuestionCount = getPracticePoolFor('all', 'all', 'new').length;
+  const batteryProgress = batteries.filter((battery) => battery.key !== 'all').map((battery) => ({
+    ...battery,
+    progress: getBatteryProgress(battery.key),
+  }));
 
   renderShell(`
-    <section class="panel daily-card ${dailyComplete ? 'is-complete' : ''}">
-      <div class="daily-copy">
-        <span class="eyebrow daily-eyebrow">Today&rsquo;s practice</span>
-        <h1>${dailyComplete ? 'Great work!' : hasActiveDaily ? 'Keep going!' : 'Ready to think?'}</h1>
-        <p class="daily-message">${dailyComplete ? 'Your 30-question goal is complete. Start another mixed set whenever you want.' : hasActiveDaily ? 'Your 30-question practice is saved exactly where you left it.' : 'One smart mix of verbal, quantitative, and nonverbal questions.'}</p>
-        <div class="daily-highlights" aria-label="Today&rsquo;s learning highlights">
-          <span><b>${summary.streak}</b> day streak</span>
-          <span><b>${summary.totalAnswered}</b> answered</span>
-          <span>${renderCoinIcon()}<b>${state.history.currentCoins}</b> coins</span>
-        </div>
-        <div class="daily-start-row">
-          <button class="primary daily-cta" type="button" data-start-daily>${dailyComplete ? 'Start 30 more' : hasActiveDaily ? 'Continue practice' : 'Start 30 questions'}</button>
-          <small>No timer &middot; progress saves automatically</small>
+    <section class="panel home-hero ${dailyComplete ? 'is-complete' : ''}">
+      <div class="home-hero-copy">
+        <span class="eyebrow home-eyebrow">Today</span>
+        <h1>${dailyComplete ? '30 done!' : hasActiveDaily ? 'Keep going.' : 'Ready?'}</h1>
+        <div class="home-hero-actions">
+          <button class="primary daily-cta" type="button" data-start-daily>${dailyComplete ? 'Practice 30 more' : hasActiveDaily ? `Continue · ${daily.answered}/${dailyGoal}` : 'Start 30'}</button>
+          <span>No timer <i aria-hidden="true"></i> Auto-save</span>
         </div>
       </div>
-      <div class="daily-visual">
-        <div class="home-decoration" aria-hidden="true">${renderShopIcon(getActiveDecor()?.icon ?? 'spark-card')}</div>
-        <div class="daily-progress-wrap">
-          <div class="daily-progress" style="--progress:${dailyPercent}%" aria-label="${daily.answered} of ${dailyGoal} questions complete">
-            <div><strong>${daily.answered}</strong><span>of ${dailyGoal} done</span></div>
-          </div>
-          <div class="daily-plan-label"><b>30 questions</b><span>Smart mixed practice</span></div>
+      <aside class="daily-plan" aria-label="Today&rsquo;s practice progress">
+        <div class="daily-plan-top">
+          <div><span>Today</span><b>${dailyComplete ? 'Complete' : `${dailyGoal - daily.answered} left`}</b></div>
+          <strong>${dailyPercent}%</strong>
         </div>
+        <div class="daily-plan-meter" aria-hidden="true"><span style="width:${dailyPercent}%"></span></div>
+        <div class="daily-plan-count"><strong>${daily.answered}</strong><span>/ ${dailyGoal} questions</span></div>
+        <div class="daily-plan-batteries" aria-label="Three CogAT batteries">
+          <span><i class="battery-dot verbal"></i>Verbal</span>
+          <span><i class="battery-dot quantitative"></i>Quantitative</span>
+          <span><i class="battery-dot nonverbal"></i>Nonverbal</span>
+        </div>
+        <div class="home-decoration" aria-hidden="true">${renderShopIcon(getActiveDecor()?.icon ?? 'spark-card')}</div>
+      </aside>
+    </section>
+
+    <section class="home-stat-grid" aria-label="Learning summary">
+      <div class="home-stat"><span>Day streak</span><strong>${summary.streak}</strong><small>${summary.streak === 1 ? 'day in a row' : 'days in a row'}</small></div>
+      <div class="home-stat"><span>Total answered</span><strong>${summary.totalAnswered}</strong><small>all practice</small></div>
+      <div class="home-stat"><span>Recent score</span><strong>${summary.lastAccuracy === null ? '—' : `${summary.lastAccuracy}%`}</strong><small>${summary.lastAccuracy === null ? 'finish a set' : 'last completed set'}</small></div>
+      <button class="home-stat home-coin-stat" type="button" data-game-center><span>Reward coins</span><strong>${state.history.currentCoins}</strong><small>Open reward shop ${renderDashboardIcon('arrow')}</small></button>
+    </section>
+
+    <section class="home-section">
+      <div class="home-section-heading">
+        <div><span class="eyebrow">Batteries</span><h2>Pick one</h2></div>
+      </div>
+      <div class="battery-progress-grid">
+        ${batteryProgress.map((battery) => `
+          <button class="battery-progress-card battery-${battery.key}" type="button" data-home-battery="${battery.key}">
+            <span class="battery-progress-icon">${renderBatteryIcon(battery.key)}</span>
+            <span class="battery-progress-copy"><b>${battery.label}</b><small>${battery.progress.attempted} answered</small></span>
+            <strong>${battery.progress.accuracy === null ? 'Ready' : `${battery.progress.accuracy}%`}</strong>
+            <span class="battery-card-arrow">${renderDashboardIcon('arrow')}</span>
+          </button>
+        `).join('')}
       </div>
     </section>
 
-    <section class="dashboard-grid">
-      <div class="panel progress-panel">
-        <div class="section-heading"><h2>Progress</h2></div>
-        <div class="progress-list">
-          ${batteries.filter((battery) => battery.key !== 'all').map((battery) => {
-            const item = getBatteryProgress(battery.key);
-            return `<div class="progress-row"><b>${battery.label}</b><strong>${item.accuracy === null ? 'Ready' : `${item.accuracy}%`}</strong></div>`;
-          }).join('')}
-        </div>
-      </div>
-
-      <div class="panel quick-panel">
-        <div class="section-heading"><h2>More practice</h2></div>
-        <div class="quick-actions">
-          <button class="quick-action" type="button" data-quick-mode="missed"><span class="quick-action-icon">${renderDashboardIcon('missed')}</span><b>Missed</b><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
-          <button class="quick-action" type="button" data-quick-mode="new"><span class="quick-action-icon">${renderDashboardIcon('new')}</span><b>New</b><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
-          <button class="quick-action" type="button" data-quick-mock><span class="quick-action-icon">${renderDashboardIcon('mock')}</span><b>Mock Exam</b><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
-        </div>
+    <section class="panel quick-panel home-quick-panel">
+      <div class="home-section-heading compact"><div><h2>Quick start</h2></div></div>
+      <div class="quick-actions">
+        <button class="quick-action" type="button" data-quick-mode="missed" ${summary.missed === 0 ? 'disabled' : ''}><span class="quick-action-icon">${renderDashboardIcon('missed')}</span><span><b>Missed</b><small>${summary.missed ? `${summary.missed} questions` : 'None yet'}</small></span><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
+        <button class="quick-action" type="button" data-quick-mode="new" ${newQuestionCount === 0 ? 'disabled' : ''}><span class="quick-action-icon">${renderDashboardIcon('new')}</span><span><b>New</b><small>${newQuestionCount} questions</small></span><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
+        <button class="quick-action" type="button" data-quick-mock><span class="quick-action-icon">${renderDashboardIcon('mock')}</span><span><b>Mock</b><small>Timed test</small></span><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
       </div>
     </section>
 
     <section class="panel custom-practice home-advanced">
       <details id="custom-practice-details" ${customPracticeOpen ? 'open' : ''}>
         <summary class="custom-practice-summary">
-          <span><b>Build a custom practice set</b><small>Choose a Battery, Subtest, or review mode.</small></span>
+          <span><b>Custom practice</b></span>
           <span class="custom-summary-arrow">${renderDashboardIcon('arrow')}</span>
         </summary>
         <div class="custom-practice-body">
           <form class="controls" id="setup-form">
-        <div class="exam-switch" aria-label="Choose exam type">
-          <button class="${state.examType === 'practice' ? 'selected' : ''}" type="button" data-exam-type="practice">Practice set</button>
-          <button class="${state.examType === 'mock' ? 'selected' : ''}" type="button" data-exam-type="mock">Mock exam</button>
+        <div class="exam-switch" role="group" aria-label="Choose activity type">
+          <button class="${state.examType === 'practice' ? 'selected' : ''}" type="button" data-exam-type="practice" aria-pressed="${state.examType === 'practice'}"><b>Practice</b></button>
+          <button class="${state.examType === 'mock' ? 'selected' : ''}" type="button" data-exam-type="mock" aria-pressed="${state.examType === 'mock'}"><b>Mock</b></button>
         </div>
 
         ${state.examType === 'mock' ? `
-          <div class="mock-preview">
-            <div class="mock-parts">
-              ${mockParts.map((part, index) => `<div class="mock-part"><span>${index + 1}</span><div><b>${part.label}</b><small>${part.minutes} minutes · ${part.questionCount} questions</small></div></div>`).join('')}
+          <div class="mock-builder">
+            <div class="mock-preview">
+              <div class="builder-step-title"><span>Full test</span><div><b>9 timed sections</b><small>Work through each Battery with scheduled checkpoints.</small></div></div>
+              <div class="mock-parts">
+                ${mockParts.map((part, index) => `<div class="mock-part"><span>${index + 1}</span><div><b>${part.label}</b><small>${part.minutes} minutes · ${part.questionCount} questions</small></div></div>`).join('')}
+              </div>
             </div>
+            <aside class="builder-summary mock-builder-summary"><span>Your activity</span><h3>Full mock exam</h3><p>176 questions across all three Batteries.</p><button class="primary" type="submit">Review exam setup</button></aside>
           </div>
         ` : `
-          <div><div class="step-label">Battery</div><div class="battery-grid" aria-label="Battery">
-            ${batteries.map((battery) => `<button class="battery-card ${battery.key === state.battery ? 'selected' : ''}" type="button" data-battery="${battery.key}"><b>${battery.kidLabel}</b><span>${battery.questions.length} questions</span></button>`).join('')}
-          </div></div>
-          <label><span>Subtest</span><select id="subtest"><option value="all">All subtests</option>${subtests.map((subtest) => `<option value="${escapeHtml(subtest)}" ${subtest === state.subtest ? 'selected' : ''}>${subtest}</option>`).join('')}</select></label>
-          <label><span>Mode</span><select id="mode"><option value="all" ${state.mode === 'all' ? 'selected' : ''}>All questions</option><option value="new" ${state.mode === 'new' ? 'selected' : ''}>New only</option><option value="missed" ${state.mode === 'missed' ? 'selected' : ''}>Missed review</option><option value="weak" ${state.mode === 'weak' ? 'selected' : ''}>Weak areas</option><option value="very-hard" ${state.mode === 'very-hard' ? 'selected' : ''}>Very hard only</option><option value="pdf" ${state.mode === 'pdf' ? 'selected' : ''}>PDF workbook only</option><option value="correct" ${state.mode === 'correct' ? 'selected' : ''}>Correct review</option></select></label>
+          <div class="practice-builder">
+            <div class="builder-options">
+              <fieldset class="builder-step">
+                <legend><span>1</span><b>Battery</b></legend>
+                <div class="battery-grid" aria-label="Battery">
+                  ${batteries.map((battery) => `<button class="battery-card ${battery.key === state.battery ? 'selected' : ''}" type="button" data-battery="${battery.key}" aria-pressed="${battery.key === state.battery}"><span class="battery-choice-icon">${renderBatteryIcon(battery.key)}</span><span><b>${battery.kidLabel}</b><small>${battery.questions.length} questions</small></span><i aria-hidden="true"></i></button>`).join('')}
+                </div>
+              </fieldset>
+
+              <fieldset class="builder-step">
+                <legend><span>2</span><b>Subtest</b></legend>
+                <div class="choice-chip-grid" aria-label="Subtest">
+                  <button class="choice-chip ${state.subtest === 'all' ? 'selected' : ''}" type="button" data-subtest-choice="all" aria-pressed="${state.subtest === 'all'}">All subtests</button>
+                  ${subtests.map((subtest) => `<button class="choice-chip ${subtest === state.subtest ? 'selected' : ''}" type="button" data-subtest-choice="${escapeHtml(subtest)}" aria-pressed="${subtest === state.subtest}">${escapeHtml(subtest)}</button>`).join('')}
+                </div>
+              </fieldset>
+
+              <fieldset class="builder-step">
+                <legend><span>3</span><b>Focus</b></legend>
+                <div class="mode-choice-grid" aria-label="Practice focus">
+                  ${PRACTICE_MODES.map((mode) => {
+                    const modeCount = getPracticePoolFor(state.battery, state.subtest, mode.id).length;
+                    return `<button class="mode-choice ${mode.id === state.mode ? 'selected' : ''}" type="button" data-mode-choice="${mode.id}" aria-pressed="${mode.id === state.mode}" ${modeCount === 0 ? 'disabled' : ''}><span><b>${mode.label}</b></span><strong>${modeCount}</strong></button>`;
+                  }).join('')}
+                </div>
+              </fieldset>
+            </div>
+
+            <aside class="builder-summary">
+              <span>Your set</span>
+              <h3>${escapeHtml(selectedBattery.label)}</h3>
+              <dl>
+                <div><dt>Subtest</dt><dd>${state.subtest === 'all' ? 'All subtests' : escapeHtml(state.subtest)}</dd></div>
+                <div><dt>Focus</dt><dd>${escapeHtml(selectedMode.label)}</dd></div>
+                <div><dt>Available</dt><dd>${pool.length} questions</dd></div>
+              </dl>
+              <button class="primary builder-start" type="submit" ${pool.length === 0 ? 'disabled' : ''}>${pool.length === 0 ? 'No questions available' : `Start ${Math.min(pool.length, QUESTION_LIMIT)} questions`}</button>
+            </aside>
+          </div>
         `}
-        <button class="primary" type="submit" ${state.examType === 'practice' && pool.length === 0 ? 'disabled' : ''}>${state.examType === 'mock' ? 'Start mock exam' : `Start ${Math.min(pool.length, QUESTION_LIMIT)}`}</button>
         ${state.message ? `<p class="message">${escapeHtml(state.message)}</p>` : ''}
           </form>
         </div>
@@ -553,6 +624,15 @@ function renderSetup() {
     state.examType = 'mock';
     startMockIntro();
   });
+  document.querySelectorAll('[data-home-battery]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.examType = 'practice';
+      state.battery = button.dataset.homeBattery;
+      state.subtest = 'all';
+      state.mode = 'all';
+      startPractice();
+    });
+  });
 
   document.querySelector('#export-history').addEventListener('click', exportHistory);
   document.querySelector('#import-history').addEventListener('click', () => document.querySelector('#history-file').click());
@@ -573,26 +653,46 @@ function renderSetup() {
       state.battery = selectedBattery.key;
       state.subtest = 'all';
       state.message = '';
+      customPracticeOpen = true;
       render();
     });
   });
 
-  document.querySelector('#subtest').addEventListener('change', (event) => {
-    state.subtest = event.target.value;
-    state.message = '';
-    render();
+  document.querySelectorAll('[data-subtest-choice]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.subtest = button.dataset.subtestChoice;
+      state.message = '';
+      customPracticeOpen = true;
+      render();
+    });
   });
 
-  document.querySelector('#mode').addEventListener('change', (event) => {
-    state.mode = event.target.value;
-    state.message = '';
-    render();
+  document.querySelectorAll('[data-mode-choice]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.mode = button.dataset.modeChoice;
+      state.message = '';
+      customPracticeOpen = true;
+      render();
+    });
   });
 
   document.querySelector('#setup-form').addEventListener('submit', (event) => {
     event.preventDefault();
     startPractice();
   });
+}
+
+function renderBatteryIcon(batteryKey) {
+  if (batteryKey === 'verbal') {
+    return renderBadgeIcon('book');
+  }
+  if (batteryKey === 'quantitative') {
+    return renderBadgeIcon('numbers');
+  }
+  if (batteryKey === 'nonverbal') {
+    return renderBadgeIcon('pattern');
+  }
+  return renderBadgeIcon('balance');
 }
 
 function renderPractice() {
@@ -602,6 +702,8 @@ function renderPractice() {
   const isLast = state.currentIndex === total - 1;
   const difficulty = getDifficulty(question);
   const isCorrect = answer === getCorrectAnswer(question);
+  const isVerbal = question.battery === 'Verbal Battery';
+  const didNotKnow = answer === DONT_KNOW_ANSWER;
 
   renderShell(`
     <section class="panel practice">
@@ -635,11 +737,23 @@ function renderPractice() {
         }).join('')}
       </div>
 
+      ${isVerbal && !state.checked ? `
+        <button class="dont-know-option" type="button" data-dont-know>
+          <span aria-hidden="true">?</span>
+          <b>I don&rsquo;t know</b>
+          <small>Show the answer and meanings</small>
+        </button>
+      ` : ''}
+
       ${state.checked ? `
-        <div class="feedback">
-          <b>${isCorrect ? 'Correct! You earned 1 coin.' : 'Nice work &mdash; you earned 1 coin for practicing.'}</b>
+        <div class="feedback ${isCorrect ? 'is-correct' : 'is-learning'}">
+          <b>${isCorrect ? 'Correct! You earned 1 coin.' : didNotKnow ? 'That&rsquo;s okay &mdash; let&rsquo;s learn it.' : 'Good try &mdash; let&rsquo;s learn from it.'}</b>
           ${!isCorrect ? `<small>Correct answer: ${getCorrectAnswer(question)}</small>` : ''}
           <span>${question.explanation}</span>
+          ${!isCorrect && isVerbal ? `
+            <div class="verbal-tip"><b>Tip</b><span>${escapeHtml(getVerbalHint(question))}</span></div>
+            ${renderWordMeaningGuide(question)}
+          ` : ''}
           <span class="coin-reward-pill">${renderCoinIcon()}+1 Coin</span>
         </div>
       ` : ''}
@@ -662,19 +776,19 @@ function renderPractice() {
     });
   });
 
+  document.querySelector('[data-dont-know]')?.addEventListener('click', (event) => {
+    state.answers[state.currentIndex] = DONT_KNOW_ANSWER;
+    persistActiveSession();
+    submitPracticeAnswer(question, DONT_KNOW_ANSWER, event.currentTarget);
+  });
+
   document.querySelector('#check').addEventListener('click', () => {
     if (!state.checked) {
       if (!answer) {
         return;
       }
       const rewardOrigin = document.querySelector('.option.selected') ?? document.querySelector('.question-card');
-      state.checked = true;
-      state.practiceCoinMessage = answer === getCorrectAnswer(question) ? 'correct' : 'practice';
-      recordAnswer(question, answer, { save: false });
-      awardCoins(1, 'practice', 'Practice answer', { animate: true, originElement: rewardOrigin });
-      saveHistory();
-      persistActiveSession();
-      render();
+      submitPracticeAnswer(question, answer, rewardOrigin);
       return;
     }
 
@@ -693,6 +807,48 @@ function renderPractice() {
   document.querySelector('#back').addEventListener('click', () => {
     goHome();
   });
+}
+
+function submitPracticeAnswer(question, answer, rewardOrigin) {
+  state.checked = true;
+  state.practiceCoinMessage = answer === getCorrectAnswer(question) ? 'correct' : 'practice';
+  recordAnswer(question, answer, { save: false });
+  awardCoins(1, 'practice', 'Practice answer', { animate: true, originElement: rewardOrigin });
+  saveHistory();
+  persistActiveSession();
+  render();
+}
+
+function getVerbalHint(question) {
+  if (question.hint) {
+    return question.hint;
+  }
+  if (question.subtest === 'Verbal Analogies') {
+    return 'Say how the first two words are related, then use the same relationship for the second pair.';
+  }
+  if (question.subtest === 'Verbal Classification') {
+    return 'Name the group shared by most choices, then find the choice that does not fit.';
+  }
+  return 'Read the whole sentence and try each choice in the blank.';
+}
+
+function renderWordMeaningGuide(question) {
+  if (!Array.isArray(question.wordMeanings) || question.wordMeanings.length === 0) {
+    return '';
+  }
+  return `
+    <div class="word-meaning-guide">
+      <div class="word-meaning-head"><b>Word meanings</b><span>A&ndash;E</span></div>
+      <div class="word-meaning-grid">
+        ${question.wordMeanings.map((item) => `
+          <div class="word-meaning-item ${item.label === getCorrectAnswer(question) ? 'is-answer' : ''}">
+            <b>${escapeHtml(item.label)}. ${escapeHtml(item.word)}</b>
+            <span>${escapeHtml(item.meaning)}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function renderMockIntro() {
@@ -1735,7 +1891,7 @@ function renderResults() {
             const index = state.questions.indexOf(question);
             return `
               <article>
-                <b>${escapeHtml(question.subtest)} - ${state.answers[index]} -> ${getCorrectAnswer(question)}</b>
+                <b>${escapeHtml(question.subtest)} - ${formatPracticeAnswer(state.answers[index])} -> ${getCorrectAnswer(question)}</b>
                 <p>${question.explanation}</p>
               </article>
             `;
@@ -2449,38 +2605,46 @@ function goHome() {
   stopMockTimer();
   state.view = 'setup';
   state.examType = 'practice';
-  customPracticeOpen = false;
+  customPracticeOpen = true;
   state.message = '';
   render();
 }
 
 function getBasePool() {
-  const battery = batteryMap.get(state.battery) ?? batteryMap.get('all');
+  return getBasePoolFor(state.battery, state.subtest);
+}
+
+function getBasePoolFor(batteryKey = 'all', subtest = 'all') {
+  const battery = batteryMap.get(batteryKey) ?? batteryMap.get('all');
   const batteryQuestions = battery.questions;
-  if (state.subtest === 'all') {
+  if (subtest === 'all') {
     return batteryQuestions;
   }
-  return batteryQuestions.filter((question) => question.subtest === state.subtest);
+  return batteryQuestions.filter((question) => question.subtest === subtest);
 }
 
 function getPracticePool() {
-  const pool = getBasePool();
-  if (state.mode === 'new') {
+  return getPracticePoolFor(state.battery, state.subtest, state.mode);
+}
+
+function getPracticePoolFor(batteryKey = 'all', subtest = 'all', mode = 'all') {
+  const pool = getBasePoolFor(batteryKey, subtest);
+  if (mode === 'new') {
     return pool.filter((question) => !state.history.stats[String(question.id)]);
   }
-  if (state.mode === 'missed') {
+  if (mode === 'missed') {
     return pool.filter((question) => state.history.stats[String(question.id)]?.lastResult === 'wrong');
   }
-  if (state.mode === 'weak') {
+  if (mode === 'weak') {
     return pool.filter((question) => isWeakQuestion(question));
   }
-  if (state.mode === 'very-hard') {
+  if (mode === 'very-hard') {
     return pool.filter((question) => getDifficulty(question) === 'very-hard');
   }
-  if (state.mode === 'pdf') {
+  if (mode === 'pdf') {
     return pool.filter((question) => question.source === 'G4 PDF workbook');
   }
-  if (state.mode === 'correct') {
+  if (mode === 'correct') {
     return pool.filter((question) => state.history.stats[String(question.id)]?.lastResult === 'correct');
   }
   return pool;
@@ -2734,6 +2898,11 @@ function handleKeyboard(event) {
   const key = event.key.toLowerCase();
   const optionIndex = ['a', 'b', 'c', 'd', 'e'].indexOf(key);
   const question = state.questions[state.currentIndex];
+  if (key === 'i' && state.view === 'practice' && question?.battery === 'Verbal Battery' && !state.checked) {
+    event.preventDefault();
+    document.querySelector('[data-dont-know]')?.click();
+    return;
+  }
   if (optionIndex >= 0 && question?.options?.[optionIndex]) {
     state.answers[state.currentIndex] = getOptionValue(question.options[optionIndex]);
     persistActiveSession();
@@ -2749,6 +2918,10 @@ function handleKeyboard(event) {
     event.preventDefault();
     document.querySelector(state.view === 'practice' ? '#check' : '#mock-next')?.click();
   }
+}
+
+function formatPracticeAnswer(answer) {
+  return answer === DONT_KNOW_ANSWER ? 'I don’t know' : (answer ?? '—');
 }
 
 function getSubtests() {

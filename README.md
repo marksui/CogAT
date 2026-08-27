@@ -12,6 +12,8 @@ The app stores question results, the fixed 30-question daily practice, streaks, 
 
 The question content and practice interface are in English to match the Grade 4 CogAT-style material. This is an independent practice site, not an official CogAT product.
 
+Verbal practice includes vocabulary support: students can choose **I don’t know** to reveal the answer and a learning tip. Vocabulary questions also explain the meaning of every A–E choice after an incorrect answer.
+
 Mock exam results show raw accuracy plus a clearly labeled practice estimate for SAS, percentile, and stanine. The estimate is not an official CogAT score; official scores require the test form, level, age or grade norms, and Riverside conversion tables.
 
 ## Optional cross-device sync
