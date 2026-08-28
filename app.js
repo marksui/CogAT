@@ -199,7 +199,6 @@ let authMenuOpen = false;
 let aboutMenuOpen = false;
 let adminTestModeOpen = false;
 let customPracticeOpen = true;
-let builderSubtestsExpanded = false;
 let builderFocusExpanded = false;
 let eyeCareEnabled = loadEyeCareMode();
 let coinDisplayValue = null;
@@ -511,11 +510,6 @@ function renderSetup() {
     ...group,
     items: group.matches.filter((subtest) => subtests.includes(subtest)),
   })).filter((group) => group.items.length > 0);
-  const featuredSubtests = new Set(groupedSubtests.map((group) => group.items[0]));
-  if (state.subtest !== 'all') {
-    featuredSubtests.add(state.subtest);
-  }
-  const hiddenSubtestCount = subtests.filter((subtest) => !featuredSubtests.has(subtest)).length;
   const featuredModes = new Set(['all', 'new', 'missed']);
   featuredModes.add(state.mode);
   const hiddenModeCount = PRACTICE_MODES.filter((mode) => !featuredModes.has(mode.id)).length;
@@ -628,17 +622,12 @@ function renderSetup() {
               <fieldset class="builder-step">
                 <legend><span>2</span><b>Subtest</b></legend>
                 <div class="builder-choice-panel" aria-label="Subtest">
-                  <button class="choice-chip choice-chip-all ${state.subtest === 'all' ? 'selected' : ''}" type="button" data-subtest-choice="all" aria-pressed="${state.subtest === 'all'}"><span class="choice-chip-icon">${renderBadgeIcon('balance')}</span><span>All subtests</span></button>
                   <div class="choice-group-list">
-                    ${groupedSubtests.map((group) => {
-                      const visibleItems = builderSubtestsExpanded ? group.items : group.items.filter((subtest) => featuredSubtests.has(subtest));
-                      if (visibleItems.length === 0) {
-                        return '';
-                      }
-                      return `<div class="choice-group choice-group-${group.id}"><span class="choice-group-label"><i>${renderBadgeIcon(group.icon)}</i>${group.label}</span><div class="choice-chip-grid">${visibleItems.map((subtest) => `<button class="choice-chip ${subtest === state.subtest ? 'selected' : ''}" type="button" data-subtest-choice="${escapeHtml(subtest)}" aria-pressed="${subtest === state.subtest}">${escapeHtml(subtest)}</button>`).join('')}</div></div>`;
-                    }).join('')}
+                    ${groupedSubtests.map((group, index) => `
+                      <div class="choice-group choice-group-${group.id}"><span class="choice-group-label"><i>${renderBadgeIcon(group.icon)}</i>${group.label}</span><div class="choice-chip-grid">${group.items.map((subtest) => `<button class="choice-chip ${subtest === state.subtest ? 'selected' : ''}" type="button" data-subtest-choice="${escapeHtml(subtest)}" aria-pressed="${subtest === state.subtest}">${escapeHtml(subtest)}</button>`).join('')}</div></div>
+                      ${index === 0 ? `<button class="choice-chip choice-chip-all ${state.subtest === 'all' ? 'selected' : ''}" type="button" data-subtest-choice="all" aria-pressed="${state.subtest === 'all'}"><span class="choice-chip-icon">${renderBadgeIcon('balance')}</span><span>All subtests</span></button>` : ''}
+                    `).join('')}
                   </div>
-                  ${hiddenSubtestCount > 0 || builderSubtestsExpanded ? `<button class="choices-more" type="button" data-toggle-subtests aria-expanded="${builderSubtestsExpanded}"><span aria-hidden="true">${builderSubtestsExpanded ? '&minus;' : '+'}</span><b>${builderSubtestsExpanded ? 'Show less' : `${hiddenSubtestCount} more`}</b></button>` : ''}
                 </div>
               </fieldset>
 
@@ -749,12 +738,6 @@ function renderSetup() {
       customPracticeOpen = true;
       render();
     });
-  });
-
-  document.querySelector('[data-toggle-subtests]')?.addEventListener('click', () => {
-    builderSubtestsExpanded = !builderSubtestsExpanded;
-    customPracticeOpen = true;
-    render();
   });
 
   document.querySelectorAll('[data-mode-choice]').forEach((button) => {
