@@ -143,6 +143,18 @@ const PRACTICE_MODES = [
   { id: 'correct', label: 'Correct' },
 ];
 
+const SUBTEST_GROUPS = [
+  { id: 'verbal', label: 'Verbal', icon: 'book', matches: ['Sentence Completion', 'Verbal Analogies', 'Verbal Classification'] },
+  { id: 'quantitative', label: 'Quantitative', icon: 'numbers', matches: ['Number Analogies', 'Number Puzzles', 'Number Series'] },
+  { id: 'nonverbal', label: 'Nonverbal', icon: 'pattern', matches: ['Figure Classification', 'Figure Matrices', 'Paper Folding'] },
+];
+
+const PRACTICE_MODE_GROUPS = [
+  { id: 'start', label: 'Start', icon: 'spark', modes: ['all', 'new'] },
+  { id: 'review', label: 'Review', icon: 'return', modes: ['missed', 'weak', 'correct'] },
+  { id: 'extra', label: 'More', icon: 'bolt', modes: ['very-hard', 'pdf'] },
+];
+
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
 const allQuestions = batteries[0].questions;
 const questionById = new Map(Object.values(rawQuestionSets).flat().map((question) => [String(question.id), question]));
@@ -184,6 +196,8 @@ let authMenuOpen = false;
 let aboutMenuOpen = false;
 let adminTestModeOpen = false;
 let customPracticeOpen = true;
+let builderSubtestsExpanded = false;
+let builderFocusExpanded = false;
 let coinDisplayValue = null;
 let coinAnimationHandle = null;
 const authState = {
@@ -453,6 +467,18 @@ function renderShopIcon(name) {
 
 function renderSetup() {
   const subtests = getSubtests();
+  const groupedSubtests = SUBTEST_GROUPS.map((group) => ({
+    ...group,
+    items: group.matches.filter((subtest) => subtests.includes(subtest)),
+  })).filter((group) => group.items.length > 0);
+  const featuredSubtests = new Set(groupedSubtests.map((group) => group.items[0]));
+  if (state.subtest !== 'all') {
+    featuredSubtests.add(state.subtest);
+  }
+  const hiddenSubtestCount = subtests.filter((subtest) => !featuredSubtests.has(subtest)).length;
+  const featuredModes = new Set(['all', 'new', 'missed']);
+  featuredModes.add(state.mode);
+  const hiddenModeCount = PRACTICE_MODES.filter((mode) => !featuredModes.has(mode.id)).length;
   const pool = getPracticePool();
   const daily = getDailyProgress();
   const dailyGoal = state.dailyGoal;
@@ -561,19 +587,37 @@ function renderSetup() {
 
               <fieldset class="builder-step">
                 <legend><span>2</span><b>Subtest</b></legend>
-                <div class="choice-chip-grid" aria-label="Subtest">
-                  <button class="choice-chip ${state.subtest === 'all' ? 'selected' : ''}" type="button" data-subtest-choice="all" aria-pressed="${state.subtest === 'all'}">All subtests</button>
-                  ${subtests.map((subtest) => `<button class="choice-chip ${subtest === state.subtest ? 'selected' : ''}" type="button" data-subtest-choice="${escapeHtml(subtest)}" aria-pressed="${subtest === state.subtest}">${escapeHtml(subtest)}</button>`).join('')}
+                <div class="builder-choice-panel" aria-label="Subtest">
+                  <button class="choice-chip choice-chip-all ${state.subtest === 'all' ? 'selected' : ''}" type="button" data-subtest-choice="all" aria-pressed="${state.subtest === 'all'}"><span class="choice-chip-icon">${renderBadgeIcon('balance')}</span><span>All subtests</span></button>
+                  <div class="choice-group-list">
+                    ${groupedSubtests.map((group) => {
+                      const visibleItems = builderSubtestsExpanded ? group.items : group.items.filter((subtest) => featuredSubtests.has(subtest));
+                      if (visibleItems.length === 0) {
+                        return '';
+                      }
+                      return `<div class="choice-group choice-group-${group.id}"><span class="choice-group-label"><i>${renderBadgeIcon(group.icon)}</i>${group.label}</span><div class="choice-chip-grid">${visibleItems.map((subtest) => `<button class="choice-chip ${subtest === state.subtest ? 'selected' : ''}" type="button" data-subtest-choice="${escapeHtml(subtest)}" aria-pressed="${subtest === state.subtest}">${escapeHtml(subtest)}</button>`).join('')}</div></div>`;
+                    }).join('')}
+                  </div>
+                  ${hiddenSubtestCount > 0 || builderSubtestsExpanded ? `<button class="choices-more" type="button" data-toggle-subtests aria-expanded="${builderSubtestsExpanded}"><span aria-hidden="true">${builderSubtestsExpanded ? '&minus;' : '+'}</span><b>${builderSubtestsExpanded ? 'Show less' : `${hiddenSubtestCount} more`}</b></button>` : ''}
                 </div>
               </fieldset>
 
               <fieldset class="builder-step">
                 <legend><span>3</span><b>Focus</b></legend>
-                <div class="mode-choice-grid" aria-label="Practice focus">
-                  ${PRACTICE_MODES.map((mode) => {
-                    const modeCount = getPracticePoolFor(state.battery, state.subtest, mode.id).length;
-                    return `<button class="mode-choice ${mode.id === state.mode ? 'selected' : ''}" type="button" data-mode-choice="${mode.id}" aria-pressed="${mode.id === state.mode}" ${modeCount === 0 ? 'disabled' : ''}><span><b>${mode.label}</b></span><strong>${modeCount}</strong></button>`;
-                  }).join('')}
+                <div class="builder-choice-panel mode-choice-panel" aria-label="Practice focus">
+                  <div class="mode-group-list">
+                    ${PRACTICE_MODE_GROUPS.map((group) => {
+                      const visibleModes = group.modes.map((modeId) => PRACTICE_MODES.find((mode) => mode.id === modeId)).filter((mode) => mode && (builderFocusExpanded || featuredModes.has(mode.id)));
+                      if (visibleModes.length === 0) {
+                        return '';
+                      }
+                      return `<div class="mode-group"><span class="choice-group-label"><i>${renderBadgeIcon(group.icon)}</i>${group.label}</span><div class="mode-choice-grid">${visibleModes.map((mode) => {
+                        const modeCount = getPracticePoolFor(state.battery, state.subtest, mode.id).length;
+                        return `<button class="mode-choice ${mode.id === state.mode ? 'selected' : ''}" type="button" data-mode-choice="${mode.id}" aria-pressed="${mode.id === state.mode}" ${modeCount === 0 ? 'disabled' : ''}><span class="mode-choice-icon">${renderPracticeModeIcon(mode.id)}</span><span><b>${mode.label}</b></span><strong>${modeCount}</strong></button>`;
+                      }).join('')}</div></div>`;
+                    }).join('')}
+                  </div>
+                  ${hiddenModeCount > 0 || builderFocusExpanded ? `<button class="choices-more" type="button" data-toggle-focus aria-expanded="${builderFocusExpanded}"><span aria-hidden="true">${builderFocusExpanded ? '&minus;' : '+'}</span><b>${builderFocusExpanded ? 'Show less' : `${hiddenModeCount} more`}</b></button>` : ''}
                 </div>
               </fieldset>
             </div>
@@ -667,6 +711,12 @@ function renderSetup() {
     });
   });
 
+  document.querySelector('[data-toggle-subtests]')?.addEventListener('click', () => {
+    builderSubtestsExpanded = !builderSubtestsExpanded;
+    customPracticeOpen = true;
+    render();
+  });
+
   document.querySelectorAll('[data-mode-choice]').forEach((button) => {
     button.addEventListener('click', () => {
       state.mode = button.dataset.modeChoice;
@@ -674,6 +724,12 @@ function renderSetup() {
       customPracticeOpen = true;
       render();
     });
+  });
+
+  document.querySelector('[data-toggle-focus]')?.addEventListener('click', () => {
+    builderFocusExpanded = !builderFocusExpanded;
+    customPracticeOpen = true;
+    render();
   });
 
   document.querySelector('#setup-form').addEventListener('submit', (event) => {
@@ -693,6 +749,19 @@ function renderBatteryIcon(batteryKey) {
     return renderBadgeIcon('pattern');
   }
   return renderBadgeIcon('balance');
+}
+
+function renderPracticeModeIcon(modeId) {
+  const iconMap = {
+    all: 'balance',
+    new: 'spark',
+    missed: 'return',
+    weak: 'brain',
+    'very-hard': 'bolt',
+    pdf: 'book',
+    correct: 'check',
+  };
+  return renderBadgeIcon(iconMap[modeId] ?? 'star');
 }
 
 function renderPractice() {

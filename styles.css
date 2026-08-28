@@ -4675,6 +4675,130 @@ summary:focus-visible {
   gap: 8px;
 }
 
+.builder-choice-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--blue) 12%, var(--line));
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--soft) 28%, #ffffff);
+  padding: 10px;
+}
+
+.choice-chip-all {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  padding-left: 10px;
+}
+
+.choice-chip-icon,
+.mode-choice-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.choice-chip-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--blue) 10%, #ffffff);
+  color: var(--blue);
+}
+
+.choice-chip-icon svg,
+.mode-choice-icon svg,
+.choice-group-label svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.choice-chip.selected .choice-chip-icon {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.choice-group-list,
+.mode-group-list {
+  display: grid;
+  gap: 8px;
+}
+
+.choice-group,
+.mode-group {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.choice-group-label {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.choice-group-label i {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  background: var(--soft);
+  color: var(--blue);
+}
+
+.choice-group-verbal .choice-group-label i { background: color-mix(in srgb, var(--green) 12%, #ffffff); color: var(--green); }
+.choice-group-quantitative .choice-group-label i { background: color-mix(in srgb, var(--orange) 12%, #ffffff); color: var(--orange); }
+.choice-group-nonverbal .choice-group-label i { background: color-mix(in srgb, var(--purple) 12%, #ffffff); color: var(--purple); }
+
+.choices-more {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed color-mix(in srgb, var(--blue) 30%, var(--line));
+  border-radius: 13px;
+  background: transparent;
+  color: var(--blue);
+  padding: 5px 11px 5px 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.choices-more > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--blue) 10%, #ffffff);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.choices-more:hover {
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 5%, #ffffff);
+}
+
 .choice-chip {
   min-height: 42px;
   border: 1px solid var(--line);
@@ -4706,7 +4830,7 @@ summary:focus-visible {
 
 .mode-choice {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   min-height: 58px;
@@ -4717,6 +4841,24 @@ summary:focus-visible {
   padding: 12px;
   text-align: left;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.mode-choice-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--blue) 9%, #ffffff);
+  color: var(--blue);
+}
+
+.mode-choice.selected .mode-choice-icon {
+  background: var(--blue);
+  color: #ffffff;
+}
+
+.mode-choice:disabled .mode-choice-icon {
+  background: var(--soft);
+  color: var(--muted);
 }
 
 .mode-choice:hover {
@@ -4926,6 +5068,16 @@ summary:focus-visible {
   .mode-choice-grid {
     grid-template-columns: 1fr;
   }
+
+  .choice-group,
+  .mode-group {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .choice-group-label {
+    min-height: 32px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -4990,6 +5142,15 @@ summary:focus-visible {
   .choice-chip {
     flex: 1 1 calc(50% - 8px);
     padding: 0 10px;
+  }
+
+  .choice-chip-all,
+  .choices-more {
+    width: 100%;
+  }
+
+  .choice-chip-all {
+    justify-content: center;
   }
 }
 
