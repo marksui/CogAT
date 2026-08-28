@@ -10,6 +10,8 @@ import { level10OriginalQuestions } from './data/level10OriginalQuestions.js';
 import { g4WorkbookQuestions } from './data/g4WorkbookQuestions.js';
 import { bonusQuestions } from './data/bonusQuestions.js';
 import { verbalVocabularyQuestions } from './data/verbalVocabularyQuestions.js';
+import { numberAnalogyQuestions } from './data/numberAnalogyQuestions.js';
+import { filterValidNumberAnalogies } from './lib/numberAnalogyValidator.js';
 import { supabaseConfig } from './supabase-config.js';
 
 const QUESTION_LIMIT = 30;
@@ -17,10 +19,11 @@ const DEFAULT_DAILY_GOAL = 30;
 const DONT_KNOW_ANSWER = '__dont_know__';
 const STORAGE_KEY = 'grade4-cogat-history-v2';
 const LEGACY_STORAGE_KEY = 'grade4-cogat-history-v1';
+const EYE_CARE_STORAGE_KEY = 'grade4-cogat-eye-care';
 
 const rawQuestionSets = {
   verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalVocabularyQuestions, ...verbalWorkbookQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
-  quantitative: [...quantitativeQuestions, ...quantitativeExtraQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...bonusQuestions.filter((question) => question.battery === 'Quantitative Battery')],
+  quantitative: filterValidNumberAnalogies([...quantitativeQuestions, ...quantitativeExtraQuestions, ...numberAnalogyQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...bonusQuestions.filter((question) => question.battery === 'Quantitative Battery')]),
   nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Nonverbal Battery')],
 };
 
@@ -198,6 +201,7 @@ let adminTestModeOpen = false;
 let customPracticeOpen = true;
 let builderSubtestsExpanded = false;
 let builderFocusExpanded = false;
+let eyeCareEnabled = loadEyeCareMode();
 let coinDisplayValue = null;
 let coinAnimationHandle = null;
 const authState = {
@@ -243,6 +247,7 @@ function render() {
 function renderShell(content) {
   document.body.dataset.theme = getActiveTheme();
   document.body.dataset.decor = getActiveDecor()?.id ?? 'none';
+  document.body.dataset.eyeCare = eyeCareEnabled ? 'on' : 'off';
   app.innerHTML = `
     <main class="app-shell">
       <header class="topbar">
@@ -285,7 +290,10 @@ function renderShell(content) {
           <button class="bank-link" type="button" data-bank>Question bank</button>
         </div>
         <div class="topbar-actions">
-          ${renderCoinButton()}
+          <div class="reward-controls">
+            ${renderCoinButton()}
+            ${renderEyeCareButton()}
+          </div>
           ${renderAuthControl()}
           <span class="question-count">${allQuestions.length} questions</span>
         </div>
@@ -326,6 +334,8 @@ function renderShell(content) {
     });
   });
 
+  document.querySelector('[data-eye-care-toggle]')?.addEventListener('click', toggleEyeCareMode);
+
   document.querySelector('#auth-form')?.addEventListener('submit', sendMagicLink);
   document.querySelector('[data-sign-out]')?.addEventListener('click', signOut);
   document.querySelector('.auth-menu')?.addEventListener('toggle', (event) => {
@@ -353,6 +363,36 @@ function renderShell(content) {
 function renderCoinButton() {
   const coins = coinDisplayValue ?? state.history.currentCoins ?? 0;
   return `<button class="coin-button" type="button" data-game-center aria-label="Open game center, ${coins} coins">${renderCoinIcon()}<span data-coin-count>${coins}</span></button>`;
+}
+
+function renderEyeCareButton() {
+  const label = eyeCareEnabled ? 'Turn off eye comfort mode' : 'Turn on eye comfort mode';
+  return `<button class="eye-care-button ${eyeCareEnabled ? 'is-active' : ''}" type="button" data-eye-care-toggle aria-label="${label}" title="Eye comfort" aria-pressed="${eyeCareEnabled}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.7"/><path d="M18.5 5.5l1.2-1.2M5.5 5.5 4.3 4.3"/></svg></button>`;
+}
+
+function loadEyeCareMode() {
+  try {
+    return localStorage.getItem(EYE_CARE_STORAGE_KEY) === 'on';
+  } catch {
+    return false;
+  }
+}
+
+function toggleEyeCareMode() {
+  eyeCareEnabled = !eyeCareEnabled;
+  try {
+    localStorage.setItem(EYE_CARE_STORAGE_KEY, eyeCareEnabled ? 'on' : 'off');
+  } catch {
+    // The visual mode still works for this session when storage is unavailable.
+  }
+  document.body.dataset.eyeCare = eyeCareEnabled ? 'on' : 'off';
+  const button = document.querySelector('[data-eye-care-toggle]');
+  if (!button) {
+    return;
+  }
+  button.classList.toggle('is-active', eyeCareEnabled);
+  button.setAttribute('aria-pressed', String(eyeCareEnabled));
+  button.setAttribute('aria-label', eyeCareEnabled ? 'Turn off eye comfort mode' : 'Turn on eye comfort mode');
 }
 
 function adminAddCoins() {

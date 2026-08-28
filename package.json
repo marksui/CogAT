@@ -1,0 +1,9 @@
+{
+  "name": "cogat-grade-4-practice",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "audit:number-analogies": "node scripts/audit-number-analogies.mjs"
+  }
+}

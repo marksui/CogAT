@@ -165,6 +165,34 @@ body[data-theme="white"] {
   --theme-bg-end: #ffffff;
 }
 
+body[data-eye-care="on"] {
+  --bg: #f7f2df;
+  --ink: #283127;
+  --muted: #5f6858;
+  --line: #d9d3b8;
+  --soft: #eee9d3;
+  --panel: #fffdf2;
+  --green: #3e7258;
+  --red: #a8574d;
+  --blue: #4d6f5c;
+  --orange: #9a6d2d;
+  --purple: #75678c;
+  --yellow: #9b7a20;
+  --shadow: 0 18px 42px rgba(75, 72, 48, 0.09);
+  --theme-bg-start: #f3eed9;
+  --theme-bg-end: #f8f4e5;
+  background: linear-gradient(180deg, var(--theme-bg-start) 0%, #fffdf2 52%, var(--theme-bg-end) 100%);
+}
+
+body[data-eye-care="on"]::after {
+  position: fixed;
+  z-index: 9999;
+  inset: 0;
+  background: rgba(255, 221, 132, 0.045);
+  content: "";
+  pointer-events: none;
+}
+
 button,
 select,
 input {
@@ -2122,6 +2150,13 @@ button:disabled {
   gap: 14px;
 }
 
+.reward-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+}
+
 .coin-button {
   display: inline-flex;
   min-height: 44px;
@@ -2145,6 +2180,62 @@ button:disabled {
   background: #fff0ae;
   color: #5e4208;
   transform: translateY(-1px);
+}
+
+.eye-care-button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--muted);
+  box-shadow: 0 8px 20px rgba(58, 88, 130, 0.06);
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.eye-care-button svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
+}
+
+.eye-care-button:hover,
+.eye-care-button:active {
+  border-color: #b7a86b;
+  background: #fff9dd;
+  color: #725b19;
+  transform: translateY(-1px);
+}
+
+.eye-care-button.is-active {
+  border-color: #9f9259;
+  background: linear-gradient(180deg, #fff8d6 0%, #f2e7b9 100%);
+  color: #536b45;
+  box-shadow: 0 0 0 3px rgba(147, 132, 70, 0.12), 0 8px 20px rgba(98, 91, 51, 0.1);
+}
+
+body[data-eye-care="on"] .panel,
+body[data-eye-care="on"] .home-stat,
+body[data-eye-care="on"] .battery-progress-card,
+body[data-eye-care="on"] .quick-action,
+body[data-eye-care="on"] .battery-card,
+body[data-eye-care="on"] .builder-summary,
+body[data-eye-care="on"] .builder-choice-panel,
+body[data-eye-care="on"] .choice-group,
+body[data-eye-care="on"] .mode-group,
+body[data-eye-care="on"] .mode-choice,
+body[data-eye-care="on"] .choice-chip,
+body[data-eye-care="on"] .question-card,
+body[data-eye-care="on"] .option,
+body[data-eye-care="on"] .data-box {
+  background-color: var(--panel);
 }
 
 .coin-icon {
@@ -3761,8 +3852,17 @@ summary:focus-visible {
     gap: 6px;
   }
 
+  .reward-controls {
+    gap: 4px;
+  }
+
   .coin-button {
     padding: 0 10px;
+  }
+
+  .eye-care-button {
+    width: 42px;
+    height: 42px;
   }
 
   .auth-menu summary {

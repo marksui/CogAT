@@ -9,10 +9,6 @@ function makeOptions(correct, distractors, correctIndex) {
   };
 }
 
-function analogyHtml(a, b, c) {
-  return `<div class="number-analogy"><span class="number-pair">[<b>${a}</b><i>&rarr;</i><b>${b}</b>]</span><span class="number-pair">[<b>${c}</b><i>&rarr;</i><b>?</b>]</span></div>`;
-}
-
 const verbalAnalogySeeds = [
   ['Cat', 'Kitten', 'Dog', 'Puppy', ['Puppy', 'Calf', 'Foal', 'Cub'], 'A kitten is a young cat. A puppy is a young dog.'],
   ['Bird', 'Nest', 'Bee', 'Hive', ['Flower', 'Honey', 'Sting', 'Web'], 'A bird lives in a nest. A bee lives in a hive.'],
@@ -128,52 +124,6 @@ const classificationQuestions = classificationSeeds.map(([group, odd, explanatio
     questionNote: values.join(', '),
     ...makeOptions(odd, group, oddIndex),
     explanation,
-  };
-});
-
-const quantitativeAnalogySeeds = [
-  [2, 6, 5, 15, ['10', '12', '20', '8'], 'Multiply by 3.'],
-  [4, 2, 14, 7, ['5', '28', '9', '12'], 'Divide by 2.'],
-  [3, 8, 6, 11, ['12', '14', '9', '10'], 'Add 5.'],
-  [12, 7, 20, 15, ['10', '13', '17', '25'], 'Subtract 5.'],
-  [5, 25, 8, 64, ['16', '32', '40', '72'], 'Square the number.'],
-  [9, 3, 16, 4, ['5', '6', '8', '12'], 'Find the square root.'],
-  [6, 18, 4, 12, ['8', '10', '16', '24'], 'Multiply by 3.'],
-  [20, 5, 28, 7, ['4', '6', '8', '9'], 'Divide by 4.'],
-  [7, 14, 10, 20, ['17', '21', '30', '40'], 'Multiply by 2.'],
-  [15, 12, 21, 18, ['15', '20', '24', '27'], 'Subtract 3.'],
-  [8, 10, 13, 15, ['16', '18', '20', '21'], 'Add 2.'],
-  [30, 10, 42, 14, ['12', '16', '18', '21'], 'Divide by 3.'],
-  [4, 20, 6, 30, ['24', '26', '36', '40'], 'Multiply by 5.'],
-  [11, 22, 16, 32, ['24', '28', '30', '36'], 'Multiply by 2.'],
-  [18, 9, 26, 13, ['11', '12', '14', '15'], 'Divide by 2.'],
-  [2, 10, 5, 25, ['15', '20', '30', '35'], 'Multiply by 5. 2 × 5 = 10, so 5 × 5 = 25.'],
-  [10, 13, 16, 19, ['20', '21', '22', '24'], 'Add 3.'],
-  [25, 20, 18, 13, ['10', '11', '12', '15'], 'Subtract 5.'],
-  [3, 12, 7, 28, ['21', '24', '30', '35'], 'Multiply by 4.'],
-  [36, 6, 49, 7, ['8', '9', '12', '14'], 'Find the square root.'],
-  [14, 7, 22, 11, ['9', '12', '15', '16'], 'Divide by 2.'],
-  [5, 9, 8, 12, ['10', '13', '15', '16'], 'Add 4.'],
-  [17, 12, 25, 20, ['15', '17', '18', '22'], 'Subtract 5.'],
-  [6, 36, 9, 81, ['18', '27', '45', '72'], 'Square the number.'],
-  [40, 8, 55, 11, ['10', '12', '13', '15'], 'Divide by 5.'],
-  [7, 21, 12, 36, ['24', '30', '42', '48'], 'Multiply by 3.'],
-  [24, 8, 33, 11, ['9', '12', '15', '16'], 'Divide by 3.'],
-  [9, 18, 12, 24, ['20', '21', '30', '36'], 'Multiply by 2.'],
-  [13, 17, 21, 25, ['26', '27', '28', '29'], 'Add 4.'],
-  [50, 45, 32, 27, ['22', '23', '24', '25'], 'Subtract 5.'],
-];
-
-const quantitativeAnalogyQuestions = quantitativeAnalogySeeds.map(([a, b, c, answer, distractors, rule], index) => {
-  const choice = makeOptions(String(answer), distractors, (index + 1) % 5);
-  return {
-    id: 1071 + index,
-    subtest: 'Number Analogies',
-    battery: 'Quantitative Battery',
-    question: analogyHtml(a, b, c),
-    questionNote: 'Find the same rule.',
-    ...choice,
-    explanation: `${rule} ${a} becomes ${b}, so ${c} becomes ${answer}.`,
   };
 });
 
@@ -414,7 +364,6 @@ export const bonusQuestions = [
   ...verbalAnalogyQuestions,
   ...sentenceQuestions,
   ...classificationQuestions,
-  ...quantitativeAnalogyQuestions,
   ...quantitativePuzzleQuestions,
   ...quantitativeSeriesQuestions,
   ...shapeQuestions,
@@ -422,6 +371,6 @@ export const bonusQuestions = [
   ...foldingQuestions,
 ];
 
-if (bonusQuestions.length !== 200) {
-  throw new Error(`Expected 200 bonus questions, found ${bonusQuestions.length}.`);
+if (bonusQuestions.length !== 170) {
+  throw new Error(`Expected 170 bonus questions after removing under-specified Number Analogies, found ${bonusQuestions.length}.`);
 }
