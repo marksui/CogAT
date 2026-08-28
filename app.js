@@ -639,10 +639,10 @@ function renderSetup() {
               <fieldset class="builder-step">
                 <legend><span>2</span><b>Subtest</b></legend>
                 <div class="builder-choice-panel" aria-label="Subtest">
+                  <button class="choice-chip choice-chip-all ${state.subtest === 'all' ? 'selected' : ''}" type="button" data-subtest-choice="all" aria-pressed="${state.subtest === 'all'}"><span class="choice-chip-icon">${renderBuilderIcon('layers')}</span><span>All subtests</span></button>
                   <div class="choice-group-list">
-                    ${groupedSubtests.map((group, index) => `
+                    ${groupedSubtests.map((group) => `
                       <div class="choice-group choice-group-${group.id}"><span class="choice-group-label"><i>${renderBuilderIcon(group.id)}</i>${group.label}</span><div class="choice-chip-grid">${group.items.map((subtest) => `<button class="choice-chip ${subtest === state.subtest ? 'selected' : ''}" type="button" data-subtest-choice="${escapeHtml(subtest)}" aria-pressed="${subtest === state.subtest}">${escapeHtml(subtest)}</button>`).join('')}</div></div>
-                      ${index === 0 ? `<button class="choice-chip choice-chip-all ${state.subtest === 'all' ? 'selected' : ''}" type="button" data-subtest-choice="all" aria-pressed="${state.subtest === 'all'}"><span class="choice-chip-icon">${renderBuilderIcon('layers')}</span><span>All subtests</span></button>` : ''}
                     `).join('')}
                   </div>
                 </div>
@@ -838,6 +838,7 @@ function renderPractice() {
             <button class="option ${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${wrong ? 'wrong' : ''}" type="button" data-option="${escapeHtml(optionValue)}" aria-pressed="${selected}">
               <b>${option.label}</b>
               <span>${option.text}</span>
+              ${correct ? '<em class="option-status">Correct</em>' : wrong ? '<em class="option-status">Your answer</em>' : ''}
             </button>
           `;
         }).join('')}
@@ -852,8 +853,8 @@ function renderPractice() {
       ` : ''}
 
       ${state.checked ? `
-        <div class="feedback ${isCorrect ? 'is-correct' : 'is-learning'}">
-          <b>${isCorrect ? 'Correct! You earned 1 coin.' : didNotKnow ? 'That&rsquo;s okay &mdash; let&rsquo;s learn it.' : 'Good try &mdash; let&rsquo;s learn from it.'}</b>
+        <div class="feedback ${isCorrect ? 'is-correct' : 'is-learning'}" role="status" aria-live="polite">
+          <div class="feedback-heading"><span aria-hidden="true">${isCorrect ? '&check;' : '&times;'}</span><b>${isCorrect ? 'Correct! You earned 1 coin.' : didNotKnow ? 'That&rsquo;s okay &mdash; let&rsquo;s learn it.' : 'Good try &mdash; let&rsquo;s learn from it.'}</b></div>
           ${!isCorrect ? `<small>Correct answer: ${getCorrectAnswer(question)}</small>` : ''}
           <span>${question.explanation}</span>
           ${!isCorrect && isVerbal ? `

@@ -1259,6 +1259,11 @@ button:disabled {
   letter-spacing: -0.025em;
 }
 
+.question-card > div {
+  width: 100%;
+  min-width: 0;
+}
+
 .question-card p {
   margin: 14px 0 0;
   color: var(--muted);
@@ -1268,15 +1273,20 @@ button:disabled {
 }
 
 .number-analogy {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: center;
-  gap: clamp(10px, 2.3vw, 24px);
-  font-size: clamp(28px, 4.8vw, 46px);
-  line-height: 1.1;
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: clamp(10px, 2vw, 18px);
+  align-items: center;
+  font-size: clamp(22px, 3vw, 34px);
+  line-height: 1.15;
 }
 
 .number-pair {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
   white-space: nowrap;
 }
 
@@ -1285,7 +1295,7 @@ button:disabled {
 }
 
 .number-pair i {
-  margin: 0 8px;
+  margin: 0 clamp(4px, 0.8vw, 8px);
   color: #b91c1c;
   font-style: normal;
   font-weight: 950;
@@ -1316,12 +1326,6 @@ button:disabled {
   font-weight: 950;
 }
 
-@media (max-width: 640px) {
-  .number-analogy {
-    flex-wrap: wrap;
-  }
-}
-
 .question-card svg,
 .option svg {
   max-width: 100%;
@@ -1349,7 +1353,7 @@ button:disabled {
 
 .option {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   min-height: 64px;
@@ -1383,13 +1387,46 @@ button:disabled {
 }
 
 .option.correct {
-  border-color: rgba(27, 154, 121, 0.4);
-  background: rgba(27, 154, 121, 0.08);
+  border: 2px solid #27825f;
+  background: #e5f7ed;
+  box-shadow: inset 5px 0 0 #27825f, 0 6px 16px rgba(39, 130, 95, 0.1);
 }
 
 .option.wrong {
-  border-color: rgba(217, 91, 91, 0.4);
-  background: rgba(217, 91, 91, 0.08);
+  border: 2px solid #c74c48;
+  background: #fff0ed;
+  box-shadow: inset 5px 0 0 #c74c48, 0 6px 16px rgba(199, 76, 72, 0.1);
+}
+
+.option.correct > b {
+  background: #27825f;
+  color: #ffffff;
+}
+
+.option.wrong > b {
+  background: #c74c48;
+  color: #ffffff;
+}
+
+.option-status {
+  justify-self: end;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.option.correct .option-status {
+  background: #27825f;
+  color: #ffffff;
+}
+
+.option.wrong .option-status {
+  background: #c74c48;
+  color: #ffffff;
 }
 
 .feedback {
@@ -1411,6 +1448,38 @@ button:disabled {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
+}
+
+.feedback-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.feedback-heading > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.feedback.is-correct {
+  border: 2px solid #27825f;
+  background: #e5f7ed;
+  color: #355847;
+}
+
+.feedback.is-correct .feedback-heading > span {
+  background: #27825f;
+}
+
+.feedback.is-learning .feedback-heading > span {
+  background: #c05f32;
 }
 
 .coin-reward-pill {
@@ -3060,13 +3129,13 @@ summary:focus-visible {
 }
 
 .option.correct {
-  border-color: rgba(27, 154, 121, 0.45);
-  background: #ecfaf5;
+  border-color: #27825f;
+  background: #e5f7ed;
 }
 
 .option.wrong {
-  border-color: rgba(217, 91, 91, 0.42);
-  background: #fff2f2;
+  border-color: #c74c48;
+  background: #fff0ed;
 }
 
 .feedback {
@@ -4832,7 +4901,26 @@ summary:focus-visible {
 .choice-chip-icon,
 .choice-group-label i,
 .mode-choice-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  line-height: 0;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 9%, transparent);
+}
+
+.battery-progress-icon > svg,
+.battery-choice-icon > svg,
+.choice-chip-icon > svg,
+.choice-group-label i > svg,
+.mode-choice-icon > svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  transform-origin: center;
 }
 
 .choice-chip.selected .choice-chip-icon {
@@ -5318,8 +5406,9 @@ summary:focus-visible {
 }
 
 .feedback.is-learning {
-  border-color: color-mix(in srgb, var(--orange) 34%, var(--line));
-  background: color-mix(in srgb, var(--orange) 7%, #ffffff);
+  border: 2px solid #c9783f;
+  background: #fff4e5;
+  color: #67513b;
 }
 
 .verbal-tip {
@@ -5425,6 +5514,89 @@ summary:focus-visible {
   .word-meaning-grid {
     grid-template-columns: 1fr;
   }
+
+  .option:has(.option-status) {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .option-status {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+body[data-eye-care="on"] :is(
+  .primary,
+  .bank-chip.selected,
+  .choice-chip.selected,
+  .mock-progress-steps span.current,
+  .mock-answer-button.current,
+  .mock-bubble-choice.selected
+) {
+  background: #3b614a;
+  color: #fffdf2;
+}
+
+body[data-eye-care="on"] :is(
+  .mode-choice.selected .mode-choice-icon,
+  .mode-choice.selected > strong,
+  .dont-know-option > span
+) {
+  background: #456d55;
+  color: #fffdf2;
+}
+
+body[data-eye-care="on"] .difficulty-very-hard {
+  background: #343d31;
+  color: #fffdf2;
+}
+
+body[data-eye-care="on"] .option.correct {
+  border-color: #397c58;
+  background: #e1efdc;
+  color: #25372b;
+  box-shadow: inset 5px 0 0 #397c58, 0 6px 16px rgba(57, 124, 88, 0.1);
+}
+
+body[data-eye-care="on"] .option.wrong {
+  border-color: #a84f47;
+  background: #f7e2d9;
+  color: #432d29;
+  box-shadow: inset 5px 0 0 #a84f47, 0 6px 16px rgba(168, 79, 71, 0.1);
+}
+
+body[data-eye-care="on"] .option.correct > b,
+body[data-eye-care="on"] .option.correct .option-status,
+body[data-eye-care="on"] .feedback.is-correct .feedback-heading > span {
+  background: #397c58;
+  color: #fffdf2;
+}
+
+body[data-eye-care="on"] .option.wrong > b,
+body[data-eye-care="on"] .option.wrong .option-status {
+  background: #a84f47;
+  color: #fffdf2;
+}
+
+body[data-eye-care="on"] .feedback.is-correct {
+  border-color: #397c58;
+  background: #e1efdc;
+  color: #344c39;
+}
+
+body[data-eye-care="on"] .feedback.is-learning {
+  border-color: #a96a35;
+  background: #f4e8ce;
+  color: #57452f;
+}
+
+body[data-eye-care="on"] .feedback.is-learning .feedback-heading > span {
+  background: #a96a35;
+  color: #fffdf2;
+}
+
+body[data-eye-care="on"] :is(.verbal-tip, .word-meaning-item) {
+  background: #fffdf2;
 }
 
 @media (prefers-reduced-motion: reduce) {
