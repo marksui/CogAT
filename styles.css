@@ -4819,6 +4819,22 @@ summary:focus-visible {
   stroke-width: 2;
 }
 
+.builder-symbol {
+  overflow: visible;
+}
+
+.builder-symbol-accent {
+  opacity: 0.42;
+}
+
+.battery-progress-icon,
+.battery-choice-icon,
+.choice-chip-icon,
+.choice-group-label i,
+.mode-choice-icon {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 9%, transparent);
+}
+
 .choice-chip.selected .choice-chip-icon {
   background: rgba(255, 255, 255, 0.16);
   color: #ffffff;

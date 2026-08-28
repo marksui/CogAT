@@ -490,6 +490,23 @@ function renderBadgeIcon(name) {
   return icons[name] ?? icons.star;
 }
 
+function renderBuilderIcon(name) {
+  const icons = {
+    layers: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="10" height="10" rx="2.5"/><rect class="builder-symbol-accent" x="10" y="10" width="10" height="10" rx="2.5"/><path d="M8 9h2M9 8v2"/></svg>',
+    verbal: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 5h13A2.5 2.5 0 0 1 21 7.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-5 3v-3.5a2.5 2.5 0 0 1-3-2.45V7.5A2.5 2.5 0 0 1 5.5 5z"/><path class="builder-symbol-accent" d="M8 9h8M8 13h5"/></svg>',
+    quantitative: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M9 12h.01M15 12h.01M9 16h.01M15 16h.01"/><path class="builder-symbol-accent" d="M12 10v8"/></svg>',
+    nonverbal: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="2.75"/><rect class="builder-symbol-accent" x="14" y="4.25" width="5.5" height="5.5" rx="1.4"/><path d="M7 14l3.5 6h-7L7 14z"/><path class="builder-symbol-accent" d="M16.75 14l3 3-3 3-3-3 3-3z"/></svg>',
+    start: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="12.5" r="7.5"/><path d="M9 9.5l4.5 3-4.5 3v-6z"/><path class="builder-symbol-accent" d="M18.5 3v4M16.5 5h4"/></svg>',
+    new: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3.5l1.55 4.45L17 9.5l-4.45 1.55L11 15.5l-1.55-4.45L5 9.5l4.45-1.55L11 3.5z"/><path class="builder-symbol-accent" d="M18 14v6M15 17h6"/></svg>',
+    review: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5A8 8 0 1 1 6.4 18"/><path d="M5 5v4.5h4.5"/><path class="builder-symbol-accent" d="M9 14l2 2 4-4"/></svg>',
+    focus: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle class="builder-symbol-accent" cx="12" cy="12" r="4.5"/><path d="M12 3.5v3M20.5 12h-3M12 20.5v-3M3.5 12h3"/></svg>',
+    challenge: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l6-10 3 4 2-3 5 9H4z"/><path class="builder-symbol-accent" d="M10 10V4h7l-2 2 2 2h-7"/></svg>',
+    workbook: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5A2.5 2.5 0 0 1 8.5 2H20v17H8.5A2.5 2.5 0 0 0 6 21.5v-17z"/><path d="M6 4.5A2.5 2.5 0 0 0 3.5 2H3v17h.5A2.5 2.5 0 0 1 6 21.5"/><path class="builder-symbol-accent" d="M15 2v7l-2-1.5L11 9V2"/></svg>',
+    verified: '<svg class="builder-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.4 2.1 3.2-.2.7 3.1 2.7 1.8-1.3 3 1.3 3-2.7 1.8-.7 3.1-3.2-.2L12 22l-2.4-2.1-3.2.2-.7-3.1L3 15.2l1.3-3L3 9.2l2.7-1.8.7-3.1 3.2.2L12 3z"/><path class="builder-symbol-accent" d="M8.5 12.5l2.2 2.2 4.8-5"/></svg>',
+  };
+  return icons[name] ?? icons.layers;
+}
+
 function renderBadgeArtwork(definition) {
   return `<img src="assets/badges/${definition.artwork}.png" alt="" width="320" height="320" loading="lazy" decoding="async">`;
 }
@@ -624,8 +641,8 @@ function renderSetup() {
                 <div class="builder-choice-panel" aria-label="Subtest">
                   <div class="choice-group-list">
                     ${groupedSubtests.map((group, index) => `
-                      <div class="choice-group choice-group-${group.id}"><span class="choice-group-label"><i>${renderBadgeIcon(group.icon)}</i>${group.label}</span><div class="choice-chip-grid">${group.items.map((subtest) => `<button class="choice-chip ${subtest === state.subtest ? 'selected' : ''}" type="button" data-subtest-choice="${escapeHtml(subtest)}" aria-pressed="${subtest === state.subtest}">${escapeHtml(subtest)}</button>`).join('')}</div></div>
-                      ${index === 0 ? `<button class="choice-chip choice-chip-all ${state.subtest === 'all' ? 'selected' : ''}" type="button" data-subtest-choice="all" aria-pressed="${state.subtest === 'all'}"><span class="choice-chip-icon">${renderBadgeIcon('balance')}</span><span>All subtests</span></button>` : ''}
+                      <div class="choice-group choice-group-${group.id}"><span class="choice-group-label"><i>${renderBuilderIcon(group.id)}</i>${group.label}</span><div class="choice-chip-grid">${group.items.map((subtest) => `<button class="choice-chip ${subtest === state.subtest ? 'selected' : ''}" type="button" data-subtest-choice="${escapeHtml(subtest)}" aria-pressed="${subtest === state.subtest}">${escapeHtml(subtest)}</button>`).join('')}</div></div>
+                      ${index === 0 ? `<button class="choice-chip choice-chip-all ${state.subtest === 'all' ? 'selected' : ''}" type="button" data-subtest-choice="all" aria-pressed="${state.subtest === 'all'}"><span class="choice-chip-icon">${renderBuilderIcon('layers')}</span><span>All subtests</span></button>` : ''}
                     `).join('')}
                   </div>
                 </div>
@@ -640,7 +657,7 @@ function renderSetup() {
                       if (visibleModes.length === 0) {
                         return '';
                       }
-                      return `<div class="mode-group"><span class="choice-group-label"><i>${renderBadgeIcon(group.icon)}</i>${group.label}</span><div class="mode-choice-grid">${visibleModes.map((mode) => {
+                      return `<div class="mode-group"><span class="choice-group-label"><i>${renderBuilderIcon(group.id === 'extra' ? 'challenge' : group.id)}</i>${group.label}</span><div class="mode-choice-grid">${visibleModes.map((mode) => {
                         const modeCount = getPracticePoolFor(state.battery, state.subtest, mode.id).length;
                         return `<button class="mode-choice ${mode.id === state.mode ? 'selected' : ''}" type="button" data-mode-choice="${mode.id}" aria-pressed="${mode.id === state.mode}" ${modeCount === 0 ? 'disabled' : ''}><span class="mode-choice-icon">${renderPracticeModeIcon(mode.id)}</span><span><b>${mode.label}</b></span><strong>${modeCount}</strong></button>`;
                       }).join('')}</div></div>`;
@@ -762,29 +779,26 @@ function renderSetup() {
 }
 
 function renderBatteryIcon(batteryKey) {
-  if (batteryKey === 'verbal') {
-    return renderBadgeIcon('book');
-  }
-  if (batteryKey === 'quantitative') {
-    return renderBadgeIcon('numbers');
-  }
-  if (batteryKey === 'nonverbal') {
-    return renderBadgeIcon('pattern');
-  }
-  return renderBadgeIcon('balance');
+  const iconMap = {
+    all: 'layers',
+    verbal: 'verbal',
+    quantitative: 'quantitative',
+    nonverbal: 'nonverbal',
+  };
+  return renderBuilderIcon(iconMap[batteryKey] ?? 'layers');
 }
 
 function renderPracticeModeIcon(modeId) {
   const iconMap = {
-    all: 'balance',
-    new: 'spark',
-    missed: 'return',
-    weak: 'brain',
-    'very-hard': 'bolt',
-    pdf: 'book',
-    correct: 'check',
+    all: 'layers',
+    new: 'new',
+    missed: 'review',
+    weak: 'focus',
+    'very-hard': 'challenge',
+    pdf: 'workbook',
+    correct: 'verified',
   };
-  return renderBadgeIcon(iconMap[modeId] ?? 'star');
+  return renderBuilderIcon(iconMap[modeId] ?? 'layers');
 }
 
 function renderPractice() {
