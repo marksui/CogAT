@@ -16,6 +16,10 @@ Verbal practice includes vocabulary support: students can choose **I don’t kno
 
 Mock exam results show raw accuracy plus a clearly labeled practice estimate for SAS, percentile, and stanine. The estimate is not an official CogAT score; official scores require the test form, level, age or grade norms, and Riverside conversion tables.
 
+## Question-bank quality checks
+
+Run `npm run quality` before publishing. The same checks run automatically on every GitHub push and pull request. They reject duplicate questions or IDs, duplicate or missing choices, incorrect answer mappings, contradictory or incomplete explanations, unsupported Number Analogy/Series/Puzzle rules, and missing or unreadable local question images.
+
 ## Optional cross-device sync
 
 The site works locally without Supabase. To enable account-based sync:

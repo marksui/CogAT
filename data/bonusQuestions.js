@@ -10,7 +10,7 @@ function makeOptions(correct, distractors, correctIndex) {
 }
 
 const verbalAnalogySeeds = [
-  ['Cat', 'Kitten', 'Dog', 'Puppy', ['Puppy', 'Calf', 'Foal', 'Cub'], 'A kitten is a young cat. A puppy is a young dog.'],
+  ['Cat', 'Kitten', 'Dog', 'Puppy', ['Calf', 'Foal', 'Cub', 'Chick'], 'A kitten is a young cat. A puppy is a young dog.'],
   ['Bird', 'Nest', 'Bee', 'Hive', ['Flower', 'Honey', 'Sting', 'Web'], 'A bird lives in a nest. A bee lives in a hive.'],
   ['Book', 'Read', 'Song', 'Listen', ['Write', 'Dance', 'Draw', 'Speak'], 'You read a book. You listen to a song.'],
   ['Seed', 'Plant', 'Egg', 'Bird', ['Nest', 'Shell', 'Hatch', 'Feather'], 'A seed can grow into a plant. An egg can grow into a bird.'],
@@ -188,7 +188,10 @@ const seriesSeeds = [
 ];
 
 const quantitativeSeriesQuestions = seriesSeeds.map(([sequence, answer, explanation], index) => {
-  const distractors = [answer - 1, answer + 1, answer + 3, Math.max(0, answer - 3)].map(String);
+  const distractors = [answer - 1, answer + 1, answer + 3, answer - 3, answer + 2, answer - 2]
+    .filter((value, optionIndex, values) => value >= 0 && value !== answer && values.indexOf(value) === optionIndex)
+    .slice(0, 4)
+    .map(String);
   const choice = makeOptions(String(answer), distractors, index % 5);
   return {
     id: 1121 + index,
@@ -301,7 +304,9 @@ const matrixSeeds = [
 ];
 
 const matrixQuestions = matrixSeeds.map(([a, b, c, answer, explanation], index) => {
-  const distractors = [Math.max(0, answer - 1), answer + 1, Math.max(0, answer - 2), answer + 2].map((value) => Math.min(5, value));
+  const distractors = [answer - 1, answer + 1, answer - 2, answer + 2, answer - 3, answer + 3, answer - 4, answer + 4]
+    .filter((value, optionIndex, values) => value >= 0 && value <= 9 && value !== answer && values.indexOf(value) === optionIndex)
+    .slice(0, 4);
   const choiceIndex = index % 5;
   const values = [...distractors];
   values.splice(choiceIndex, 0, answer);
@@ -360,6 +365,8 @@ const foldingQuestions = foldingSeeds.map(([folds, answer, explanation], index) 
   };
 });
 
+const duplicateQuestionIds = new Set([1167, 1170, 1184, 1194, 1196, 1197, 1198, 1199, 1200]);
+
 export const bonusQuestions = [
   ...verbalAnalogyQuestions,
   ...sentenceQuestions,
@@ -369,8 +376,8 @@ export const bonusQuestions = [
   ...shapeQuestions,
   ...matrixQuestions,
   ...foldingQuestions,
-];
+].filter((question) => !duplicateQuestionIds.has(question.id));
 
-if (bonusQuestions.length !== 170) {
-  throw new Error(`Expected 170 bonus questions after removing under-specified Number Analogies, found ${bonusQuestions.length}.`);
+if (bonusQuestions.length !== 161) {
+  throw new Error(`Expected 161 bonus questions after removing ambiguous and duplicate content, found ${bonusQuestions.length}.`);
 }

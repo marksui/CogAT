@@ -186,6 +186,7 @@ const state = {
   mockMode: 'sheet',
   gameCenterTab: 'badges',
   practiceCoinMessage: '',
+  practiceCheckpointMessage: '',
   bankBattery: 'all',
   bankSubtest: 'all',
 };
@@ -203,6 +204,7 @@ let builderFocusExpanded = false;
 let eyeCareEnabled = loadEyeCareMode();
 let coinDisplayValue = null;
 let coinAnimationHandle = null;
+let practiceCheckpointHandle = null;
 const authState = {
   status: 'checking',
   user: null,
@@ -852,6 +854,20 @@ function renderPractice() {
         </button>
       ` : ''}
 
+      ${!state.checked ? `
+        <div class="footer-actions">
+          <button class="ghost" type="button" id="back">${state.sessionKind === 'daily' ? 'Pause' : 'Back'}</button>
+          <button class="primary" type="button" id="check">Check</button>
+        </div>
+      ` : ''}
+
+      ${state.checked && isCorrect ? `
+        <div class="answer-actions-correct" aria-label="Correct answer actions">
+          <span><i aria-hidden="true">&check;</i><b>Correct</b><small>+1 coin</small></span>
+          <button class="primary" type="button" id="check">${isLast ? 'Results' : 'Next'}</button>
+        </div>
+      ` : ''}
+
       ${state.checked ? `
         <div class="feedback ${isCorrect ? 'is-correct' : 'is-learning'}" role="status" aria-live="polite">
           <div class="feedback-heading"><span aria-hidden="true">${isCorrect ? '&check;' : '&times;'}</span><b>${isCorrect ? 'Correct! You earned 1 coin.' : didNotKnow ? 'That&rsquo;s okay &mdash; let&rsquo;s learn it.' : 'Good try &mdash; let&rsquo;s learn from it.'}</b></div>
@@ -861,14 +877,21 @@ function renderPractice() {
             <div class="verbal-tip"><b>Tip</b><span>${escapeHtml(getVerbalHint(question))}</span></div>
             ${renderWordMeaningGuide(question)}
           ` : ''}
+          <div class="choice-reasoning"><b>Why the other choices are wrong</b><span>${escapeHtml(getOtherChoicesExplanation(question))}</span></div>
           <span class="coin-reward-pill">${renderCoinIcon()}+1 Coin</span>
         </div>
       ` : ''}
 
-      <div class="footer-actions">
-        <button class="ghost" type="button" id="back">${state.sessionKind === 'daily' ? 'Pause' : 'Back'}</button>
-        <button class="primary" type="button" id="check">${state.checked ? (isLast ? 'Results' : 'Next') : 'Check'}</button>
-      </div>
+      ${state.checked && !isCorrect ? `
+        <div class="footer-actions answer-actions-learning">
+          <button class="ghost" type="button" id="back">${state.sessionKind === 'daily' ? 'Pause' : 'Back'}</button>
+          <button class="primary" type="button" id="check">${isLast ? 'Results' : 'Next'}</button>
+        </div>
+      ` : ''}
+
+      ${state.checked && isCorrect ? `<button class="practice-pause-link" type="button" id="back">${state.sessionKind === 'daily' ? 'Pause practice' : 'Back to practice setup'}</button>` : ''}
+
+      ${state.practiceCheckpointMessage ? `<div class="practice-checkpoint" role="status" aria-live="polite"><span aria-hidden="true">&check;</span>${escapeHtml(state.practiceCheckpointMessage)}</div>` : ''}
     </section>
   `);
 
@@ -917,13 +940,28 @@ function renderPractice() {
 }
 
 function submitPracticeAnswer(question, answer, rewardOrigin) {
+  const isCorrect = answer === getCorrectAnswer(question);
   state.checked = true;
-  state.practiceCoinMessage = answer === getCorrectAnswer(question) ? 'correct' : 'practice';
+  state.practiceCoinMessage = isCorrect ? 'correct' : 'practice';
   recordAnswer(question, answer, { save: false });
   awardCoins(1, 'practice', 'Practice answer', { animate: true, originElement: rewardOrigin });
+  const answeredCount = state.currentIndex + 1;
+  if (answeredCount % 10 === 0 && answeredCount < state.questions.length) {
+    const correctCount = state.questions.slice(0, answeredCount).reduce((total, item, index) => (
+      total + (state.answers[index] === getCorrectAnswer(item) ? 1 : 0)
+    ), 0);
+    state.practiceCheckpointMessage = `${answeredCount} done · ${correctCount} correct`;
+  }
   saveHistory();
   persistActiveSession();
   render();
+  if (!isCorrect) {
+    window.requestAnimationFrame(() => {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      document.querySelector('.feedback')?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'center' });
+    });
+  }
+  schedulePracticeCheckpointDismissal();
 }
 
 function getVerbalHint(question) {
@@ -956,6 +994,36 @@ function renderWordMeaningGuide(question) {
       </div>
     </div>
   `;
+}
+
+function getOtherChoicesExplanation(question) {
+  if (question.whyOtherChoices) {
+    return question.whyOtherChoices;
+  }
+  const explanations = {
+    'Number Analogies': 'They do not use the same number rule for every pair.',
+    'Number Series': 'They do not continue the same step-by-step number pattern.',
+    'Number Puzzles': 'They do not make every equation true.',
+    'Verbal Analogies': 'They do not keep the same relationship as the first word pair.',
+    'Sentence Completion': 'They do not complete the sentence as clearly and precisely.',
+    'Figure Matrices': 'They do not complete the same row-and-column visual pattern.',
+    'Figure Classification': 'They do not share the defining feature of the group.',
+    'Paper Folding': 'They do not mirror every fold and punched hole correctly.',
+  };
+  return explanations[question.subtest] ?? 'They do not follow the same rule as the correct choice.';
+}
+
+function schedulePracticeCheckpointDismissal() {
+  window.clearTimeout(practiceCheckpointHandle);
+  if (!state.practiceCheckpointMessage) {
+    return;
+  }
+  practiceCheckpointHandle = window.setTimeout(() => {
+    const checkpoint = document.querySelector('.practice-checkpoint');
+    checkpoint?.classList.add('is-leaving');
+    window.setTimeout(() => checkpoint?.remove(), 180);
+    state.practiceCheckpointMessage = '';
+  }, 2600);
 }
 
 function renderMockIntro() {
@@ -2606,6 +2674,7 @@ function startPractice({ kind = 'custom', pool = null, limit = QUESTION_LIMIT } 
   state.answers = new Array(state.questions.length).fill(null);
   state.currentIndex = 0;
   state.checked = false;
+  state.practiceCheckpointMessage = '';
   state.view = 'practice';
   state.message = '';
   if (kind === 'daily') {
