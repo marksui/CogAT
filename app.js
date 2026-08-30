@@ -201,6 +201,7 @@ let aboutMenuOpen = false;
 let adminTestModeOpen = false;
 let customPracticeOpen = true;
 let builderFocusExpanded = false;
+let dailyReportOpen = false;
 let eyeCareEnabled = loadEyeCareMode();
 let coinDisplayValue = null;
 let coinAnimationHandle = null;
@@ -462,6 +463,8 @@ function renderDashboardIcon(name) {
     missed: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9a6 6 0 1 1-4.24 10.24"/><path d="M4 8l4-4M4 8l4 4"/></svg>',
     new: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
     mock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 13V9M12 13l3 2M9 2h6"/></svg>',
+    report: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h5M8 16h3"/></svg>',
+    close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   };
   return icons[name] ?? '';
@@ -536,6 +539,7 @@ function renderSetup() {
   const daily = getDailyProgress();
   const dailyGoal = state.dailyGoal;
   const dailyPercent = Math.min(100, Math.round((daily.answered / dailyGoal) * 100));
+  const dailyReport = getDailyReport();
   const summary = getProgressSummary();
   const hasActiveDaily = hasResumableDailySession();
   const dailyComplete = daily.completed;
@@ -569,9 +573,37 @@ function renderSetup() {
           <span><i class="battery-dot quantitative"></i>Quantitative</span>
           <span><i class="battery-dot nonverbal"></i>Nonverbal</span>
         </div>
+        <button class="daily-report-button" type="button" data-daily-report aria-expanded="${dailyReportOpen}" aria-controls="daily-report-panel">
+          <span>${renderDashboardIcon('report')}<b>Daily report</b></span>
+          <strong>${daily.answered} done</strong>
+        </button>
         <div class="home-decoration" aria-hidden="true">${renderShopIcon(getActiveDecor()?.icon ?? 'spark-card')}</div>
       </aside>
     </section>
+
+    ${dailyReportOpen ? `
+      <section class="panel daily-report-panel" id="daily-report-panel" aria-label="Today&rsquo;s daily practice report">
+        <div class="daily-report-head">
+          <div><span class="eyebrow">Today</span><h2>Daily report</h2></div>
+          <button type="button" data-close-daily-report aria-label="Close daily report">${renderDashboardIcon('close')}</button>
+        </div>
+        <div class="daily-report-stats">
+          <div><span>Answered</span><strong>${dailyReport.answered}</strong></div>
+          <div><span>Correct</span><strong>${dailyReport.correct}</strong></div>
+          <div><span>Accuracy</span><strong>${dailyReport.accuracy === null ? '&mdash;' : `${dailyReport.accuracy}%`}</strong></div>
+        </div>
+        <div class="daily-report-batteries">
+          ${dailyReport.batteries.map((battery) => `
+            <div class="daily-report-battery battery-${battery.key}">
+              <span><i class="battery-dot ${battery.key}"></i>${battery.label}</span>
+              <strong>${dailyReport.hasBatteryDetails ? `${battery.answered} done` : '&mdash;'}</strong>
+              <small>${dailyReport.hasBatteryDetails && battery.answered ? `${battery.correct}/${battery.answered} correct` : dailyReport.hasBatteryDetails ? 'Not started' : 'No saved detail'}</small>
+            </div>
+          `).join('')}
+        </div>
+        ${!dailyReport.hasBatteryDetails && dailyReport.answered ? '<p class="daily-report-note">Battery details will be saved with the next daily practice.</p>' : ''}
+      </section>
+    ` : ''}
 
     <section class="home-stat-grid" aria-label="Learning summary">
       <div class="home-stat"><span>Day streak</span><strong>${summary.streak}</strong><small>${summary.streak === 1 ? 'day in a row' : 'days in a row'}</small></div>
@@ -704,6 +736,14 @@ function renderSetup() {
   });
 
   document.querySelector('[data-start-daily]').addEventListener('click', startDailyPractice);
+  document.querySelector('[data-daily-report]').addEventListener('click', () => {
+    dailyReportOpen = !dailyReportOpen;
+    render();
+  });
+  document.querySelector('[data-close-daily-report]')?.addEventListener('click', () => {
+    dailyReportOpen = false;
+    render();
+  });
   document.querySelectorAll('[data-quick-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       state.battery = 'all';
@@ -2765,6 +2805,7 @@ function finishPracticeSession() {
       answered: total,
       correct,
       total,
+      batteries: summarizeDailyBatteries(state.questions, state.answers),
       completed: true,
       completedAt,
     };
@@ -3172,6 +3213,58 @@ function getDailyProgress() {
   };
 }
 
+function summarizeDailyBatteries(questions, answers, isAnswered = (_, index) => Boolean(answers[index])) {
+  const summary = {
+    verbal: { answered: 0, correct: 0 },
+    quantitative: { answered: 0, correct: 0 },
+    nonverbal: { answered: 0, correct: 0 },
+  };
+  questions.forEach((question, index) => {
+    if (!question || !isAnswered(question, index)) {
+      return;
+    }
+    const key = question.battery.replace(' Battery', '').toLowerCase();
+    if (!summary[key]) {
+      return;
+    }
+    summary[key].answered += 1;
+    summary[key].correct += answers[index] === getCorrectAnswer(question) ? 1 : 0;
+  });
+  return summary;
+}
+
+function getDailyReport() {
+  const progress = getDailyProgress();
+  const record = state.history.daily[getDateKey()] ?? {};
+  const active = hasStoredActiveDailySession() ? state.history.activeSession : null;
+  let batterySummary = record.batteries ?? null;
+
+  if (active) {
+    const questions = active.questionIds.map((id) => questionById.get(String(id)));
+    batterySummary = summarizeDailyBatteries(questions, active.answers, (_, index) => (
+      index < active.currentIndex || (index === active.currentIndex && active.checked)
+    ));
+  }
+
+  const batteries = [
+    { key: 'verbal', label: 'Verbal' },
+    { key: 'quantitative', label: 'Quantitative' },
+    { key: 'nonverbal', label: 'Nonverbal' },
+  ].map((battery) => ({
+    ...battery,
+    answered: Number(batterySummary?.[battery.key]?.answered ?? 0),
+    correct: Number(batterySummary?.[battery.key]?.correct ?? 0),
+  }));
+
+  return {
+    answered: progress.answered,
+    correct: progress.correct,
+    accuracy: progress.answered ? Math.round((progress.correct / progress.answered) * 100) : null,
+    batteries,
+    hasBatteryDetails: Boolean(batterySummary),
+  };
+}
+
 function hasStoredActiveDailySession() {
   const active = state.history.activeSession;
   const activeGoal = Number(active?.goal ?? active?.questionIds?.length ?? 0);
@@ -3282,6 +3375,12 @@ function normalizeHistory(input) {
       answered: Number(record?.answered ?? 0),
       correct: Number(record?.correct ?? 0),
       total: Number(record?.total ?? record?.answered ?? 0),
+      batteries: record?.batteries && typeof record.batteries === 'object'
+        ? Object.fromEntries(['verbal', 'quantitative', 'nonverbal'].map((key) => [key, {
+          answered: Number(record.batteries[key]?.answered ?? 0),
+          correct: Number(record.batteries[key]?.correct ?? 0),
+        }]))
+        : null,
       completed: Boolean(record?.completed),
       completedAt: record?.completedAt ?? '',
       updatedAt: record?.updatedAt ?? record?.completedAt ?? '',
