@@ -9,6 +9,8 @@ import {
 } from '../lib/questionBankValidator.js';
 import { questionBankEntries } from '../lib/questionBankSources.js';
 import { coreExpansionQuestions } from '../data/coreExpansionQuestions.js';
+import { coreExpansionRound2Questions } from '../data/coreExpansionRound2Questions.js';
+import { verbalExpansion200Questions } from '../data/verbalExpansion200Questions.js';
 
 function options(answer, distractors = ['2', '3', '4', '5']) {
   return [answer, ...distractors].map((text, index) => ({ label: ['A', 'B', 'C', 'D', 'E'][index], text }));
@@ -141,6 +143,48 @@ test('the core expansion adds 20 validated questions to each requested subtest',
     }
   }
   const report = auditQuestionBank(coreExpansionQuestions);
+  assert.equal(report.issues.length, 0, JSON.stringify(report.issues, null, 2));
+});
+
+test('the second core expansion adds 10 validated questions to each requested subtest', () => {
+  const requestedSubtests = [
+    'Sentence Completion',
+    'Verbal Analogies',
+    'Verbal Classification',
+    'Number Analogies',
+    'Number Puzzles',
+    'Number Series',
+  ];
+  assert.equal(coreExpansionRound2Questions.length, 60);
+  for (const subtest of requestedSubtests) {
+    const questions = coreExpansionRound2Questions.filter((item) => item.subtest === subtest);
+    assert.equal(questions.length, 10, `${subtest} should include 10 new questions`);
+    for (const item of questions) {
+      assert.deepEqual(validateQuestion(item), [], `${item.id} should pass validation`);
+    }
+  }
+  const report = auditQuestionBank(coreExpansionRound2Questions);
+  assert.equal(report.issues.length, 0, JSON.stringify(report.issues, null, 2));
+});
+
+test('the verbal expansion adds exactly 200 validated and unique questions', () => {
+  const expectedCounts = new Map([
+    ['Sentence Completion', 70],
+    ['Verbal Analogies', 65],
+    ['Verbal Classification', 65],
+  ]);
+  assert.equal(verbalExpansion200Questions.length, 200);
+  assert.ok(verbalExpansion200Questions.every((item) => item.battery === 'Verbal Battery'));
+  for (const [subtest, expected] of expectedCounts) {
+    assert.equal(
+      verbalExpansion200Questions.filter((item) => item.subtest === subtest).length,
+      expected,
+      `${subtest} should include ${expected} new questions`,
+    );
+  }
+  const sentenceQuestions = verbalExpansion200Questions.filter((item) => item.subtest === 'Sentence Completion');
+  assert.ok(sentenceQuestions.every((item) => item.wordMeanings?.length === 5));
+  const report = auditQuestionBank(verbalExpansion200Questions);
   assert.equal(report.issues.length, 0, JSON.stringify(report.issues, null, 2));
 });
 

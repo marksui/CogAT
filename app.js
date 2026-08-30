@@ -12,10 +12,14 @@ import { bonusQuestions } from './data/bonusQuestions.js';
 import { verbalVocabularyQuestions } from './data/verbalVocabularyQuestions.js';
 import { numberAnalogyQuestions } from './data/numberAnalogyQuestions.js';
 import { coreExpansionQuestions } from './data/coreExpansionQuestions.js';
+import { coreExpansionRound2Questions } from './data/coreExpansionRound2Questions.js';
+import { verbalExpansion200Questions } from './data/verbalExpansion200Questions.js';
 import { filterValidNumberAnalogies } from './lib/numberAnalogyValidator.js';
+import { calculateMasteryProgress, calculateSubtestPerformance } from './lib/progressMetrics.js';
 import { supabaseConfig } from './supabase-config.js';
 
 const QUESTION_LIMIT = 30;
+const BANK_PAGE_SIZE = 24;
 const DEFAULT_DAILY_GOAL = 30;
 const DONT_KNOW_ANSWER = '__dont_know__';
 const STORAGE_KEY = 'grade4-cogat-history-v2';
@@ -23,8 +27,8 @@ const LEGACY_STORAGE_KEY = 'grade4-cogat-history-v1';
 const EYE_CARE_STORAGE_KEY = 'grade4-cogat-eye-care';
 
 const rawQuestionSets = {
-  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalVocabularyQuestions, ...verbalWorkbookQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Verbal Battery'), ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
-  quantitative: filterValidNumberAnalogies([...quantitativeQuestions, ...quantitativeExtraQuestions, ...numberAnalogyQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...bonusQuestions.filter((question) => question.battery === 'Quantitative Battery')]),
+  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalVocabularyQuestions, ...verbalWorkbookQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Verbal Battery'), ...coreExpansionRound2Questions.filter((question) => question.battery === 'Verbal Battery'), ...verbalExpansion200Questions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
+  quantitative: filterValidNumberAnalogies([...quantitativeQuestions, ...quantitativeExtraQuestions, ...numberAnalogyQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...coreExpansionRound2Questions.filter((question) => question.battery === 'Quantitative Battery'), ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...bonusQuestions.filter((question) => question.battery === 'Quantitative Battery')]),
   nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Nonverbal Battery')],
 };
 
@@ -242,6 +246,10 @@ const state = {
   practiceCheckpointMessage: '',
   bankBattery: 'all',
   bankSubtest: 'all',
+  bankDifficulty: 'all',
+  bankStatus: 'all',
+  bankQuery: '',
+  bankVisibleCount: BANK_PAGE_SIZE,
 };
 
 const GAME_PAGE_VIEWS = new Set([
@@ -270,6 +278,7 @@ let eyeCareEnabled = loadEyeCareMode();
 let coinDisplayValue = null;
 let coinAnimationHandle = null;
 let practiceCheckpointHandle = null;
+let practiceQuestionStartedAt = Date.now();
 const authState = {
   status: 'checking',
   user: null,
@@ -1126,6 +1135,7 @@ function renderPractice() {
       state.currentIndex += 1;
       state.checked = false;
       state.practiceCoinMessage = '';
+      practiceQuestionStartedAt = Date.now();
       persistActiveSession();
     }
     render();
@@ -1162,9 +1172,10 @@ function saveQuestionFeedback(question, type) {
 
 function submitPracticeAnswer(question, answer, rewardOrigin) {
   const isCorrect = answer === getCorrectAnswer(question);
+  const responseSeconds = Math.min(300, Math.max(1, (Date.now() - practiceQuestionStartedAt) / 1000));
   state.checked = true;
   state.practiceCoinMessage = isCorrect ? 'correct' : 'practice';
-  recordAnswer(question, answer, { save: false });
+  recordAnswer(question, answer, { save: false, responseSeconds });
   awardCoins(1, 'practice', 'Practice answer', { animate: true, originElement: rewardOrigin });
   const answeredCount = state.currentIndex + 1;
   if (answeredCount % 10 === 0 && answeredCount < state.questions.length) {
@@ -2173,6 +2184,9 @@ function stopMockTimer() {
 function recordMockPartResult() {
   const part = mockParts[state.mockPartIndex];
   let correct = 0;
+  const answeredCount = state.answers.filter(Boolean).length;
+  const secondsUsed = (part.minutes * 60) - state.mockSecondsRemaining;
+  const averageResponseSeconds = answeredCount ? Math.max(1, secondsUsed / answeredCount) : null;
 
   state.questions.forEach((question, index) => {
     const answer = state.answers[index];
@@ -2182,7 +2196,7 @@ function recordMockPartResult() {
     if (answer === getCorrectAnswer(question)) {
       correct += 1;
     }
-    recordAnswer(question, answer, { save: false });
+    recordAnswer(question, answer, { save: false, responseSeconds: averageResponseSeconds });
   });
 
   const result = {
@@ -2193,7 +2207,7 @@ function recordMockPartResult() {
     correct,
     total: state.questions.length,
     unanswered: state.answers.filter((answer) => !answer).length,
-    secondsUsed: (part.minutes * 60) - state.mockSecondsRemaining,
+    secondsUsed,
     questionIds: state.questions.map((question) => String(question.id)),
     missedQuestionIds: state.questions
       .filter((question, index) => state.answers[index] !== getCorrectAnswer(question))
@@ -2515,22 +2529,56 @@ function renderAbilityMapPanel() {
     </div>
     <div class="ability-story-strip">
       <span>${renderBadgeIcon('map')}</span>
-      <div><b>Choose a region</b><small>Each stop starts practice for one CogAT skill.</small></div>
+      <div><b>Skill progress</b><small>Tap any region to practice. Metrics update after every answer.</small></div>
       <strong>${abilityMap.explored}/9</strong>
     </div>
     <div class="ability-map-grid adventure-map-grid">
       ${abilityMap.regions.map((ability, index) => `
-        <button class="ability-region battery-${ability.battery} status-${ability.statusKey} ${ability.explored ? 'is-explored' : 'is-undiscovered'}" style="--map-index:${index}" type="button" data-ability-subtest="${escapeHtml(ability.subtest)}" data-ability-battery="${ability.battery}" aria-label="Practice ${escapeHtml(ability.skill)}. ${ability.status}.">
+        <button class="ability-region battery-${ability.battery} status-${ability.statusKey} ${ability.explored ? 'is-explored' : 'is-undiscovered'}" style="--map-index:${index}" type="button" data-ability-subtest="${escapeHtml(ability.subtest)}" data-ability-battery="${ability.battery}" aria-label="Practice ${escapeHtml(ability.skill)}. ${ability.status}. Mastery ${ability.progress} percent. Accuracy ${ability.accuracy ?? 0} percent. Average speed ${escapeHtml(ability.speedLabel)}. Trend ${escapeHtml(ability.trend.label)}.">
           <span class="ability-route-number">${String(index + 1).padStart(2, '0')}</span>
           <span class="ability-region-icon">${renderAbilityIcon(ability.icon)}</span>
           <span class="ability-status">${ability.status}</span>
           <span class="ability-region-copy"><small>${escapeHtml(ability.region)}</small><b>${escapeHtml(ability.skill)}</b><em>${escapeHtml(ability.subtest)}</em></span>
-          <span class="ability-progress" aria-label="${ability.progress}% progress"><i style="width:${ability.progress}%"></i></span>
-          <span class="ability-region-foot"><small>${ability.attempted ? `${ability.correct}/${ability.attempted} correct` : 'Start here'}</small><strong>${ability.mastered ? `${escapeHtml(ability.unlock)} added` : ability.explored ? `${escapeHtml(ability.unlock)} unlocked` : 'Discover'}</strong></span>
+          <span class="ability-progress" aria-label="${ability.progress}% mastery"><i style="width:${ability.progress}%"></i></span>
+          <span class="ability-metrics" aria-label="Performance metrics">
+            <span><small>Mastery</small><b>${ability.progress}%</b></span>
+            <span><small>Accuracy</small><b>${ability.accuracy === null ? '—' : `${ability.accuracy}%`}</b></span>
+            <span><small>Avg. speed</small><b>${escapeHtml(ability.speedLabel)}</b></span>
+          </span>
+          ${renderAbilityTrend(ability)}
+          <span class="ability-region-foot"><small>${ability.attempted ? `${ability.attempted} answers` : 'Start here'}</small><strong>${ability.mastered ? `${escapeHtml(ability.unlock)} added` : ability.explored ? `${escapeHtml(ability.unlock)} unlocked` : 'Discover'}</strong></span>
         </button>
       `).join('')}
     </div>
-    <div class="ability-map-legend" aria-label="Ability status guide"><span><i class="developing"></i>Developing</span><span><i class="good"></i>Good</span><span><i class="mastered"></i>Mastered</span></div>
+    <div class="ability-map-legend" aria-label="Ability status guide"><span><i class="developing"></i>Developing</span><span><i class="good"></i>Good</span><span><i class="mastered"></i>Mastered</span><small>Speed and trend begin tracking with new answers.</small></div>
+  `;
+}
+
+function renderAbilityTrend(ability) {
+  const points = ability.trendPoints ?? [];
+  const polyline = points.length >= 2
+    ? points.map((value, index) => {
+      const x = Math.round((index / (points.length - 1)) * 92) + 4;
+      const y = Math.round(27 - ((value / 100) * 22));
+      return `${x},${y}`;
+    }).join(' ')
+    : '4,16 96,16';
+  const iconPath = ability.trend.key === 'up'
+    ? '<path d="m4 14 6-6 4 4 6-7"/><path d="M15 5h5v5"/>'
+    : ability.trend.key === 'down'
+      ? '<path d="m4 6 6 6 4-4 6 7"/><path d="M15 15h5v-5"/>'
+      : '<path d="M4 12h16"/><path d="m16 8 4 4-4 4"/>';
+  return `
+    <span class="ability-trend trend-${ability.trend.key}">
+      <svg class="ability-sparkline" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M4 27H96" class="sparkline-base"/>
+        <polyline points="${polyline}"/>
+      </svg>
+      <span class="ability-trend-copy">
+        <i><svg viewBox="0 0 24 24" aria-hidden="true">${iconPath}</svg></i>
+        <span><b>${escapeHtml(ability.trend.label)}</b><small>${escapeHtml(ability.trend.detail)}</small></span>
+      </span>
+    </span>
   `;
 }
 
@@ -2576,7 +2624,7 @@ function renderBadgeAlbumCard(definition, badge) {
         <div class="badge-icon">${badge ? renderBadgeArtwork(definition) : '<span class="badge-question-mark" aria-label="Mystery badge">?</span>'}</div>
       </div>
       <div class="badge-copy">
-        <b>${escapeHtml(definition.name)}</b>
+        <b class="badge-name" title="${escapeHtml(definition.name)}">${escapeHtml(definition.name)}</b>
         <div class="badge-card-foot">
           <span class="badge-price">${renderCoinIcon()}${definition.price}</span>
           <button class="${badge ? 'ghost' : 'primary'}" type="button" data-badge-action="${definition.id}" aria-label="${badge ? `${escapeHtml(definition.name)} badge collected` : `Buy ${escapeHtml(definition.name)} badge for ${definition.price} coins`}" ${badge || !canBuy ? 'disabled' : ''}>${buttonLabel}</button>
@@ -2970,36 +3018,73 @@ function renderQuestionBank() {
   renderShell(`
     <section class="panel question-bank">
       <div class="bank-head">
-        <h1>Question bank</h1>
-        <span>${filteredQuestions.length}/${allQuestions.length}</span>
+        <div>
+          <span class="bank-eyebrow">Explore &amp; practice</span>
+          <h1>Question bank</h1>
+        </div>
+        <span id="bank-total-count">${filteredQuestions.length}/${allQuestions.length}</span>
       </div>
 
       <div class="bank-toolbar">
-        <div class="bank-chips" aria-label="Battery filter">
-          ${batteries.map((battery) => `
-            <button class="bank-chip ${battery.key === state.bankBattery ? 'selected' : ''}" type="button" data-bank-filter="${battery.key}">
-              <span>${escapeHtml(battery.label)}</span>
-              <b>${battery.questions.length}</b>
-            </button>
-          `).join('')}
+        <div class="bank-search-row">
+          <label class="bank-search" for="bank-search-input">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
+            <span class="sr-only">Search questions</span>
+            <input id="bank-search-input" type="search" inputmode="search" autocomplete="off" placeholder="Search question, answer, ID..." value="${escapeHtml(state.bankQuery)}">
+          </label>
+          <button class="bank-search-clear" type="button" id="bank-search-clear" aria-label="Clear search" ${state.bankQuery ? '' : 'hidden'}>&times;</button>
+          <button class="primary bank-practice" type="button" id="bank-start" ${filteredQuestions.length ? '' : 'disabled'}>Practice results</button>
         </div>
 
-        <label class="bank-select">
-          <span>Subtest</span>
-          <select id="bank-subtest">
-            <option value="all">All</option>
-            ${bankSubtests.map((subtest) => `
-              <option value="${escapeHtml(subtest)}" ${subtest === state.bankSubtest ? 'selected' : ''}>${escapeHtml(subtest)}</option>
+        <div class="bank-filter-row">
+          <div class="bank-chips" aria-label="Battery filter">
+            ${batteries.map((battery) => `
+              <button class="bank-chip ${battery.key === state.bankBattery ? 'selected' : ''}" type="button" data-bank-filter="${battery.key}" aria-pressed="${battery.key === state.bankBattery}">
+                <span>${escapeHtml(battery.label)}</span>
+                <b>${battery.questions.length}</b>
+              </button>
             `).join('')}
-          </select>
-        </label>
+          </div>
 
-        <button class="ghost bank-practice" type="button" id="bank-start" ${filteredQuestions.length ? '' : 'disabled'}>Practice</button>
+          <div class="bank-selects">
+            <label class="bank-select" for="bank-subtest">
+              <span>Subtest</span>
+              <select id="bank-subtest">
+                <option value="all">All subtests</option>
+                ${bankSubtests.map((subtest) => `
+                  <option value="${escapeHtml(subtest)}" ${subtest === state.bankSubtest ? 'selected' : ''}>${escapeHtml(subtest)}</option>
+                `).join('')}
+              </select>
+            </label>
+
+            <label class="bank-select" for="bank-difficulty">
+              <span>Level</span>
+              <select id="bank-difficulty">
+                <option value="all" ${state.bankDifficulty === 'all' ? 'selected' : ''}>All levels</option>
+                <option value="easy" ${state.bankDifficulty === 'easy' ? 'selected' : ''}>Easy</option>
+                <option value="medium" ${state.bankDifficulty === 'medium' ? 'selected' : ''}>Medium</option>
+                <option value="very-hard" ${state.bankDifficulty === 'very-hard' ? 'selected' : ''}>Challenge</option>
+              </select>
+            </label>
+
+            <label class="bank-select" for="bank-status">
+              <span>Status</span>
+              <select id="bank-status">
+                <option value="all" ${state.bankStatus === 'all' ? 'selected' : ''}>All status</option>
+                <option value="new" ${state.bankStatus === 'new' ? 'selected' : ''}>New</option>
+                <option value="correct" ${state.bankStatus === 'correct' ? 'selected' : ''}>Correct</option>
+                <option value="missed" ${state.bankStatus === 'missed' ? 'selected' : ''}>Missed</option>
+                <option value="weak" ${state.bankStatus === 'weak' ? 'selected' : ''}>Weak</option>
+              </select>
+            </label>
+          </div>
+        </div>
       </div>
 
-      <div class="bank-list">
-        ${filteredQuestions.map((question, index) => renderBankQuestion(question, index)).join('')}
+      <div class="bank-results-head" id="bank-results-summary" aria-live="polite">
+        ${renderBankResultsSummary(filteredQuestions.length)}
       </div>
+      <div id="bank-results-region">${renderBankResultsMarkup(filteredQuestions)}</div>
     </section>
   `);
 
@@ -3007,27 +3092,62 @@ function renderQuestionBank() {
     button.addEventListener('click', () => {
       state.bankBattery = button.dataset.bankFilter;
       state.bankSubtest = 'all';
+      state.bankVisibleCount = BANK_PAGE_SIZE;
       render();
     });
   });
 
   document.querySelector('#bank-subtest').addEventListener('change', (event) => {
     state.bankSubtest = event.target.value;
-    render();
+    state.bankVisibleCount = BANK_PAGE_SIZE;
+    updateBankResults();
+  });
+
+  document.querySelector('#bank-difficulty').addEventListener('change', (event) => {
+    state.bankDifficulty = event.target.value;
+    state.bankVisibleCount = BANK_PAGE_SIZE;
+    updateBankResults();
+  });
+
+  document.querySelector('#bank-status').addEventListener('change', (event) => {
+    state.bankStatus = event.target.value;
+    state.bankVisibleCount = BANK_PAGE_SIZE;
+    updateBankResults();
+  });
+
+  const searchInput = document.querySelector('#bank-search-input');
+  searchInput.addEventListener('input', (event) => {
+    state.bankQuery = event.target.value;
+    state.bankVisibleCount = BANK_PAGE_SIZE;
+    document.querySelector('#bank-search-clear').hidden = !state.bankQuery;
+    updateBankResults();
+  });
+
+  document.querySelector('#bank-search-clear').addEventListener('click', () => {
+    state.bankQuery = '';
+    state.bankVisibleCount = BANK_PAGE_SIZE;
+    searchInput.value = '';
+    document.querySelector('#bank-search-clear').hidden = true;
+    updateBankResults();
+    searchInput.focus();
   });
 
   document.querySelector('#bank-start').addEventListener('click', () => {
+    const practicePool = getBankQuestions();
     state.examType = 'practice';
     state.battery = state.bankBattery;
     state.subtest = state.bankSubtest;
     state.mode = 'all';
-    startPractice({ kind: 'custom' });
+    startPractice({ kind: 'custom', pool: practicePool });
   });
+
+  bindBankLoadMore();
 }
 
 function renderBankQuestion(question, index) {
   const difficulty = getDifficulty(question);
   const isWorkbookQuestion = question.source === 'G4 PDF workbook';
+  const progressStatus = getBankProgressStatus(question);
   return `
     <article class="bank-question ${isWorkbookQuestion ? 'is-workbook-question' : ''}" id="question-${question.id}">
       <div class="bank-question-meta">
@@ -3035,18 +3155,19 @@ function renderBankQuestion(question, index) {
         <span>#${escapeHtml(question.id)}</span>
         <span class="difficulty-badge difficulty-${difficulty}">${formatDifficulty(difficulty)}</span>
         <span>${escapeHtml(question.battery.replace(' Battery', ''))} · ${escapeHtml(question.subtest)}</span>
+        <span class="bank-progress-status is-${progressStatus.key}">${progressStatus.label}</span>
         <span class="bank-answer">Answer ${escapeHtml(getCorrectAnswer(question))}</span>
       </div>
       <div class="bank-question-body">
         <div class="bank-preview">
-          <div>${question.question}</div>
+          <div>${addLazyImageAttributes(question.question)}</div>
           ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
         </div>
         <div class="bank-options-mini">
           ${question.options.map((option) => `
             <div class="bank-option-mini ${getOptionValue(option) === getCorrectAnswer(question) ? 'is-answer' : ''}">
               <b>${escapeHtml(option.label)}</b>
-              <span>${option.text}</span>
+              <span>${addLazyImageAttributes(option.text)}</span>
             </div>
           `).join('')}
         </div>
@@ -3061,11 +3182,117 @@ function getBankSubtests(battery) {
 
 function getBankQuestions() {
   const battery = batteryMap.get(state.bankBattery) ?? batteryMap.get('all');
-  const questions = state.bankSubtest === 'all'
+  let questions = state.bankSubtest === 'all'
     ? battery.questions
     : battery.questions.filter((question) => question.subtest === state.bankSubtest);
 
-  return [...questions].sort((first, second) => Number(first.id) - Number(second.id));
+  if (state.bankDifficulty !== 'all') {
+    questions = questions.filter((question) => getDifficulty(question) === state.bankDifficulty);
+  }
+
+  if (state.bankStatus !== 'all') {
+    questions = questions.filter((question) => {
+      if (state.bankStatus === 'weak') return isWeakQuestion(question);
+      return getBankProgressStatus(question).key === state.bankStatus;
+    });
+  }
+
+  const searchTokens = normalizeBankSearchText(state.bankQuery).split(' ').filter(Boolean);
+  if (searchTokens.length) {
+    questions = questions.filter((question) => {
+      const searchableText = getBankSearchText(question);
+      return searchTokens.every((token) => searchableText.includes(token));
+    });
+  }
+
+  return [...questions].sort((first, second) => String(first.id).localeCompare(String(second.id), undefined, { numeric: true }));
+}
+
+const bankSearchCache = new WeakMap();
+
+function normalizeBankSearchText(value = '') {
+  return String(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&[a-z0-9#]+;/gi, ' ')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getBankSearchText(question) {
+  if (!bankSearchCache.has(question)) {
+    bankSearchCache.set(question, normalizeBankSearchText([
+      question.id,
+      question.battery,
+      question.subtest,
+      question.difficulty,
+      question.source,
+      question.question,
+      question.questionNote,
+      ...(question.options ?? []).map((option) => option.text),
+    ].join(' ')));
+  }
+  return bankSearchCache.get(question);
+}
+
+function getBankProgressStatus(question) {
+  const stats = state.history.stats[String(question.id)];
+  if (!stats) return { key: 'new', label: 'New' };
+  if (stats.lastResult === 'wrong') return { key: 'missed', label: 'Missed' };
+  return { key: 'correct', label: 'Correct' };
+}
+
+function addLazyImageAttributes(markup = '') {
+  return String(markup).replace(/<img\b(?![^>]*\bloading=)/gi, '<img loading="lazy" decoding="async"');
+}
+
+function renderBankResultsSummary(total) {
+  const visible = Math.min(state.bankVisibleCount, total);
+  if (!total) return '<b>No matches</b><span>Try a different word or filter.</span>';
+  return `<b>Showing ${visible} of ${total}</b><span>Search and filters update instantly.</span>`;
+}
+
+function renderBankResultsMarkup(filteredQuestions) {
+  if (!filteredQuestions.length) {
+    return `
+      <div class="bank-empty">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4M8.5 11h5"/></svg>
+        <b>No questions found</b>
+        <span>Clear a filter or try a shorter search.</span>
+      </div>
+    `;
+  }
+
+  const visibleQuestions = filteredQuestions.slice(0, state.bankVisibleCount);
+  const remaining = filteredQuestions.length - visibleQuestions.length;
+  return `
+    <div class="bank-list">
+      ${visibleQuestions.map((question, index) => renderBankQuestion(question, index)).join('')}
+    </div>
+    ${remaining > 0 ? `
+      <div class="bank-load-row">
+        <button class="ghost bank-load-more" type="button" id="bank-load-more">Show ${Math.min(BANK_PAGE_SIZE, remaining)} more</button>
+        <span>${remaining} remaining</span>
+      </div>
+    ` : ''}
+  `;
+}
+
+function updateBankResults() {
+  const filteredQuestions = getBankQuestions();
+  document.querySelector('#bank-total-count').textContent = `${filteredQuestions.length}/${allQuestions.length}`;
+  document.querySelector('#bank-results-summary').innerHTML = renderBankResultsSummary(filteredQuestions.length);
+  document.querySelector('#bank-results-region').innerHTML = renderBankResultsMarkup(filteredQuestions);
+  document.querySelector('#bank-start').disabled = filteredQuestions.length === 0;
+  bindBankLoadMore();
+}
+
+function bindBankLoadMore() {
+  document.querySelector('#bank-load-more')?.addEventListener('click', () => {
+    state.bankVisibleCount += BANK_PAGE_SIZE;
+    updateBankResults();
+  });
 }
 
 function summarizeMockScores() {
@@ -3097,6 +3324,7 @@ function startDailyPractice() {
       state.checked = Boolean(active.checked);
       state.view = 'practice';
       state.message = '';
+      practiceQuestionStartedAt = Date.now();
       render();
       return;
     }
@@ -3121,6 +3349,7 @@ function startPractice({ kind = 'custom', pool = null, limit = QUESTION_LIMIT } 
   state.practiceCheckpointMessage = '';
   state.view = 'practice';
   state.message = '';
+  practiceQuestionStartedAt = Date.now();
   if (kind === 'daily') {
     persistActiveSession();
   }
@@ -3600,7 +3829,7 @@ function getSubtests() {
   return [...new Set(battery.questions.map((question) => question.subtest))].sort();
 }
 
-function recordAnswer(question, answer, { save = true } = {}) {
+function recordAnswer(question, answer, { save = true, responseSeconds = null } = {}) {
   const id = String(question.id);
   const previous = state.history.stats[id] ?? {
     id,
@@ -3623,6 +3852,17 @@ function recordAnswer(question, answer, { save = true } = {}) {
     lastResult: isCorrect ? 'correct' : 'wrong',
     updatedAt: new Date().toISOString(),
   };
+  const normalizedResponseSeconds = Number(responseSeconds);
+  state.history.performanceLog = [{
+    questionId: id,
+    battery: question.battery,
+    subtest: question.subtest,
+    correct: isCorrect,
+    responseSeconds: Number.isFinite(normalizedResponseSeconds) && normalizedResponseSeconds > 0
+      ? Number(Math.min(600, normalizedResponseSeconds).toFixed(1))
+      : null,
+    answeredAt: new Date().toISOString(),
+  }, ...(state.history.performanceLog ?? [])].slice(0, 1500);
   checkAndUnlockBadges({ type: 'answer', question, answer, isCorrect, wasWrongBefore });
   state.history.updatedAt = new Date().toISOString();
   if (save) {
@@ -3761,22 +4001,17 @@ function getBatteryProgress(batteryKey) {
 function getAbilityMapData() {
   const regions = ABILITY_MAP_DEFINITIONS.map((definition) => {
     const records = Object.values(state.history.stats).filter((record) => record.subtest === definition.subtest);
-    const attempted = records.reduce((sum, record) => sum + Number(record.attempts ?? 0), 0);
-    const correct = records.reduce((sum, record) => sum + Number(record.correct ?? 0), 0);
-    const accuracy = attempted ? Math.round((correct / attempted) * 100) : null;
-    const mastered = attempted >= 12 && accuracy >= 85;
-    const good = !mastered && attempted >= 6 && accuracy >= 70;
-    const status = mastered ? 'Mastered' : good ? 'Good' : 'Developing';
+    const performanceLog = (state.history.performanceLog ?? []).filter((attempt) => attempt.subtest === definition.subtest);
+    const performance = calculateSubtestPerformance(records, performanceLog);
+    const { attempted, correct, accuracy } = performance;
+    const mastery = calculateMasteryProgress(attempted, accuracy);
+    const { mastered, good, status, progress } = mastery;
     const statusKey = status.toLowerCase();
     const confidence = Math.min(1, attempted / 12);
     const score = attempted ? Math.round((accuracy / 100) * confidence * 100) : 0;
-    const progress = mastered
-      ? 100
-      : good
-        ? Math.min(94, 62 + Math.round(((accuracy - 70) / 15) * 28))
-        : Math.min(58, Math.round(confidence * 44 + (accuracy ?? 0) * 0.14));
     return {
       ...definition,
+      ...performance,
       attempted,
       correct,
       accuracy,
@@ -3818,6 +4053,7 @@ function createEmptyHistory() {
     activeSession: null,
     lastSession: null,
     stats: {},
+    performanceLog: [],
     currentCoins: 0,
     lifetimeCoins: 0,
     badges: [],
@@ -3865,6 +4101,8 @@ function normalizeHistory(input) {
       updatedAt: record.updatedAt ?? new Date().toISOString(),
     };
   });
+
+  next.performanceLog = normalizePerformanceLog(input?.performanceLog);
 
   next.dailyGoal = DEFAULT_DAILY_GOAL;
   next.daily = Object.entries(input?.daily ?? {}).reduce((daily, [date, record]) => {
@@ -3937,6 +4175,31 @@ function normalizeHistory(input) {
   next.shop = normalizeShop(input?.shop);
   next.updatedAt = input?.updatedAt ?? new Date().toISOString();
   return next;
+}
+
+function normalizePerformanceLog(input = []) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+  return input.reduce((attempts, attempt) => {
+    const questionId = String(attempt?.questionId ?? '');
+    const question = questionById.get(questionId);
+    if (!question || typeof attempt?.correct !== 'boolean') {
+      return attempts;
+    }
+    const responseSeconds = Number(attempt.responseSeconds);
+    attempts.push({
+      questionId,
+      battery: attempt.battery ?? question.battery,
+      subtest: attempt.subtest ?? question.subtest,
+      correct: attempt.correct,
+      responseSeconds: Number.isFinite(responseSeconds) && responseSeconds > 0
+        ? Number(Math.min(600, responseSeconds).toFixed(1))
+        : null,
+      answeredAt: attempt.answeredAt ?? new Date().toISOString(),
+    });
+    return attempts;
+  }, []).slice(0, 1500);
 }
 
 function normalizeQuestionFeedback(input = []) {
