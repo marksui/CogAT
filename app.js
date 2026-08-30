@@ -115,6 +115,39 @@ const BADGE_DEFINITIONS = [
   { id: 'meadow-cards', name: 'Meadow Cards', description: 'A garden card keepsake.', icon: 'cards', artwork: 'meadow-cards', category: 'Collectible', tier: 'advanced', price: 75 },
 ];
 
+const BADGE_COLLECTIONS = [
+  { id: 'trailblazers', name: 'Trailblazers', detail: 'Build a steady practice habit.', reward: 50, badgeIds: ['first-step', 'getting-started', 'question-explorer', 'century-club', 'practice-champion'] },
+  { id: 'bright-minds', name: 'Bright Minds', detail: 'Collect badges for accurate, resilient thinking.', reward: 55, badgeIds: ['first-correct', 'sharp-thinker', 'brain-builder', 'perfect-set', 'comeback-kid'] },
+  { id: 'balanced-brain', name: 'Balanced Brain', detail: 'Grow across every CogAT Battery.', reward: 60, badgeIds: ['word-wizard', 'number-ninja', 'pattern-pro', 'balanced-brain', 'mock-exam-finisher'] },
+  { id: 'jewel-box', name: 'Jewel Box', detail: 'Complete the sparkling keepsake set.', reward: 70, badgeIds: ['jewel-maze', 'jewel-puzzle', 'jewel-shapes', 'jewel-crown', 'jewel-cards'] },
+  { id: 'meadow-stories', name: 'Meadow Stories', detail: 'Finish the woodland story collection.', reward: 70, badgeIds: ['story-owl', 'trail-marker', 'acorn-friend', 'shape-garden', 'meadow-cards'] },
+];
+
+const COMPANION_DEFINITIONS = [
+  { id: 'owl', name: 'Ollie', species: 'Owl', color: 'purple', detail: 'A calm reading buddy.' },
+  { id: 'fox', name: 'Fia', species: 'Fox', color: 'orange', detail: 'A curious pattern finder.' },
+  { id: 'robot', name: 'B-4', species: 'Robot', color: 'blue', detail: 'A cheerful logic helper.' },
+];
+
+const COMPANION_ACTIONS = [
+  { id: 'wave', name: 'Wave', level: 2 },
+  { id: 'focus', name: 'Focus', level: 4 },
+  { id: 'celebrate', name: 'Celebrate', level: 7 },
+];
+
+const COMPANION_ROOM_DECOR = [
+  { id: 'books', name: 'Book shelf', level: 2 },
+  { id: 'plant', name: 'Window plant', level: 4 },
+  { id: 'lamp', name: 'Star lamp', level: 6 },
+  { id: 'trophy', name: 'Mastery trophy', level: 8 },
+];
+
+const QUESTION_FEEDBACK_TYPES = [
+  { id: 'answer', label: 'Answer may be wrong' },
+  { id: 'image', label: 'Image is unclear' },
+  { id: 'explanation', label: 'Explanation is unclear' },
+];
+
 const SHOP_THEMES = [
   { id: 'blue', kind: 'theme', name: 'Blue', description: 'The default CogAT color.', price: 0 },
   { id: 'black', kind: 'theme', name: 'Black', description: 'A sharp deep-ink color.', price: 20 },
@@ -150,6 +183,25 @@ const SUBTEST_GROUPS = [
   { id: 'verbal', label: 'Verbal', icon: 'book', matches: ['Sentence Completion', 'Verbal Analogies', 'Verbal Classification'] },
   { id: 'quantitative', label: 'Quantitative', icon: 'numbers', matches: ['Number Analogies', 'Number Puzzles', 'Number Series'] },
   { id: 'nonverbal', label: 'Nonverbal', icon: 'pattern', matches: ['Figure Classification', 'Figure Matrices', 'Paper Folding'] },
+];
+
+const DAILY_MIX_TARGETS = {
+  review: 10,
+  weak: 8,
+  new: 8,
+  challenge: 4,
+};
+
+const ABILITY_MAP_DEFINITIONS = [
+  { subtest: 'Sentence Completion', skill: 'Vocabulary & context', region: 'Word Garden', battery: 'verbal', icon: 'vocabulary', unlock: 'Library gate' },
+  { subtest: 'Verbal Analogies', skill: 'Word relationships', region: 'Bridge of Words', battery: 'verbal', icon: 'relationships', unlock: 'Story bridge' },
+  { subtest: 'Verbal Classification', skill: 'Classification rules', region: 'Sorting Grove', battery: 'verbal', icon: 'classification', unlock: 'Rule lantern' },
+  { subtest: 'Number Analogies', skill: 'Number relationships', region: 'Number Harbor', battery: 'quantitative', icon: 'analogy', unlock: 'Pattern compass' },
+  { subtest: 'Number Puzzles', skill: 'Equation logic', region: 'Puzzle Workshop', battery: 'quantitative', icon: 'puzzle', unlock: 'Logic gears' },
+  { subtest: 'Number Series', skill: 'Number patterns', region: 'Sequence Trail', battery: 'quantitative', icon: 'series', unlock: 'Trail markers' },
+  { subtest: 'Figure Matrices', skill: 'Rotation & reflection', region: 'Mirror Lake', battery: 'nonverbal', icon: 'matrix', unlock: 'Mirror tower' },
+  { subtest: 'Paper Folding', skill: 'Paper-folding holes', region: 'Folded Peaks', battery: 'nonverbal', icon: 'folding', unlock: 'Mountain flags' },
+  { subtest: 'Figure Classification', skill: 'Shape classification', region: 'Shape Meadow', battery: 'nonverbal', icon: 'shapes', unlock: 'Shape garden' },
 ];
 
 const PRACTICE_MODE_GROUPS = [
@@ -202,6 +254,9 @@ let adminTestModeOpen = false;
 let customPracticeOpen = true;
 let builderFocusExpanded = false;
 let dailyReportOpen = false;
+let questionFeedbackOpen = '';
+let questionFeedbackMessage = null;
+let companionAction = 'idle';
 let eyeCareEnabled = loadEyeCareMode();
 let coinDisplayValue = null;
 let coinAnimationHandle = null;
@@ -433,6 +488,8 @@ function adminResetRewards() {
   state.history.lifetimeCoins = 0;
   state.history.badges = [];
   state.history.claimedMilestones = {};
+  state.history.collectionRewards = {};
+  state.history.companion = { selected: 'owl' };
   state.history.coinHistory = [];
   state.history.shop = { owned: ['blue'], equipped: 'blue', decor: '' };
   state.history.updatedAt = new Date().toISOString();
@@ -468,6 +525,21 @@ function renderDashboardIcon(name) {
     arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   };
   return icons[name] ?? '';
+}
+
+function renderAbilityIcon(name) {
+  const icons = {
+    vocabulary: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h6a3 3 0 0 1 3 3v11H8a3 3 0 0 0-3 2V5z"/><path d="M14 8a3 3 0 0 1 3-3h2v14h-2a3 3 0 0 0-3 2M8 9h3M8 13h3"/></svg>',
+    relationships: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/><path d="M9 12h6M12 9l3 3-3 3"/></svg>',
+    classification: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="2.5"/><circle cx="7" cy="17" r="2.5"/><rect x="14" y="4.5" width="5" height="5" rx="1"/><rect x="14" y="14.5" width="5" height="5" rx="1"/></svg>',
+    analogy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h7M8 4l3 3-3 3M20 17h-7M16 14l-3 3 3 3"/><circle cx="17" cy="7" r="3"/><rect x="4" y="14" width="6" height="6" rx="1.5"/></svg>',
+    puzzle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v3a2 2 0 1 0 4 0V4h6v6h-3a2 2 0 1 0 0 4h3v6h-6v-3a2 2 0 1 0-4 0v3H4v-6h3a2 2 0 1 0 0-4H4V4z"/></svg>',
+    series: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="15" r="2"/><circle cx="12" cy="11" r="2.5"/><circle cx="20" cy="6" r="3"/><path d="M7 14l2.5-1.5M14.5 9.5L17 8"/></svg>',
+    matrix: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><path d="M15 19l4-4M15 15h4v4"/></svg>',
+    folding: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5V4zM12 4v16M5 12h14"/><path d="M12 4l7 8-7 8"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/></svg>',
+    shapes: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="3"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><path d="M7 14l4 6H3l4-6zM17 14l3 3-3 3-3-3 3-3z"/></svg>',
+  };
+  return icons[name] ?? icons.shapes;
 }
 
 function renderCoinIcon() {
@@ -541,6 +613,7 @@ function renderSetup() {
   const dailyPercent = Math.min(100, Math.round((daily.answered / dailyGoal) * 100));
   const dailyReport = getDailyReport();
   const summary = getProgressSummary();
+  const abilityMap = getAbilityMapData();
   const hasActiveDaily = hasResumableDailySession();
   const dailyComplete = daily.completed;
   const selectedBattery = batteryMap.get(state.battery) ?? batteryMap.get('all');
@@ -568,10 +641,11 @@ function renderSetup() {
         </div>
         <div class="daily-plan-meter" aria-hidden="true"><span style="width:${dailyPercent}%"></span></div>
         <div class="daily-plan-count"><strong>${daily.answered}</strong><span>/ ${dailyGoal} questions</span></div>
-        <div class="daily-plan-batteries" aria-label="Three CogAT batteries">
-          <span><i class="battery-dot verbal"></i>Verbal</span>
-          <span><i class="battery-dot quantitative"></i>Quantitative</span>
-          <span><i class="battery-dot nonverbal"></i>Nonverbal</span>
+        <div class="daily-plan-batteries daily-plan-mix" aria-label="Adaptive daily practice mix">
+          <span><b>10</b> Review</span>
+          <span><b>8</b> Weak</span>
+          <span><b>8</b> New</span>
+          <span><b>4</b> Challenge</span>
         </div>
         <button class="daily-report-button" type="button" data-daily-report aria-expanded="${dailyReportOpen}" aria-controls="daily-report-panel">
           <span>${renderDashboardIcon('report')}<b>Daily report</b></span>
@@ -610,6 +684,31 @@ function renderSetup() {
       <div class="home-stat"><span>Total answered</span><strong>${summary.totalAnswered}</strong><small>all practice</small></div>
       <div class="home-stat"><span>Recent score</span><strong>${summary.lastAccuracy === null ? '—' : `${summary.lastAccuracy}%`}</strong><small>${summary.lastAccuracy === null ? 'finish a set' : 'last completed set'}</small></div>
       <button class="home-stat home-coin-stat" type="button" data-game-center><span>Reward coins</span><strong>${state.history.currentCoins}</strong><small>Open reward shop ${renderDashboardIcon('arrow')}</small></button>
+    </section>
+
+    <section class="home-section ability-map-section" aria-labelledby="ability-map-title">
+      <div class="home-section-heading ability-map-heading">
+        <div><span class="eyebrow">9 skill regions</span><h2 id="ability-map-title">Ability map</h2></div>
+        <small>${abilityMap.explored}/9 explored · ${abilityMap.mastered}/9 mastered</small>
+      </div>
+      <div class="ability-story-strip">
+        <span>${renderBadgeIcon('map')}</span>
+        <div><b>${escapeHtml(abilityMap.story.title)}</b><small>${escapeHtml(abilityMap.story.detail)}</small></div>
+        <strong>${abilityMap.story.progress}</strong>
+      </div>
+      <div class="ability-map-grid">
+        ${abilityMap.regions.map((ability, index) => `
+          <button class="ability-region battery-${ability.battery} status-${ability.statusKey} ${ability.explored ? 'is-explored' : 'is-undiscovered'}" type="button" data-ability-subtest="${escapeHtml(ability.subtest)}" data-ability-battery="${ability.battery}" aria-label="Practice ${escapeHtml(ability.skill)}. ${ability.status}.">
+            <span class="ability-route-number">${String(index + 1).padStart(2, '0')}</span>
+            <span class="ability-region-icon">${renderAbilityIcon(ability.icon)}</span>
+            <span class="ability-status">${ability.status}</span>
+            <span class="ability-region-copy"><small>${escapeHtml(ability.region)}</small><b>${escapeHtml(ability.skill)}</b><em>${escapeHtml(ability.subtest)}</em></span>
+            <span class="ability-progress" aria-label="${ability.progress}% progress"><i style="width:${ability.progress}%"></i></span>
+            <span class="ability-region-foot"><small>${ability.attempted ? `${ability.correct}/${ability.attempted} correct` : 'Start here'}</small><strong>${ability.mastered ? `${escapeHtml(ability.unlock)} added` : ability.explored ? `${escapeHtml(ability.unlock)} unlocked` : 'Discover'}</strong></span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="ability-map-legend" aria-label="Ability status guide"><span><i class="developing"></i>Developing</span><span><i class="good"></i>Good</span><span><i class="mastered"></i>Mastered</span></div>
     </section>
 
     <section class="home-section">
@@ -756,6 +855,15 @@ function renderSetup() {
     state.examType = 'mock';
     startMockIntro();
   });
+  document.querySelectorAll('[data-ability-subtest]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.examType = 'practice';
+      state.battery = button.dataset.abilityBattery;
+      state.subtest = button.dataset.abilitySubtest;
+      state.mode = 'all';
+      startPractice({ kind: 'ability' });
+    });
+  });
   document.querySelectorAll('[data-home-battery]').forEach((button) => {
     button.addEventListener('click', () => {
       state.examType = 'practice';
@@ -843,6 +951,31 @@ function renderPracticeModeIcon(modeId) {
   return renderBuilderIcon(iconMap[modeId] ?? 'layers');
 }
 
+function renderQuestionFeedbackControl(question) {
+  const questionId = String(question.id);
+  const isOpen = questionFeedbackOpen === questionId;
+  const reports = (state.history.questionFeedback ?? []).filter((report) => report.questionId === questionId);
+  const reportedTypes = new Set(reports.map((report) => report.type));
+  const message = questionFeedbackMessage?.questionId === questionId ? questionFeedbackMessage.text : '';
+  return `
+    <div class="question-feedback-control ${isOpen ? 'is-open' : ''}">
+      <button class="question-feedback-toggle" type="button" data-toggle-question-feedback aria-expanded="${isOpen}" aria-controls="question-feedback-panel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4M6 5h11l-2 4 2 4H6"/></svg>
+        <span>${reports.length ? `${reports.length} issue${reports.length === 1 ? '' : 's'} marked` : 'Flag this question'}</span>
+      </button>
+      ${isOpen ? `
+        <div class="question-feedback-panel" id="question-feedback-panel">
+          <div><b>What needs attention?</b><small>Saved with this question so it can be reviewed later.</small></div>
+          <div class="question-feedback-options">
+            ${QUESTION_FEEDBACK_TYPES.map((type) => `<button type="button" data-question-feedback="${type.id}" ${reportedTypes.has(type.id) ? 'disabled' : ''}><span>${escapeHtml(type.label)}</span><strong>${reportedTypes.has(type.id) ? 'Marked' : 'Mark'}</strong></button>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+      ${message ? `<span class="question-feedback-message" role="status">${escapeHtml(message)}</span>` : ''}
+    </div>
+  `;
+}
+
 function renderPractice() {
   const question = state.questions[state.currentIndex];
   const answer = state.answers[state.currentIndex];
@@ -869,6 +1002,8 @@ function renderPractice() {
         <div>${question.question}</div>
         ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
       </div>
+
+      ${renderQuestionFeedbackControl(question)}
 
       <div class="options">
         ${question.options.map((option) => {
@@ -946,6 +1081,16 @@ function renderPractice() {
     });
   });
 
+  document.querySelector('[data-toggle-question-feedback]')?.addEventListener('click', () => {
+    questionFeedbackOpen = questionFeedbackOpen === String(question.id) ? '' : String(question.id);
+    questionFeedbackMessage = null;
+    renderPractice();
+  });
+
+  document.querySelectorAll('[data-question-feedback]').forEach((button) => {
+    button.addEventListener('click', () => saveQuestionFeedback(question, button.dataset.questionFeedback));
+  });
+
   document.querySelector('[data-dont-know]')?.addEventListener('click', (event) => {
     state.answers[state.currentIndex] = DONT_KNOW_ANSWER;
     persistActiveSession();
@@ -977,6 +1122,30 @@ function renderPractice() {
   document.querySelector('#back').addEventListener('click', () => {
     goHome();
   });
+}
+
+function saveQuestionFeedback(question, type) {
+  const definition = QUESTION_FEEDBACK_TYPES.find((item) => item.id === type);
+  if (!definition) {
+    return;
+  }
+  const questionId = String(question.id);
+  const existing = (state.history.questionFeedback ?? []).some((report) => report.questionId === questionId && report.type === type);
+  if (!existing) {
+    state.history.questionFeedback = [{
+      id: `feedback-${questionId}-${type}`,
+      questionId,
+      type,
+      label: definition.label,
+      battery: question.battery,
+      subtest: question.subtest,
+      createdAt: new Date().toISOString(),
+    }, ...(state.history.questionFeedback ?? [])].slice(0, 250);
+    state.history.updatedAt = new Date().toISOString();
+    saveHistory();
+  }
+  questionFeedbackMessage = { questionId, text: existing ? 'This issue is already marked.' : 'Thanks — the issue was saved.' };
+  renderPractice();
 }
 
 function submitPracticeAnswer(question, answer, rewardOrigin) {
@@ -1691,6 +1860,14 @@ function renderMockBubblePrompt(question) {
       ${question.question}
     </div>
     ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
+    <div class="mock-bubble-prompt-options" aria-label="Answer choices">
+      ${question.options.map((option) => `
+        <div class="mock-bubble-prompt-option">
+          <b>${escapeHtml(option.label)}</b>
+          <span>${option.text}</span>
+        </div>
+      `).join('')}
+    </div>
   `;
 }
 
@@ -2191,9 +2368,13 @@ function renderMockResults() {
 }
 
 function renderGameCenter() {
+  if (checkCollectionRewards() > 0) {
+    saveHistory();
+  }
   const unlockedCount = state.history.badges.length;
   const tabs = [
-    { key: 'badges', label: 'Badges' },
+    { key: 'badges', label: 'Collections' },
+    { key: 'companion', label: 'Companion' },
     { key: 'shop', label: 'Reward Shop' },
     { key: 'history', label: 'Coin History' },
   ];
@@ -2211,7 +2392,7 @@ function renderGameCenter() {
       <div class="game-stats" aria-label="Game center stats">
         <article class="panel game-stat"><span>Current Coins</span><strong>${state.history.currentCoins}</strong></article>
         <article class="panel game-stat"><span>Lifetime Coins</span><strong>${state.history.lifetimeCoins}</strong></article>
-        <article class="panel game-stat"><span>Badges Earned</span><strong>${unlockedCount}/${BADGE_DEFINITIONS.length}</strong></article>
+        <article class="panel game-stat"><span>Badges Collected</span><strong>${unlockedCount}/${BADGE_DEFINITIONS.length}</strong></article>
       </div>
 
       <div class="game-tabs" role="tablist" aria-label="Game center sections">
@@ -2241,6 +2422,12 @@ function renderGameCenter() {
       handleBadgePurchase(button.dataset.badgeAction);
     });
   });
+  document.querySelectorAll('[data-companion-choice]').forEach((button) => {
+    button.addEventListener('click', () => selectCompanion(button.dataset.companionChoice));
+  });
+  document.querySelectorAll('[data-companion-action]').forEach((button) => {
+    button.addEventListener('click', () => playCompanionAction(button.dataset.companionAction));
+  });
 }
 
 function renderGameCenterPanel() {
@@ -2250,6 +2437,9 @@ function renderGameCenterPanel() {
   if (state.gameCenterTab === 'history') {
     return renderCoinHistory();
   }
+  if (state.gameCenterTab === 'companion') {
+    return renderCompanionPanel();
+  }
   return renderBadgesPanel();
 }
 
@@ -2258,32 +2448,50 @@ function renderBadgesPanel() {
   return `
     <div class="game-section-head">
       <div>
-        <span class="eyebrow">Badge shop</span>
-        <h2>${state.history.badges.length} collected</h2>
+        <span class="eyebrow">Collection album</span>
+        <h2>${state.history.badges.length} badges collected</h2>
       </div>
       <span>${renderCoinIcon()}${state.history.currentCoins}</span>
     </div>
-    <div class="badge-grid">
-      ${BADGE_DEFINITIONS.map((definition) => {
-        const badge = unlocked.get(definition.id);
-        const canBuy = state.history.currentCoins >= definition.price;
-        const buttonLabel = badge ? 'Collected' : canBuy ? 'Buy' : `Need ${definition.price - state.history.currentCoins}`;
+    <div class="badge-album">
+      ${BADGE_COLLECTIONS.map((collection) => {
+        const definitions = collection.badgeIds.map((id) => BADGE_DEFINITIONS.find((badge) => badge.id === id)).filter(Boolean);
+        const collected = definitions.filter((definition) => unlocked.has(definition.id)).length;
+        const complete = collected === definitions.length;
+        const rewardClaimed = Boolean(state.history.collectionRewards?.[collection.id]);
         return `
-          <article class="badge-card badge-tier-${definition.tier} ${badge ? 'is-unlocked' : 'is-locked'} ${getEquippedClass('badge')}">
-            <div class="badge-icon-shell">
-              <div class="badge-icon">${badge ? renderBadgeArtwork(definition) : '<span class="badge-question-mark" aria-label="Mystery badge">?</span>'}</div>
+          <section class="badge-collection ${complete ? 'is-complete' : ''}">
+            <div class="badge-collection-head">
+              <div><span>${escapeHtml(collection.detail)}</span><h3>${escapeHtml(collection.name)}</h3></div>
+              <div class="badge-collection-progress"><b>${collected}/${definitions.length}</b><span>${rewardClaimed ? 'Reward unlocked' : `${renderCoinIcon()}${collection.reward} set reward`}</span></div>
             </div>
-            <div class="badge-copy">
-              <b>${escapeHtml(definition.name)}</b>
-              <div class="badge-card-foot">
-                <span class="badge-price">${renderCoinIcon()}${definition.price}</span>
-                <button class="${badge ? 'ghost' : 'primary'}" type="button" data-badge-action="${definition.id}" aria-label="${badge ? `${escapeHtml(definition.name)} badge collected` : `Buy ${escapeHtml(definition.name)} badge for ${definition.price} coins`}" ${badge || !canBuy ? 'disabled' : ''}>${buttonLabel}</button>
-              </div>
+            <div class="badge-collection-meter" aria-label="${collected} of ${definitions.length} badges collected"><span style="width:${(collected / definitions.length) * 100}%"></span></div>
+            <div class="badge-grid">
+              ${definitions.map((definition) => renderBadgeAlbumCard(definition, unlocked.get(definition.id))).join('')}
             </div>
-          </article>
+          </section>
         `;
       }).join('')}
     </div>
+  `;
+}
+
+function renderBadgeAlbumCard(definition, badge) {
+  const canBuy = state.history.currentCoins >= definition.price;
+  const buttonLabel = badge ? 'Collected' : canBuy ? 'Buy' : `Need ${definition.price - state.history.currentCoins}`;
+  return `
+    <article class="badge-card badge-tier-${definition.tier} ${badge ? 'is-unlocked' : 'is-locked'} ${getEquippedClass('badge')}">
+      <div class="badge-icon-shell">
+        <div class="badge-icon">${badge ? renderBadgeArtwork(definition) : '<span class="badge-question-mark" aria-label="Mystery badge">?</span>'}</div>
+      </div>
+      <div class="badge-copy">
+        <b>${escapeHtml(definition.name)}</b>
+        <div class="badge-card-foot">
+          <span class="badge-price">${renderCoinIcon()}${definition.price}</span>
+          <button class="${badge ? 'ghost' : 'primary'}" type="button" data-badge-action="${definition.id}" aria-label="${badge ? `${escapeHtml(definition.name)} badge collected` : `Buy ${escapeHtml(definition.name)} badge for ${definition.price} coins`}" ${badge || !canBuy ? 'disabled' : ''}>${buttonLabel}</button>
+        </div>
+      </div>
+    </article>
   `;
 }
 
@@ -2307,9 +2515,114 @@ function handleBadgePurchase(badgeId) {
     unlockedAt: new Date().toISOString(),
   });
   addCoinHistory(-definition.price, 'badge-shop', `${definition.name} badge`);
+  checkCollectionRewards();
   state.history.updatedAt = new Date().toISOString();
   saveHistory();
   renderGameCenter();
+}
+
+function checkCollectionRewards() {
+  const collected = new Set(state.history.badges.map((badge) => badge.id));
+  let unlockedCount = 0;
+  state.history.collectionRewards ??= {};
+  BADGE_COLLECTIONS.forEach((collection) => {
+    if (state.history.collectionRewards[collection.id] || !collection.badgeIds.every((id) => collected.has(id))) {
+      return;
+    }
+    state.history.collectionRewards[collection.id] = new Date().toISOString();
+    awardCoins(collection.reward, 'collection', `${collection.name} collection`);
+    unlockedCount += 1;
+  });
+  return unlockedCount;
+}
+
+function renderCompanionCharacter(id) {
+  const characters = {
+    owl: '<svg viewBox="0 0 180 180" aria-hidden="true"><path class="companion-shadow" d="M42 148c18 19 78 19 96 0"/><path class="companion-body" d="M48 75c0-38 20-58 42-58s42 20 42 58v49c0 27-19 40-42 40s-42-13-42-40V75z"/><path class="companion-wing" d="M48 87c-21 9-23 37-8 52 8-11 15-27 18-45M132 87c21 9 23 37 8 52-8-11-15-27-18-45"/><circle class="companion-face" cx="70" cy="75" r="25"/><circle class="companion-face" cx="110" cy="75" r="25"/><circle class="companion-eye" cx="72" cy="76" r="8"/><circle class="companion-eye" cx="108" cy="76" r="8"/><path class="companion-accent" d="M83 91l7 8 7-8-7-5-7 5zM63 123l27 17 27-17"/></svg>',
+    fox: '<svg viewBox="0 0 180 180" aria-hidden="true"><path class="companion-shadow" d="M38 151c21 17 83 17 104 0"/><path class="companion-body" d="M50 92c0-38 18-62 40-62s40 24 40 62v35c0 25-18 38-40 38s-40-13-40-38V92z"/><path class="companion-body" d="M54 50L43 16l37 23M126 50l11-34-37 23"/><path class="companion-face" d="M55 70c10-18 60-18 70 0l-10 47-25 22-25-22-10-47z"/><circle class="companion-eye" cx="74" cy="83" r="6"/><circle class="companion-eye" cx="106" cy="83" r="6"/><path class="companion-accent" d="M84 101h12l-6 8-6-8zM68 124c13 10 31 10 44 0"/><path class="companion-wing" d="M126 123c35-9 38 26 7 33-16 4-28-4-35-12 13 2 24-3 28-21z"/></svg>',
+    robot: '<svg viewBox="0 0 180 180" aria-hidden="true"><path class="companion-shadow" d="M42 153c18 15 78 15 96 0"/><rect class="companion-body" x="48" y="45" width="84" height="83" rx="28"/><rect class="companion-face" x="59" y="58" width="62" height="46" rx="18"/><circle class="companion-eye" cx="77" cy="80" r="7"/><circle class="companion-eye" cx="103" cy="80" r="7"/><path class="companion-accent" d="M78 94h24M90 45V29M83 29h14"/><path class="companion-wing" d="M48 85H33v38h19M132 85h15v38h-19"/><rect class="companion-body" x="61" y="122" width="22" height="35" rx="9"/><rect class="companion-body" x="97" y="122" width="22" height="35" rx="9"/></svg>',
+  };
+  return characters[id] ?? characters.owl;
+}
+
+function getCompanionProgress() {
+  const xp = getPracticeTotals().completed;
+  const level = Math.min(10, Math.floor(xp / 25) + 1);
+  const levelStart = (level - 1) * 25;
+  const nextLevel = level === 10 ? levelStart : level * 25;
+  const levelXp = Math.max(0, xp - levelStart);
+  const levelGoal = level === 10 ? 25 : nextLevel - levelStart;
+  return {
+    xp,
+    level,
+    levelXp: Math.min(levelGoal, levelXp),
+    levelGoal,
+    percent: level === 10 ? 100 : Math.min(100, Math.round((levelXp / levelGoal) * 100)),
+  };
+}
+
+function renderCompanionPanel() {
+  const progress = getCompanionProgress();
+  const selectedId = state.history.companion?.selected ?? 'owl';
+  const selected = COMPANION_DEFINITIONS.find((companion) => companion.id === selectedId) ?? COMPANION_DEFINITIONS[0];
+  const unlockedDecor = COMPANION_ROOM_DECOR.filter((decor) => progress.level >= decor.level);
+  return `
+    <div class="game-section-head companion-section-head">
+      <div><span class="eyebrow">Growth companion</span><h2>${escapeHtml(selected.name)} · Level ${progress.level}</h2></div>
+      <span>${progress.xp} practice XP</span>
+    </div>
+    <div class="companion-layout">
+      <section class="companion-room companion-${selected.id}">
+        <div class="companion-room-window" aria-hidden="true"><i></i><i></i></div>
+        ${progress.level >= 2 ? '<div class="room-books" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}
+        ${progress.level >= 4 ? '<div class="room-plant" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}
+        ${progress.level >= 6 ? '<div class="room-lamp" aria-hidden="true"><i></i></div>' : ''}
+        ${progress.level >= 8 ? '<div class="room-trophy" aria-hidden="true"><i></i></div>' : ''}
+        <div class="companion-character action-${companionAction}">${renderCompanionCharacter(selected.id)}</div>
+        <div class="companion-nameplate"><span>${escapeHtml(selected.species)}</span><b>${escapeHtml(selected.name)}</b></div>
+      </section>
+      <div class="companion-progress-card">
+        <div class="companion-level-copy"><span>Level ${progress.level}</span><b>${progress.level === 10 ? 'Max level' : `${progress.levelXp}/${progress.levelGoal} to next level`}</b></div>
+        <div class="companion-xp-meter" aria-label="${progress.percent}% to the next companion level"><span style="width:${progress.percent}%"></span></div>
+        <div class="companion-actions">
+          ${COMPANION_ACTIONS.map((action) => `<button type="button" data-companion-action="${action.id}" ${progress.level < action.level ? 'disabled' : ''}><span>${renderBadgeIcon(action.id === 'focus' ? 'brain' : action.id === 'celebrate' ? 'star' : 'spark')}</span><b>${action.name}</b><small>${progress.level >= action.level ? 'Ready' : `Level ${action.level}`}</small></button>`).join('')}
+        </div>
+        <div class="room-unlocks"><b>Room collection</b><span>${unlockedDecor.length}/${COMPANION_ROOM_DECOR.length} unlocked</span><div>${COMPANION_ROOM_DECOR.map((decor) => `<small class="${progress.level >= decor.level ? 'is-unlocked' : ''}">${escapeHtml(decor.name)} · L${decor.level}</small>`).join('')}</div></div>
+      </div>
+    </div>
+    <section class="companion-picker" aria-label="Choose a growth companion">
+      <div><h3>Choose your buddy</h3><span>Progress stays with you when you switch.</span></div>
+      <div class="companion-choice-grid">
+        ${COMPANION_DEFINITIONS.map((companion) => `<button class="companion-choice companion-${companion.id} ${companion.id === selected.id ? 'selected' : ''}" type="button" data-companion-choice="${companion.id}" aria-pressed="${companion.id === selected.id}"><span>${renderCompanionCharacter(companion.id)}</span><b>${escapeHtml(companion.name)}</b><small>${escapeHtml(companion.detail)}</small></button>`).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function selectCompanion(companionId) {
+  if (!COMPANION_DEFINITIONS.some((companion) => companion.id === companionId)) {
+    return;
+  }
+  state.history.companion = { selected: companionId };
+  companionAction = 'idle';
+  state.history.updatedAt = new Date().toISOString();
+  saveHistory();
+  renderGameCenter();
+}
+
+function playCompanionAction(actionId) {
+  const action = COMPANION_ACTIONS.find((item) => item.id === actionId);
+  if (!action || getCompanionProgress().level < action.level) {
+    return;
+  }
+  companionAction = action.id;
+  renderGameCenter();
+  window.setTimeout(() => {
+    companionAction = 'idle';
+    if (state.view === 'game-center' && state.gameCenterTab === 'companion') {
+      renderGameCenter();
+    }
+  }, 900);
 }
 
 function renderRewardShop() {
@@ -2678,7 +2991,7 @@ function startDailyPractice() {
     state.battery = 'all';
     state.subtest = 'all';
     state.mode = 'all';
-    startPractice({ kind: 'extra', limit: state.dailyGoal });
+    startPractice({ kind: 'extra', pool: selectDailyQuestions(state.dailyGoal), limit: state.dailyGoal });
     return;
   }
 
@@ -2726,23 +3039,73 @@ function startPractice({ kind = 'custom', pool = null, limit = QUESTION_LIMIT } 
 function selectDailyQuestions(goal) {
   const seen = new Set();
   const selected = [];
-  const pools = [
-    allQuestions.filter((question) => isWeakQuestion(question)),
-    allQuestions.filter((question) => !state.history.stats[String(question.id)]),
-    allQuestions,
-  ];
+  const targetTotal = Math.min(goal, allQuestions.length);
+  const abilityMap = getAbilityMapData();
+  const weakSubtests = new Map(abilityMap.regions
+    .filter((ability) => ability.attempted > 0 && !ability.mastered)
+    .sort((first, second) => first.score - second.score)
+    .map((ability, index) => [ability.subtest, index]));
 
-  pools.forEach((pool) => {
-    shuffle(pool).forEach((question) => {
-      if (selected.length >= goal || seen.has(String(question.id))) {
+  const addQuestions = (pool, count) => {
+    let added = 0;
+    pool.forEach((question) => {
+      const id = String(question.id);
+      if (selected.length >= targetTotal || added >= count || seen.has(id)) {
         return;
       }
-      seen.add(String(question.id));
+      seen.add(id);
       selected.push(question);
+      added += 1;
     });
+    return added;
+  };
+
+  const seenQuestions = allQuestions.filter((question) => state.history.stats[String(question.id)]);
+  const dueQuestions = shuffle(seenQuestions.filter(isQuestionDueForReview)).sort((first, second) => {
+    const firstStats = state.history.stats[String(first.id)];
+    const secondStats = state.history.stats[String(second.id)];
+    const resultDelta = Number(secondStats?.lastResult === 'wrong') - Number(firstStats?.lastResult === 'wrong');
+    return resultDelta || timestamp(firstStats?.updatedAt) - timestamp(secondStats?.updatedAt);
+  });
+  addQuestions(dueQuestions, DAILY_MIX_TARGETS.review);
+
+  const weakQuestions = shuffle(allQuestions.filter((question) => weakSubtests.has(question.subtest))).sort((first, second) => {
+    const firstWeak = isWeakQuestion(first) ? -1 : 0;
+    const secondWeak = isWeakQuestion(second) ? -1 : 0;
+    return firstWeak - secondWeak || weakSubtests.get(first.subtest) - weakSubtests.get(second.subtest);
+  });
+  addQuestions(weakQuestions, DAILY_MIX_TARGETS.weak);
+
+  const newQuestions = shuffle(allQuestions.filter((question) => !state.history.stats[String(question.id)]));
+  addQuestions(newQuestions, DAILY_MIX_TARGETS.new);
+
+  const challengeQuestions = shuffle(allQuestions.filter((question) => ['medium', 'very-hard'].includes(getDifficulty(question)))).sort((first, second) => {
+    const difficultyDelta = Number(getDifficulty(second) === 'very-hard') - Number(getDifficulty(first) === 'very-hard');
+    const newDelta = Number(!state.history.stats[String(second.id)]) - Number(!state.history.stats[String(first.id)]);
+    return difficultyDelta || newDelta;
+  });
+  addQuestions(challengeQuestions, DAILY_MIX_TARGETS.challenge);
+
+  [newQuestions, dueQuestions, weakQuestions, challengeQuestions, shuffle(allQuestions)].forEach((pool) => {
+    addQuestions(pool, targetTotal - selected.length);
   });
 
   return selected;
+}
+
+function isQuestionDueForReview(question) {
+  const stats = state.history.stats[String(question.id)];
+  if (!stats) {
+    return false;
+  }
+  if (stats.lastResult === 'wrong') {
+    return true;
+  }
+  const attempts = Math.max(1, Number(stats.attempts ?? 1));
+  const accuracy = Number(stats.correct ?? 0) / attempts;
+  const intervalDays = accuracy < 0.7 ? 1 : attempts < 3 ? 2 : attempts < 5 ? 4 : 7;
+  const elapsedDays = Math.max(0, (Date.now() - timestamp(stats.updatedAt)) / 86400000);
+  return elapsedDays >= intervalDays;
 }
 
 function hasResumableDailySession() {
@@ -3304,6 +3667,49 @@ function getBatteryProgress(batteryKey) {
   };
 }
 
+function getAbilityMapData() {
+  const regions = ABILITY_MAP_DEFINITIONS.map((definition) => {
+    const records = Object.values(state.history.stats).filter((record) => record.subtest === definition.subtest);
+    const attempted = records.reduce((sum, record) => sum + Number(record.attempts ?? 0), 0);
+    const correct = records.reduce((sum, record) => sum + Number(record.correct ?? 0), 0);
+    const accuracy = attempted ? Math.round((correct / attempted) * 100) : null;
+    const mastered = attempted >= 12 && accuracy >= 85;
+    const good = !mastered && attempted >= 6 && accuracy >= 70;
+    const status = mastered ? 'Mastered' : good ? 'Good' : 'Developing';
+    const statusKey = status.toLowerCase();
+    const confidence = Math.min(1, attempted / 12);
+    const score = attempted ? Math.round((accuracy / 100) * confidence * 100) : 0;
+    const progress = mastered
+      ? 100
+      : good
+        ? Math.min(94, 62 + Math.round(((accuracy - 70) / 15) * 28))
+        : Math.min(58, Math.round(confidence * 44 + (accuracy ?? 0) * 0.14));
+    return {
+      ...definition,
+      attempted,
+      correct,
+      accuracy,
+      score,
+      progress,
+      status,
+      statusKey,
+      mastered,
+      explored: attempted > 0,
+    };
+  });
+  const explored = regions.filter((region) => region.explored).length;
+  const mastered = regions.filter((region) => region.mastered).length;
+  const storySteps = [
+    { threshold: 0, title: 'The map is ready', detail: 'Practice any region to reveal its landmark.', progress: 'Chapter 1' },
+    { threshold: 1, title: 'The first trail', detail: 'Your first landmark is now on the map.', progress: 'Chapter 1' },
+    { threshold: 3, title: 'Lantern Woods', detail: 'Three explored regions opened a new story path.', progress: 'Chapter 2' },
+    { threshold: 6, title: 'The Hidden Observatory', detail: 'Six explored regions revealed the observatory.', progress: 'Chapter 3' },
+    { threshold: 9, title: 'The Nine-Skill Summit', detail: mastered ? `${mastered} mastery decorations are shining.` : 'All regions are open. Master skills to add decorations.', progress: 'Chapter 4' },
+  ];
+  const story = storySteps.filter((step) => explored >= step.threshold).at(-1);
+  return { regions, explored, mastered, story };
+}
+
 function getHistorySummary() {
   const records = Object.values(state.history.stats);
   return {
@@ -3325,6 +3731,9 @@ function createEmptyHistory() {
     lifetimeCoins: 0,
     badges: [],
     claimedMilestones: {},
+    collectionRewards: {},
+    questionFeedback: [],
+    companion: { selected: 'owl' },
     coinHistory: [],
     shop: {
       owned: ['blue'],
@@ -3424,10 +3833,46 @@ function normalizeHistory(input) {
     ...Object.fromEntries(next.badges.map((badge) => [badge.id, true])),
     ...Object.fromEntries(Object.entries(input?.claimedMilestones ?? {}).filter(([, value]) => Boolean(value))),
   };
+  next.collectionRewards = Object.fromEntries(Object.entries(input?.collectionRewards ?? {})
+    .filter(([id, value]) => BADGE_COLLECTIONS.some((collection) => collection.id === id) && value)
+    .map(([id, value]) => [id, String(value)]));
+  next.questionFeedback = normalizeQuestionFeedback(input?.questionFeedback);
+  next.companion = {
+    selected: COMPANION_DEFINITIONS.some((companion) => companion.id === input?.companion?.selected)
+      ? input.companion.selected
+      : 'owl',
+  };
   next.coinHistory = normalizeCoinHistory(input?.coinHistory);
   next.shop = normalizeShop(input?.shop);
   next.updatedAt = input?.updatedAt ?? new Date().toISOString();
   return next;
+}
+
+function normalizeQuestionFeedback(input = []) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+  const seen = new Set();
+  return input.reduce((reports, report) => {
+    const questionId = String(report?.questionId ?? '');
+    const type = String(report?.type ?? '');
+    const id = `feedback-${questionId}-${type}`;
+    if (!questionById.has(questionId) || !QUESTION_FEEDBACK_TYPES.some((item) => item.id === type) || seen.has(id)) {
+      return reports;
+    }
+    seen.add(id);
+    const question = questionById.get(questionId);
+    reports.push({
+      id,
+      questionId,
+      type,
+      label: QUESTION_FEEDBACK_TYPES.find((item) => item.id === type).label,
+      battery: report.battery ?? question.battery,
+      subtest: report.subtest ?? question.subtest,
+      createdAt: report.createdAt ?? new Date().toISOString(),
+    });
+    return reports;
+  }, []).slice(0, 250);
 }
 
 function normalizeBadges(input = []) {
@@ -3647,6 +4092,9 @@ function mergeHistories(local, remote) {
     ...remote.claimedMilestones,
     ...Object.fromEntries(merged.badges.map((badge) => [badge.id, true])),
   };
+  merged.collectionRewards = { ...local.collectionRewards, ...remote.collectionRewards };
+  merged.questionFeedback = normalizeQuestionFeedback([...(local.questionFeedback ?? []), ...(remote.questionFeedback ?? [])]);
+  merged.companion = { ...(localIsNewer ? local.companion : remote.companion) };
   merged.coinHistory = mergeCoinHistory(local.coinHistory, remote.coinHistory);
   merged.shop = mergeShops(local.shop, remote.shop, spendableSource.shop);
   merged.updatedAt = new Date(Math.max(timestamp(local.updatedAt), timestamp(remote.updatedAt))).toISOString();
