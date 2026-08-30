@@ -11,6 +11,7 @@ import { g4WorkbookQuestions } from './data/g4WorkbookQuestions.js';
 import { bonusQuestions } from './data/bonusQuestions.js';
 import { verbalVocabularyQuestions } from './data/verbalVocabularyQuestions.js';
 import { numberAnalogyQuestions } from './data/numberAnalogyQuestions.js';
+import { coreExpansionQuestions } from './data/coreExpansionQuestions.js';
 import { filterValidNumberAnalogies } from './lib/numberAnalogyValidator.js';
 import { supabaseConfig } from './supabase-config.js';
 
@@ -22,8 +23,8 @@ const LEGACY_STORAGE_KEY = 'grade4-cogat-history-v1';
 const EYE_CARE_STORAGE_KEY = 'grade4-cogat-eye-care';
 
 const rawQuestionSets = {
-  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalVocabularyQuestions, ...verbalWorkbookQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
-  quantitative: filterValidNumberAnalogies([...quantitativeQuestions, ...quantitativeExtraQuestions, ...numberAnalogyQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...bonusQuestions.filter((question) => question.battery === 'Quantitative Battery')]),
+  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalVocabularyQuestions, ...verbalWorkbookQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Verbal Battery'), ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
+  quantitative: filterValidNumberAnalogies([...quantitativeQuestions, ...quantitativeExtraQuestions, ...numberAnalogyQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...bonusQuestions.filter((question) => question.battery === 'Quantitative Battery')]),
   nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Nonverbal Battery')],
 };
 
@@ -243,6 +244,14 @@ const state = {
   bankSubtest: 'all',
 };
 
+const GAME_PAGE_VIEWS = new Set([
+  'game-map',
+  'game-collections',
+  'game-companion',
+  'game-shop',
+  'game-history',
+]);
+
 const app = document.querySelector('#app');
 let mockTimerHandle = null;
 let supabase = null;
@@ -290,7 +299,7 @@ function render() {
     renderMockBreak();
     return;
   }
-  if (state.view === 'game-center') {
+  if (state.view === 'game-center' || GAME_PAGE_VIEWS.has(state.view)) {
     renderGameCenter();
     return;
   }
@@ -385,9 +394,15 @@ function renderShell(content) {
       adminTestModeOpen = false;
       persistActiveSession();
       stopMockTimer();
-      state.view = 'game-center';
+      state.view = 'game-shop';
       state.message = '';
       render();
+    });
+  });
+
+  document.querySelectorAll('[data-game-page]').forEach((button) => {
+    button.addEventListener('click', () => {
+      openGamePage(button.dataset.gamePage);
     });
   });
 
@@ -419,7 +434,7 @@ function renderShell(content) {
 
 function renderCoinButton() {
   const coins = coinDisplayValue ?? state.history.currentCoins ?? 0;
-  return `<button class="coin-button" type="button" data-game-center aria-label="Open game center, ${coins} coins">${renderCoinIcon()}<span data-coin-count>${coins}</span></button>`;
+  return `<button class="coin-button" type="button" data-game-center aria-label="Open reward shop, ${coins} coins">${renderCoinIcon()}<span data-coin-count>${coins}</span></button>`;
 }
 
 function renderEyeCareButton() {
@@ -683,32 +698,29 @@ function renderSetup() {
       <div class="home-stat"><span>Day streak</span><strong>${summary.streak}</strong><small>${summary.streak === 1 ? 'day in a row' : 'days in a row'}</small></div>
       <div class="home-stat"><span>Total answered</span><strong>${summary.totalAnswered}</strong><small>all practice</small></div>
       <div class="home-stat"><span>Recent score</span><strong>${summary.lastAccuracy === null ? '—' : `${summary.lastAccuracy}%`}</strong><small>${summary.lastAccuracy === null ? 'finish a set' : 'last completed set'}</small></div>
-      <button class="home-stat home-coin-stat" type="button" data-game-center><span>Reward coins</span><strong>${state.history.currentCoins}</strong><small>Open reward shop ${renderDashboardIcon('arrow')}</small></button>
+      <button class="home-stat home-coin-stat" type="button" data-game-center><span>Reward coins</span><strong>${state.history.currentCoins}</strong><small>Open shop ${renderDashboardIcon('arrow')}</small></button>
     </section>
 
-    <section class="home-section ability-map-section" aria-labelledby="ability-map-title">
-      <div class="home-section-heading ability-map-heading">
-        <div><span class="eyebrow">9 skill regions</span><h2 id="ability-map-title">Ability map</h2></div>
-        <small>${abilityMap.explored}/9 explored · ${abilityMap.mastered}/9 mastered</small>
+    <section class="home-section adventure-gateway" aria-labelledby="adventure-title">
+      <div class="adventure-gateway-copy">
+        <span class="eyebrow">Play & grow</span>
+        <h2 id="adventure-title">Adventure</h2>
+        <p>${abilityMap.explored}/9 regions · ${state.history.badges.length} badges</p>
       </div>
-      <div class="ability-story-strip">
-        <span>${renderBadgeIcon('map')}</span>
-        <div><b>${escapeHtml(abilityMap.story.title)}</b><small>${escapeHtml(abilityMap.story.detail)}</small></div>
-        <strong>${abilityMap.story.progress}</strong>
+      <div class="adventure-door-grid">
+        <button class="adventure-door door-map" type="button" data-game-page="map">
+          <span>${renderBadgeIcon('map')}</span><b>Map</b><small>${abilityMap.story.progress}</small><i>${renderDashboardIcon('arrow')}</i>
+        </button>
+        <button class="adventure-door door-companion" type="button" data-game-page="companion">
+          <span>${renderCompanionCharacter(state.history.companion?.selected ?? 'owl')}</span><b>Buddy</b><small>Level ${getCompanionProgress().level}</small><i>${renderDashboardIcon('arrow')}</i>
+        </button>
+        <button class="adventure-door door-collections" type="button" data-game-page="collections">
+          <span>${renderBadgeIcon('medal')}</span><b>Badges</b><small>${state.history.badges.length}/${BADGE_DEFINITIONS.length}</small><i>${renderDashboardIcon('arrow')}</i>
+        </button>
+        <button class="adventure-door door-shop" type="button" data-game-page="shop">
+          <span>${renderCoinIcon()}</span><b>Shop</b><small>${state.history.currentCoins} coins</small><i>${renderDashboardIcon('arrow')}</i>
+        </button>
       </div>
-      <div class="ability-map-grid">
-        ${abilityMap.regions.map((ability, index) => `
-          <button class="ability-region battery-${ability.battery} status-${ability.statusKey} ${ability.explored ? 'is-explored' : 'is-undiscovered'}" type="button" data-ability-subtest="${escapeHtml(ability.subtest)}" data-ability-battery="${ability.battery}" aria-label="Practice ${escapeHtml(ability.skill)}. ${ability.status}.">
-            <span class="ability-route-number">${String(index + 1).padStart(2, '0')}</span>
-            <span class="ability-region-icon">${renderAbilityIcon(ability.icon)}</span>
-            <span class="ability-status">${ability.status}</span>
-            <span class="ability-region-copy"><small>${escapeHtml(ability.region)}</small><b>${escapeHtml(ability.skill)}</b><em>${escapeHtml(ability.subtest)}</em></span>
-            <span class="ability-progress" aria-label="${ability.progress}% progress"><i style="width:${ability.progress}%"></i></span>
-            <span class="ability-region-foot"><small>${ability.attempted ? `${ability.correct}/${ability.attempted} correct` : 'Start here'}</small><strong>${ability.mastered ? `${escapeHtml(ability.unlock)} added` : ability.explored ? `${escapeHtml(ability.unlock)} unlocked` : 'Discover'}</strong></span>
-          </button>
-        `).join('')}
-      </div>
-      <div class="ability-map-legend" aria-label="Ability status guide"><span><i class="developing"></i>Developing</span><span><i class="good"></i>Good</span><span><i class="mastered"></i>Mastered</span></div>
     </section>
 
     <section class="home-section">
@@ -2371,47 +2383,50 @@ function renderGameCenter() {
   if (checkCollectionRewards() > 0) {
     saveHistory();
   }
+  const page = getGamePageKey();
   const unlockedCount = state.history.badges.length;
-  const tabs = [
-    { key: 'badges', label: 'Collections' },
-    { key: 'companion', label: 'Companion' },
-    { key: 'shop', label: 'Reward Shop' },
-    { key: 'history', label: 'Coin History' },
+  const progress = getCompanionProgress();
+  const abilityMap = getAbilityMapData();
+  const pages = [
+    { key: 'map', label: 'Map', icon: 'map' },
+    { key: 'collections', label: 'Badges', icon: 'medal' },
+    { key: 'companion', label: 'Buddy', icon: 'spark' },
+    { key: 'shop', label: 'Shop', icon: 'coin' },
   ];
+  const pageCopy = {
+    map: { eyebrow: '9 skill regions', title: 'Adventure Map', detail: `${abilityMap.explored} explored · ${abilityMap.mastered} mastered` },
+    collections: { eyebrow: 'Collection album', title: 'Badge Book', detail: `${unlockedCount}/${BADGE_DEFINITIONS.length} collected` },
+    companion: { eyebrow: 'Growth companion', title: 'Buddy Room', detail: `Level ${progress.level} · ${progress.xp} XP` },
+    shop: { eyebrow: 'Spend practice coins', title: 'Reward Shop', detail: `${state.history.currentCoins} coins ready` },
+    history: { eyebrow: 'Coin history', title: 'Reward Log', detail: `${state.history.coinHistory.length} activities saved` },
+  };
+  const activeCopy = pageCopy[page] ?? pageCopy.collections;
 
   renderShell(`
-    <section class="game-center">
-      <div class="panel game-hero ${getEquippedClass('hero')}">
-        <div>
-          <span class="eyebrow">Game Center</span>
-          <h1>Rewards</h1>
+    <section class="game-world game-page-${page}">
+      <div class="panel game-world-hero ${getEquippedClass('hero')}">
+        <div class="game-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <button class="game-back" type="button" id="game-home" aria-label="Back home">${renderDashboardIcon('arrow')}<span>Home</span></button>
+        <div class="game-world-copy">
+          <span class="eyebrow">${activeCopy.eyebrow}</span>
+          <h1>${activeCopy.title}</h1>
+          <p>${activeCopy.detail}</p>
         </div>
-        <button class="ghost" type="button" id="game-home">Back home</button>
+        <div class="game-hero-art" aria-hidden="true">${renderGameHeroArt(page)}</div>
+        <div class="game-hero-coins">${renderCoinIcon()}<strong>${state.history.currentCoins}</strong></div>
       </div>
 
-      <div class="game-stats" aria-label="Game center stats">
-        <article class="panel game-stat"><span>Current Coins</span><strong>${state.history.currentCoins}</strong></article>
-        <article class="panel game-stat"><span>Lifetime Coins</span><strong>${state.history.lifetimeCoins}</strong></article>
-        <article class="panel game-stat"><span>Badges Collected</span><strong>${unlockedCount}/${BADGE_DEFINITIONS.length}</strong></article>
-      </div>
+      <nav class="game-world-nav" aria-label="Adventure pages">
+        ${pages.map((item) => `<button class="${page === item.key ? 'selected' : ''}" type="button" data-game-page="${item.key}" aria-current="${page === item.key ? 'page' : 'false'}"><span>${item.icon === 'coin' ? renderCoinIcon() : renderBadgeIcon(item.icon)}</span><b>${item.label}</b></button>`).join('')}
+      </nav>
 
-      <div class="game-tabs" role="tablist" aria-label="Game center sections">
-        ${tabs.map((tab) => `<button class="${state.gameCenterTab === tab.key ? 'selected' : ''}" type="button" role="tab" aria-selected="${state.gameCenterTab === tab.key}" data-game-tab="${tab.key}">${tab.label}</button>`).join('')}
-      </div>
-
-      <section class="panel game-panel ${getEquippedClass('panel')}">
-        ${renderGameCenterPanel()}
+      <section class="panel game-page-stage ${getEquippedClass('panel')}">
+        ${renderGameCenterPanel(page)}
       </section>
     </section>
   `);
 
   document.querySelector('#game-home').addEventListener('click', goHome);
-  document.querySelectorAll('[data-game-tab]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.gameCenterTab = button.dataset.gameTab;
-      renderGameCenter();
-    });
-  });
   document.querySelectorAll('[data-shop-action]').forEach((button) => {
     button.addEventListener('click', () => {
       handleShopAction(button.dataset.shopAction);
@@ -2428,19 +2443,95 @@ function renderGameCenter() {
   document.querySelectorAll('[data-companion-action]').forEach((button) => {
     button.addEventListener('click', () => playCompanionAction(button.dataset.companionAction));
   });
+  document.querySelectorAll('[data-ability-subtest]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.examType = 'practice';
+      state.battery = button.dataset.abilityBattery;
+      state.subtest = button.dataset.abilitySubtest;
+      state.mode = 'all';
+      startPractice({ kind: 'ability' });
+    });
+  });
 }
 
-function renderGameCenterPanel() {
-  if (state.gameCenterTab === 'shop') {
+function getGamePageKey() {
+  if (state.view.startsWith('game-')) {
+    return state.view.replace('game-', '');
+  }
+  return state.gameCenterTab === 'badges' ? 'collections' : state.gameCenterTab;
+}
+
+function openGamePage(page) {
+  const allowedPages = new Set(['map', 'collections', 'companion', 'shop', 'history']);
+  if (!allowedPages.has(page)) {
+    return;
+  }
+  authMenuOpen = false;
+  aboutMenuOpen = false;
+  adminTestModeOpen = false;
+  persistActiveSession();
+  stopMockTimer();
+  state.view = `game-${page}`;
+  state.message = '';
+  render();
+  window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+
+function renderGameHeroArt(page) {
+  if (page === 'companion') {
+    return `<span class="hero-buddy">${renderCompanionCharacter(state.history.companion?.selected ?? 'owl')}</span>`;
+  }
+  if (page === 'collections') {
+    return `<span class="hero-medal">${renderBadgeIcon('medal')}</span><i class="hero-badge-orbit">${renderBadgeIcon('star')}</i>`;
+  }
+  if (page === 'shop' || page === 'history') {
+    return `<span class="hero-coin-stack">${renderCoinIcon()}${renderCoinIcon()}${renderCoinIcon()}</span>`;
+  }
+  return `<span class="hero-map-mark">${renderBadgeIcon('map')}</span><i class="hero-map-path"></i>`;
+}
+
+function renderGameCenterPanel(page) {
+  if (page === 'map') {
+    return renderAbilityMapPanel();
+  }
+  if (page === 'shop') {
     return renderRewardShop();
   }
-  if (state.gameCenterTab === 'history') {
+  if (page === 'history') {
     return renderCoinHistory();
   }
-  if (state.gameCenterTab === 'companion') {
+  if (page === 'companion') {
     return renderCompanionPanel();
   }
   return renderBadgesPanel();
+}
+
+function renderAbilityMapPanel() {
+  const abilityMap = getAbilityMapData();
+  return `
+    <div class="game-section-head map-section-head">
+      <div><span class="eyebrow">${escapeHtml(abilityMap.story.title)}</span><h2>${escapeHtml(abilityMap.story.detail)}</h2></div>
+      <span>${abilityMap.story.progress}</span>
+    </div>
+    <div class="ability-story-strip">
+      <span>${renderBadgeIcon('map')}</span>
+      <div><b>Choose a region</b><small>Each stop starts practice for one CogAT skill.</small></div>
+      <strong>${abilityMap.explored}/9</strong>
+    </div>
+    <div class="ability-map-grid adventure-map-grid">
+      ${abilityMap.regions.map((ability, index) => `
+        <button class="ability-region battery-${ability.battery} status-${ability.statusKey} ${ability.explored ? 'is-explored' : 'is-undiscovered'}" style="--map-index:${index}" type="button" data-ability-subtest="${escapeHtml(ability.subtest)}" data-ability-battery="${ability.battery}" aria-label="Practice ${escapeHtml(ability.skill)}. ${ability.status}.">
+          <span class="ability-route-number">${String(index + 1).padStart(2, '0')}</span>
+          <span class="ability-region-icon">${renderAbilityIcon(ability.icon)}</span>
+          <span class="ability-status">${ability.status}</span>
+          <span class="ability-region-copy"><small>${escapeHtml(ability.region)}</small><b>${escapeHtml(ability.skill)}</b><em>${escapeHtml(ability.subtest)}</em></span>
+          <span class="ability-progress" aria-label="${ability.progress}% progress"><i style="width:${ability.progress}%"></i></span>
+          <span class="ability-region-foot"><small>${ability.attempted ? `${ability.correct}/${ability.attempted} correct` : 'Start here'}</small><strong>${ability.mastered ? `${escapeHtml(ability.unlock)} added` : ability.explored ? `${escapeHtml(ability.unlock)} unlocked` : 'Discover'}</strong></span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="ability-map-legend" aria-label="Ability status guide"><span><i class="developing"></i>Developing</span><span><i class="good"></i>Good</span><span><i class="mastered"></i>Mastered</span></div>
+  `;
 }
 
 function renderBadgesPanel() {
@@ -2619,7 +2710,7 @@ function playCompanionAction(actionId) {
   renderGameCenter();
   window.setTimeout(() => {
     companionAction = 'idle';
-    if (state.view === 'game-center' && state.gameCenterTab === 'companion') {
+    if (state.view === 'game-companion' || (state.view === 'game-center' && state.gameCenterTab === 'companion')) {
       renderGameCenter();
     }
   }, 900);
@@ -2633,7 +2724,7 @@ function renderRewardShop() {
         <span class="eyebrow">Reward shop</span>
         <h2>Choose a theme</h2>
       </div>
-      <span>${renderCoinIcon()}${state.history.currentCoins}</span>
+      <button class="coin-log-link" type="button" data-game-page="history">Coin history ${renderDashboardIcon('arrow')}</button>
     </div>
     ${renderShopCollection('Color themes', 'Change the colors across CogAT.', SHOP_THEMES, owned)}
     ${renderShopCollection('Today card decor', 'Choose one accent for your home dashboard.', SHOP_DECOR, owned)}
@@ -3436,7 +3527,7 @@ function updateCoinButtonDisplay(coins) {
     count.textContent = String(coins);
   }
   if (button) {
-    button.setAttribute('aria-label', `Open game center, ${coins} coins`);
+    button.setAttribute('aria-label', `Open reward shop, ${coins} coins`);
   }
 }
 

@@ -8,6 +8,7 @@ import {
   validateQuestion,
 } from '../lib/questionBankValidator.js';
 import { questionBankEntries } from '../lib/questionBankSources.js';
+import { coreExpansionQuestions } from '../data/coreExpansionQuestions.js';
 
 function options(answer, distractors = ['2', '3', '4', '5']) {
   return [answer, ...distractors].map((text, index) => ({ label: ['A', 'B', 'C', 'D', 'E'][index], text }));
@@ -120,6 +121,27 @@ test('validates standard and multi-step Number Puzzles', () => {
     explanation: 'The triangle is 6, so the box must be 4.',
   });
   assert.deepEqual(validateNumberPuzzleQuestion(symbols), []);
+});
+
+test('the core expansion adds 20 validated questions to each requested subtest', () => {
+  const requestedSubtests = [
+    'Sentence Completion',
+    'Verbal Analogies',
+    'Verbal Classification',
+    'Number Analogies',
+    'Number Puzzles',
+    'Number Series',
+  ];
+  assert.equal(coreExpansionQuestions.length, 120);
+  for (const subtest of requestedSubtests) {
+    const questions = coreExpansionQuestions.filter((item) => item.subtest === subtest);
+    assert.equal(questions.length, 20, `${subtest} should include 20 new questions`);
+    for (const item of questions) {
+      assert.deepEqual(validateQuestion(item), [], `${item.id} should pass validation`);
+    }
+  }
+  const report = auditQuestionBank(coreExpansionQuestions);
+  assert.equal(report.issues.length, 0, JSON.stringify(report.issues, null, 2));
 });
 
 test('the complete repository question bank passes every quality gate', () => {
