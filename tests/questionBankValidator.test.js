@@ -11,6 +11,8 @@ import { questionBankEntries } from '../lib/questionBankSources.js';
 import { coreExpansionQuestions } from '../data/coreExpansionQuestions.js';
 import { coreExpansionRound2Questions } from '../data/coreExpansionRound2Questions.js';
 import { verbalExpansion200Questions } from '../data/verbalExpansion200Questions.js';
+import { expansion500Questions } from '../data/expansion500Questions.js';
+import { bonusQuestions } from '../data/bonusQuestions.js';
 
 function options(answer, distractors = ['2', '3', '4', '5']) {
   return [answer, ...distractors].map((text, index) => ({ label: ['A', 'B', 'C', 'D', 'E'][index], text }));
@@ -87,6 +89,28 @@ test('requires a visual prompt for non-image Figure Matrices', () => {
     explanation: 'The pattern adds one shape, so option A completes it.',
   }));
   assert.ok(result.some((issue) => issue.code === 'matrix-missing-visual'));
+});
+
+test('validates generated Paper Folding answers from their fold geometry', () => {
+  const generated = [...bonusQuestions, ...expansion500Questions]
+    .filter((item) => item.subtest === 'Paper Folding' && item.paperFolding);
+  assert.equal(generated.length, 89);
+  for (const item of generated) {
+    assert.deepEqual(validateQuestion(item), [], `${item.id} should match its unfolded hole pattern`);
+  }
+
+  const original = generated[0];
+  const wrongAnswer = original.options.find((option) => option.label !== original.correctAnswer).label;
+  const corrupted = { ...original, id: 'paper-folding-corrupted', correctAnswer: wrongAnswer };
+  const issues = validateQuestion(corrupted);
+  assert.ok(issues.some((issue) => issue.code === 'paper-folding-answer-mismatch'));
+});
+
+test('the repaired bonus Paper Folding questions have distinct prompts and verified answers', () => {
+  const repaired = bonusQuestions.filter((item) => item.subtest === 'Paper Folding');
+  assert.deepEqual(repaired.map((item) => item.id), [1186, 1187, 1188, 1189, 1190, 1191, 1192, 1193, 1195]);
+  assert.equal(new Set(repaired.map((item) => item.question)).size, repaired.length);
+  assert.ok(repaired.every((item) => validateQuestion(item).length === 0));
 });
 
 test('validates and checks the answer for Number Series', () => {
@@ -186,6 +210,31 @@ test('the verbal expansion adds exactly 200 validated and unique questions', () 
   assert.ok(sentenceQuestions.every((item) => item.wordMeanings?.length === 5));
   const report = auditQuestionBank(verbalExpansion200Questions);
   assert.equal(report.issues.length, 0, JSON.stringify(report.issues, null, 2));
+});
+
+test('the nine-subtest expansion adds exactly 500 validated questions', () => {
+  const expectedCounts = new Map([
+    ['Sentence Completion', 40],
+    ['Verbal Analogies', 40],
+    ['Verbal Classification', 40],
+    ['Number Analogies', 50],
+    ['Number Puzzles', 50],
+    ['Number Series', 50],
+    ['Figure Classification', 70],
+    ['Figure Matrices', 80],
+    ['Paper Folding', 80],
+  ]);
+  assert.equal(expansion500Questions.length, 500);
+  assert.equal(new Set(expansion500Questions.map((item) => String(item.id))).size, 500);
+  for (const [subtest, expected] of expectedCounts) {
+    assert.equal(
+      expansion500Questions.filter((item) => item.subtest === subtest).length,
+      expected,
+      `${subtest} should include ${expected} new questions`,
+    );
+  }
+  const report = auditQuestionBank(expansion500Questions);
+  assert.equal(report.issues.length, 0, JSON.stringify(report.issues.slice(0, 30), null, 2));
 });
 
 test('the complete repository question bank passes every quality gate', () => {

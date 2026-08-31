@@ -774,6 +774,7 @@ h2 {
 .bank-answer {
   margin-left: auto;
   color: var(--green);
+  font-weight: 950;
 }
 
 .bank-progress-status {
@@ -843,8 +844,9 @@ h2 {
 .bank-preview p {
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 750;
+  font-size: clamp(15px, 1.2vw, 18px);
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 .bank-options-mini {
@@ -854,6 +856,7 @@ h2 {
 }
 
 .bank-option-mini {
+  position: relative;
   display: grid;
   min-height: 74px;
   align-items: center;
@@ -874,12 +877,29 @@ h2 {
 }
 
 .bank-option-mini.is-answer {
-  border-color: rgba(24, 112, 79, 0.35);
-  background: #ecfdf3;
+  border: 2px solid color-mix(in srgb, var(--green) 62%, var(--panel));
+  background: color-mix(in srgb, var(--green) 13%, var(--panel));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 9%, transparent);
 }
 
 .bank-option-mini.is-answer b {
   color: var(--green);
+}
+
+.bank-option-mini.is-answer::after {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  content: "✓";
+  font-size: 12px;
+  font-weight: 950;
 }
 
 .bank-preview svg,
@@ -891,6 +911,37 @@ h2 {
 
 .bank-option-mini svg {
   max-height: 54px;
+}
+
+.paper-folding-instruction {
+  max-width: 760px;
+  margin: 0 auto 12px;
+  color: var(--ink);
+  font-size: clamp(17px, 1.8vw, 22px);
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.paper-folding-prompt {
+  display: block;
+  width: min(100%, 320px);
+  height: auto;
+  margin: 0 auto;
+}
+
+.bank-preview .paper-folding-instruction {
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+
+.bank-preview .paper-folding-prompt {
+  max-height: 116px;
+}
+
+.bank-option-mini svg[data-hole-points] {
+  width: 68px;
+  height: 68px;
+  max-height: 68px;
 }
 
 .bank-preview img {
@@ -3967,16 +4018,47 @@ summary:focus-visible {
 }
 
 .badge-collection .badge-card {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 10px;
   min-width: 0;
+  min-height: 268px;
+  padding: 14px 12px 12px;
 }
 
 .badge-collection .badge-icon-shell {
-  min-height: 122px;
+  min-height: 112px;
+  place-items: center;
+}
+
+.badge-collection .badge-icon {
+  width: 108px;
+  height: 108px;
+}
+
+.badge-collection .badge-copy {
+  width: 100%;
+  align-content: start;
+  gap: 10px;
+  text-align: center;
 }
 
 .badge-collection .badge-card-foot {
   align-items: stretch;
   flex-direction: column;
+  gap: 8px;
+  margin-top: 0;
+}
+
+.badge-collection .badge-price {
+  justify-content: center;
+  margin-inline: auto;
+}
+
+.badge-collection .badge-card-foot button {
+  width: 100%;
+  min-width: 0;
 }
 
 .companion-layout {
@@ -4570,7 +4652,18 @@ summary:focus-visible {
 }
 
 .badge-collection .badge-name {
-  font-size: clamp(13px, 1vw, 16px);
+  display: block;
+  min-height: 2.4em;
+  overflow: visible;
+  font-size: clamp(14px, 0.95vw, 17px);
+  line-height: 1.2;
+  letter-spacing: -0.018em;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-align: center;
+  text-wrap: balance;
+  -webkit-box-orient: initial;
+  -webkit-line-clamp: unset;
 }
 
 .badge-card-foot button:disabled {
@@ -7716,6 +7809,14 @@ body[data-eye-care="on"] :is(.verbal-tip, .word-meaning-item) {
     justify-items: start;
   }
 
+  .badge-collection .badge-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .badge-collection .badge-card {
+    min-height: 254px;
+  }
+
   .companion-room {
     min-height: 340px;
     padding: 18px;
@@ -7754,6 +7855,8 @@ body[data-eye-care="on"] :is(.verbal-tip, .word-meaning-item) {
   .game-hero-coins { right: 12px; bottom: 12px; }
   .game-back { top: 13px; left: 13px; }
   .game-page-stage { border-radius: 24px; padding: 13px; }
+  .badge-collection .badge-grid { grid-template-columns: 1fr; }
+  .badge-collection .badge-card { min-height: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

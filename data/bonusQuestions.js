@@ -1,3 +1,8 @@
+import {
+  serializePaperPoints,
+  unfoldPaperPoints,
+} from '../lib/paperFoldingValidator.js';
+
 const LABELS = ['A', 'B', 'C', 'D', 'E'];
 
 function makeOptions(correct, distractors, correctIndex) {
@@ -321,47 +326,100 @@ const matrixQuestions = matrixSeeds.map(([a, b, c, answer, explanation], index) 
   };
 });
 
-function foldedSquareSvg() {
-  return '<svg width="150" height="80" viewBox="0 0 150 80"><rect x="12" y="10" width="55" height="55" fill="#eef4ff" stroke="#334155" stroke-width="2"/><line x1="67" y1="10" x2="67" y2="65" stroke="#94a3b8" stroke-dasharray="4 3" stroke-width="2"/><path d="M82 38h48" stroke="#2f66d0" stroke-width="2"/><path d="M122 32l8 6-8 6" fill="none" stroke="#2f66d0" stroke-width="2"/><rect x="88" y="10" width="55" height="55" fill="#fff7ed" stroke="#334155" stroke-width="2" stroke-dasharray="4 3"/><circle cx="115" cy="28" r="5" fill="#f97316"/></svg>';
+function foldLineMarkup(fold, index) {
+  const color = index === 0 ? '#2563eb' : '#7c3aed';
+  const label = index + 1;
+  if (fold.axis === 'vertical') {
+    const x = 12 + Number(fold.value ?? 30);
+    return `<line x1="${x}" y1="24" x2="${x}" y2="84" stroke="${color}" stroke-width="2.5" stroke-dasharray="5 4"/><path d="M${x - 21} 18 Q${x} 4 ${x + 19} 18" fill="none" stroke="${color}" stroke-width="2.5" marker-end="url(#fold-arrow)"/><circle cx="${x - 25}" cy="13" r="8" fill="${color}"/><text x="${x - 25}" y="17" text-anchor="middle" fill="white" font-size="10" font-weight="900">${label}</text>`;
+  }
+  if (fold.axis === 'horizontal') {
+    const y = 24 + Number(fold.value ?? 30);
+    return `<line x1="12" y1="${y}" x2="72" y2="${y}" stroke="${color}" stroke-width="2.5" stroke-dasharray="5 4"/><path d="M78 ${y - 21} Q92 ${y} 78 ${y + 19}" fill="none" stroke="${color}" stroke-width="2.5" marker-end="url(#fold-arrow)"/><circle cx="84" cy="${y - 25}" r="8" fill="${color}"/><text x="84" y="${y - 21}" text-anchor="middle" fill="white" font-size="10" font-weight="900">${label}</text>`;
+  }
+  const anti = fold.axis === 'diagonal-anti';
+  const line = anti
+    ? '<line x1="72" y1="24" x2="12" y2="84"'
+    : '<line x1="12" y1="24" x2="72" y2="84"';
+  const arrow = anti
+    ? '<path d="M65 91 Q88 76 84 53"'
+    : '<path d="M19 91 Q-4 76 0 53"';
+  const circleX = anti ? 81 : 3;
+  return `${line} stroke="${color}" stroke-width="2.5" stroke-dasharray="5 4"/>${arrow} fill="none" stroke="${color}" stroke-width="2.5" marker-end="url(#fold-arrow)"/><circle cx="${circleX}" cy="93" r="8" fill="${color}"/><text x="${circleX}" y="97" text-anchor="middle" fill="white" font-size="10" font-weight="900">${label}</text>`;
 }
 
-function holePatternSvg(count) {
-  const points = [[32, 13], [51, 23], [51, 45], [32, 55], [13, 45], [13, 23], [32, 32], [42, 16]];
-  const holes = points.slice(0, count).map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="4" fill="#f97316"/>`).join('');
-  return `<svg width="64" height="64" viewBox="0 0 64 64"><rect x="6" y="6" width="52" height="52" fill="#fff7ed" stroke="#334155" stroke-width="2"/>${holes}</svg>`;
+function foldedSquareSvg(folds, punch) {
+  const [punchX, punchY] = punch;
+  return `<svg class="paper-folding-prompt" width="250" height="116" viewBox="0 0 250 116" role="img" aria-label="fold sequence followed by one punched hole" data-fold-sequence="${folds.map((fold) => fold.axis).join(',')}"><defs><marker id="fold-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#2563eb"/></marker></defs><text x="42" y="112" text-anchor="middle" fill="#64748b" font-size="10" font-weight="800">FOLD IN ORDER</text><rect x="12" y="24" width="60" height="60" rx="3" fill="#eef4ff" stroke="#26344d" stroke-width="2.5"/>${folds.map(foldLineMarkup).join('')}<path d="M102 54h25" stroke="#26344d" stroke-width="3" marker-end="url(#fold-arrow)"/><text x="177" y="112" text-anchor="middle" fill="#64748b" font-size="10" font-weight="800">PUNCH AFTER FOLDING</text><rect x="147" y="24" width="60" height="60" rx="3" fill="#fff7ed" stroke="#26344d" stroke-width="2.5"/><circle cx="${147 + punchX}" cy="${24 + punchY}" r="5" fill="#f97316"/><circle cx="${147 + punchX}" cy="${24 + punchY}" r="9" fill="none" stroke="#f97316" stroke-width="2" opacity=".35"/></svg>`;
 }
 
-const foldingSeeds = [
-  [2, 2, 'A half-fold creates two matching holes when the paper is opened.'],
-  [2, 4, 'Two folds create four layers, so the hole appears four times.'],
-  [2, 2, 'The paper is folded once, so the single hole is mirrored once.'],
-  [2, 4, 'A quarter fold creates four matching positions.'],
-  [2, 2, 'One fold makes two layers and two holes when unfolded.'],
-  [2, 4, 'Two perpendicular folds create four matching holes.'],
-  [2, 2, 'The fold doubles the number of visible holes.'],
-  [2, 4, 'The quarter-fold pattern repeats in all four sections.'],
-  [2, 2, 'Opening a single fold mirrors the punched hole.'],
-  [2, 4, 'Opening two folds places one hole in each quarter.'],
-  [2, 2, 'The hole is copied across the one fold line.'],
-  [2, 4, 'The hole is copied across two fold lines.'],
-  [2, 2, 'One fold means two layers of paper.'],
-  [2, 4, 'Four layers produce four holes.'],
-  [2, 2, 'The opened paper has a matching hole on each side.'],
+function holePatternSvg(points) {
+  const normalized = serializePaperPoints(points);
+  const holes = normalized.split(';').filter(Boolean).map((pair) => {
+    const [x, y] = pair.split(',').map(Number);
+    return `<circle cx="${x + 5}" cy="${y + 5}" r="4" fill="#f97316"/>`;
+  }).join('');
+  return `<svg width="76" height="76" viewBox="0 0 70 70" role="img" aria-label="unfolded paper with ${normalized ? normalized.split(';').length : 0} holes" data-hole-points="${normalized}"><rect x="5" y="5" width="60" height="60" rx="2" fill="#fff7ed" stroke="#26344d" stroke-width="2.5"/>${holes}</svg>`;
+}
+
+const foldingScenarios = [
+  { text: 'Fold the left half to the right.', folds: [{ axis: 'vertical', value: 30 }], punch: [14, 18] },
+  { text: 'Fold the top half down.', folds: [{ axis: 'horizontal', value: 30 }], punch: [17, 13] },
+  { text: 'Fold along the diagonal from top left to bottom right.', folds: [{ axis: 'diagonal-main' }], punch: [12, 38] },
+  { text: 'Fold along the diagonal from top right to bottom left.', folds: [{ axis: 'diagonal-anti' }], punch: [17, 15] },
+  { text: 'Fold left to right, then fold top to bottom.', folds: [{ axis: 'vertical', value: 30 }, { axis: 'horizontal', value: 30 }], punch: [12, 14] },
+  { text: 'Fold along the main diagonal, then fold left to right.', folds: [{ axis: 'diagonal-main' }, { axis: 'vertical', value: 30 }], punch: [10, 18] },
+  { text: 'Fold along the other diagonal, then fold top to bottom.', folds: [{ axis: 'diagonal-anti' }, { axis: 'horizontal', value: 30 }], punch: [14, 12] },
+  { text: 'Fold along both diagonals in the numbered order.', folds: [{ axis: 'diagonal-main' }, { axis: 'diagonal-anti' }], punch: [13, 20] },
+  { text: 'Fold the right half to the left.', folds: [{ axis: 'vertical', value: 30 }], punch: [21, 42] },
+  { text: 'Fold the bottom half up.', folds: [{ axis: 'horizontal', value: 30 }], punch: [39, 18] },
+  { text: 'Fold along the diagonal from top left to bottom right.', folds: [{ axis: 'diagonal-main' }], punch: [15, 37] },
+  { text: 'Fold along the diagonal from top right to bottom left.', folds: [{ axis: 'diagonal-anti' }], punch: [14, 16] },
+  { text: 'Fold top to bottom, then fold left to right.', folds: [{ axis: 'horizontal', value: 30 }, { axis: 'vertical', value: 30 }], punch: [20, 11] },
+  { text: 'Fold left to right, then along the main diagonal.', folds: [{ axis: 'vertical', value: 30 }, { axis: 'diagonal-main' }], punch: [11, 23] },
+  { text: 'Fold top to bottom, then along the other diagonal.', folds: [{ axis: 'horizontal', value: 30 }, { axis: 'diagonal-anti' }], punch: [19, 14] },
 ];
 
-const foldingQuestions = foldingSeeds.map(([folds, answer, explanation], index) => {
-  const distractors = answer === 2 ? [1, 3, 4, 8] : [1, 2, 3, 8];
+function buildPaperDistractors(expectedPoints, punch) {
+  const candidates = [
+    [punch],
+    expectedPoints.slice(0, Math.max(1, expectedPoints.length - 1)),
+    expectedPoints.map(([x, y]) => [Math.min(57, x + 6), y]),
+    expectedPoints.map(([x, y]) => [x, Math.max(3, y - 6)]),
+    [[10, 10], [50, 10], [10, 50], [50, 50]],
+    [[15, 30], [45, 30]],
+    [[30, 15], [30, 45]],
+  ];
+  const expectedKey = serializePaperPoints(expectedPoints);
+  const unique = new Map();
+  for (const points of candidates) {
+    const key = serializePaperPoints(points);
+    if (key && key !== expectedKey && !unique.has(key)) unique.set(key, points);
+  }
+  return [...unique.values()].slice(0, 4);
+}
+
+const foldingQuestions = foldingScenarios.map((scenario, index) => {
+  const expectedPoints = unfoldPaperPoints(scenario.punch, scenario.folds, 60);
+  const distractors = buildPaperDistractors(expectedPoints, scenario.punch);
   const choiceIndex = (index + 3) % 5;
-  const values = [...distractors];
-  values.splice(choiceIndex, 0, answer);
+  const values = distractors.map(holePatternSvg);
+  values.splice(choiceIndex, 0, holePatternSvg(expectedPoints));
   return {
     id: 1186 + index,
     subtest: 'Paper Folding',
     battery: 'Nonverbal Battery',
-    question: `<div class="text-center mb-2 text-sm font-semibold text-slate-500">The paper is folded and punched as shown. What will you see when it is opened?</div>${foldedSquareSvg()}`,
-    options: values.map((value, optionIndex) => ({ label: LABELS[optionIndex], text: holePatternSvg(value) })),
+    question: `<div class="paper-folding-instruction"><strong>${scenario.text}</strong> One hole is punched after all folds. Which pattern appears when the paper is completely opened?</div>${foldedSquareSvg(scenario.folds, scenario.punch)}`,
+    options: values.map((text, optionIndex) => ({ label: LABELS[optionIndex], text })),
     correctAnswer: LABELS[choiceIndex],
-    explanation,
+    explanation: `Open the folds in reverse order. Each fold reflects the punched hole across its fold line, creating ${expectedPoints.length} matching hole positions.`,
+    whyOtherChoices: 'The other choices miss a reflected hole, reflect across the wrong line, or place a hole at the wrong distance from a fold.',
+    paperFolding: {
+      paperSize: 60,
+      folds: scenario.folds,
+      punch: scenario.punch,
+      expectedPoints,
+    },
   };
 });
 

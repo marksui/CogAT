@@ -14,6 +14,7 @@ import { numberAnalogyQuestions } from './data/numberAnalogyQuestions.js';
 import { coreExpansionQuestions } from './data/coreExpansionQuestions.js';
 import { coreExpansionRound2Questions } from './data/coreExpansionRound2Questions.js';
 import { verbalExpansion200Questions } from './data/verbalExpansion200Questions.js';
+import { expansion500Questions } from './data/expansion500Questions.js';
 import { filterValidNumberAnalogies } from './lib/numberAnalogyValidator.js';
 import { calculateMasteryProgress, calculateSubtestPerformance } from './lib/progressMetrics.js';
 import { supabaseConfig } from './supabase-config.js';
@@ -27,9 +28,9 @@ const LEGACY_STORAGE_KEY = 'grade4-cogat-history-v1';
 const EYE_CARE_STORAGE_KEY = 'grade4-cogat-eye-care';
 
 const rawQuestionSets = {
-  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalVocabularyQuestions, ...verbalWorkbookQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Verbal Battery'), ...coreExpansionRound2Questions.filter((question) => question.battery === 'Verbal Battery'), ...verbalExpansion200Questions, ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
-  quantitative: filterValidNumberAnalogies([...quantitativeQuestions, ...quantitativeExtraQuestions, ...numberAnalogyQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...coreExpansionRound2Questions.filter((question) => question.battery === 'Quantitative Battery'), ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...bonusQuestions.filter((question) => question.battery === 'Quantitative Battery')]),
-  nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions, ...level10OriginalQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Nonverbal Battery')],
+  verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalVocabularyQuestions, ...verbalWorkbookQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Verbal Battery'), ...coreExpansionRound2Questions.filter((question) => question.battery === 'Verbal Battery'), ...verbalExpansion200Questions, ...expansion500Questions.filter((question) => question.battery === 'Verbal Battery'), ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
+  quantitative: filterValidNumberAnalogies([...quantitativeQuestions, ...quantitativeExtraQuestions, ...numberAnalogyQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...coreExpansionRound2Questions.filter((question) => question.battery === 'Quantitative Battery'), ...expansion500Questions.filter((question) => question.battery === 'Quantitative Battery'), ...level10OriginalQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Quantitative Battery'), ...bonusQuestions.filter((question) => question.battery === 'Quantitative Battery')]),
+  nonverbal: [...nonverbalQuestions, ...nonverbalExtraQuestions, ...mockExamQuestions, ...expansion500Questions.filter((question) => question.battery === 'Nonverbal Battery'), ...level10OriginalQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Nonverbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Nonverbal Battery')],
 };
 
 function normalizeQuestionContent(value = '') {
@@ -118,6 +119,16 @@ const BADGE_DEFINITIONS = [
   { id: 'acorn-friend', name: 'Acorn Friend', description: 'A woodland friend keepsake.', icon: 'spark', artwork: 'acorn-friend', category: 'Collectible', tier: 'advanced', price: 85 },
   { id: 'shape-garden', name: 'Shape Garden', description: 'A playful shape keepsake.', icon: 'pattern', artwork: 'shape-garden', category: 'Collectible', tier: 'advanced', price: 70 },
   { id: 'meadow-cards', name: 'Meadow Cards', description: 'A garden card keepsake.', icon: 'cards', artwork: 'meadow-cards', category: 'Collectible', tier: 'advanced', price: 75 },
+  { id: 'shape-spinner', name: 'Shape Spinner', description: 'A colorful shape-turning keepsake.', icon: 'return', artwork: 'shape-spinner', category: 'Collectible', tier: 'basic', price: 40 },
+  { id: 'maze-seeker', name: 'Maze Seeker', description: 'A bright maze-solving keepsake.', icon: 'maze', artwork: 'maze-seeker', category: 'Collectible', tier: 'basic', price: 45 },
+  { id: 'word-star', name: 'Word Star', description: 'A cheerful reading and vocabulary keepsake.', icon: 'book', artwork: 'word-star', category: 'Collectible', tier: 'medium', price: 50 },
+  { id: 'number-spark', name: 'Number Spark', description: 'A colorful counting and calculation keepsake.', icon: 'numbers', artwork: 'number-spark', category: 'Collectible', tier: 'medium', price: 50 },
+  { id: 'pencil-rocket', name: 'Pencil Rocket', description: 'A high-flying learning keepsake.', icon: 'spark', artwork: 'pencil-rocket', category: 'Collectible', tier: 'medium', price: 60 },
+  { id: 'logic-builder', name: 'Logic Builder', description: 'A matrix and puzzle-solving keepsake.', icon: 'puzzle', artwork: 'logic-builder', category: 'Collectible', tier: 'medium', price: 60 },
+  { id: 'brain-explorer', name: 'Brain Explorer', description: 'A curious thinking adventure keepsake.', icon: 'brain', artwork: 'brain-explorer', category: 'Collectible', tier: 'advanced', price: 70 },
+  { id: 'treasure-star', name: 'Treasure Star', description: 'A treasure chest filled with learning rewards.', icon: 'star', artwork: 'treasure-star', category: 'Collectible', tier: 'advanced', price: 80 },
+  { id: 'mind-orbit', name: 'Mind Orbit', description: 'A sparkling mental connection keepsake.', icon: 'brain', artwork: 'mind-orbit', category: 'Collectible', tier: 'advanced', price: 75 },
+  { id: 'adventure-map', name: 'Adventure Map', description: 'A complete learning-world adventure keepsake.', icon: 'map', artwork: 'adventure-map', category: 'Collectible', tier: 'advanced', price: 90 },
 ];
 
 const BADGE_COLLECTIONS = [
@@ -126,6 +137,8 @@ const BADGE_COLLECTIONS = [
   { id: 'balanced-brain', name: 'Balanced Brain', detail: 'Grow across every CogAT Battery.', reward: 60, badgeIds: ['word-wizard', 'number-ninja', 'pattern-pro', 'balanced-brain', 'mock-exam-finisher'] },
   { id: 'jewel-box', name: 'Jewel Box', detail: 'Complete the sparkling keepsake set.', reward: 70, badgeIds: ['jewel-maze', 'jewel-puzzle', 'jewel-shapes', 'jewel-crown', 'jewel-cards'] },
   { id: 'meadow-stories', name: 'Meadow Stories', detail: 'Finish the woodland story collection.', reward: 70, badgeIds: ['story-owl', 'trail-marker', 'acorn-friend', 'shape-garden', 'meadow-cards'] },
+  { id: 'learning-tools', name: 'Learning Tools', detail: 'Collect colorful tools for words, numbers, and patterns.', reward: 80, badgeIds: ['shape-spinner', 'maze-seeker', 'word-star', 'number-spark', 'pencil-rocket'] },
+  { id: 'brain-quest', name: 'Brain Quest', detail: 'Complete the ultimate thinking adventure.', reward: 90, badgeIds: ['logic-builder', 'brain-explorer', 'treasure-star', 'mind-orbit', 'adventure-map'] },
 ];
 
 const COMPANION_DEFINITIONS = [
