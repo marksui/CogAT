@@ -17,6 +17,11 @@ import { verbalExpansion200Questions } from './data/verbalExpansion200Questions.
 import { expansion500Questions } from './data/expansion500Questions.js';
 import { filterValidNumberAnalogies } from './lib/numberAnalogyValidator.js';
 import { calculateMasteryProgress, calculateSubtestPerformance } from './lib/progressMetrics.js';
+import {
+  buildAdaptiveDailyPlan,
+  DAILY_MIX_TARGETS,
+  getNextReviewAt,
+} from './lib/adaptiveDailyPlan.js';
 import { supabaseConfig } from './supabase-config.js';
 
 const QUESTION_LIMIT = 30;
@@ -203,13 +208,6 @@ const SUBTEST_GROUPS = [
   { id: 'nonverbal', label: 'Nonverbal', icon: 'pattern', matches: ['Figure Classification', 'Figure Matrices', 'Paper Folding'] },
 ];
 
-const DAILY_MIX_TARGETS = {
-  review: 10,
-  weak: 8,
-  new: 8,
-  challenge: 4,
-};
-
 const ABILITY_MAP_DEFINITIONS = [
   { subtest: 'Sentence Completion', skill: 'Vocabulary & context', region: 'Word Garden', battery: 'verbal', icon: 'vocabulary', unlock: 'Library gate' },
   { subtest: 'Verbal Analogies', skill: 'Word relationships', region: 'Bridge of Words', battery: 'verbal', icon: 'relationships', unlock: 'Story bridge' },
@@ -230,7 +228,21 @@ const PRACTICE_MODE_GROUPS = [
 
 const batteryMap = new Map(batteries.map((battery) => [battery.key, battery]));
 const allQuestions = batteries[0].questions;
-const questionById = new Map(Object.values(rawQuestionSets).flat().map((question) => [String(question.id), question]));
+const questionById = new Map(allQuestions.map((question) => [String(question.id), question]));
+const sortQuestionsById = (questions) => [...questions].sort((first, second) => String(first.id).localeCompare(String(second.id), undefined, { numeric: true }));
+const bankQuestionsByBattery = new Map(batteries.map((battery) => [battery.key, sortQuestionsById(battery.questions)]));
+const bankQuestionsByBatterySubtest = new Map();
+const bankSubtestsByBattery = new Map();
+batteries.forEach((battery) => {
+  const subtests = [...new Set(battery.questions.map((question) => question.subtest))].sort();
+  bankSubtestsByBattery.set(battery.key, subtests);
+  subtests.forEach((subtest) => {
+    bankQuestionsByBatterySubtest.set(`${battery.key}|${subtest}`, sortQuestionsById(battery.questions.filter((question) => question.subtest === subtest)));
+  });
+});
+Object.keys(rawQuestionSets).forEach((key) => {
+  rawQuestionSets[key] = [];
+});
 
 const state = {
   view: 'setup',
@@ -244,6 +256,7 @@ const state = {
   checked: false,
   history: loadHistory(),
   dailyGoal: DEFAULT_DAILY_GOAL,
+  dailyComposition: null,
   sessionKind: 'custom',
   message: '',
   mockPartIndex: 0,
@@ -292,6 +305,9 @@ let coinDisplayValue = null;
 let coinAnimationHandle = null;
 let practiceCheckpointHandle = null;
 let practiceQuestionStartedAt = Date.now();
+let dailyPlanPreviewCache = null;
+let bankSearchTimer = null;
+let bankSearchWarmIndex = 0;
 const authState = {
   status: 'checking',
   user: null,
@@ -647,6 +663,7 @@ function renderSetup() {
   const pool = getPracticePool();
   const daily = getDailyProgress();
   const dailyGoal = state.dailyGoal;
+  const dailyComposition = getDailyPlanComposition();
   const dailyPercent = Math.min(100, Math.round((daily.answered / dailyGoal) * 100));
   const dailyReport = getDailyReport();
   const summary = getProgressSummary();
@@ -679,10 +696,10 @@ function renderSetup() {
         <div class="daily-plan-meter" aria-hidden="true"><span style="width:${dailyPercent}%"></span></div>
         <div class="daily-plan-count"><strong>${daily.answered}</strong><span>/ ${dailyGoal} questions</span></div>
         <div class="daily-plan-batteries daily-plan-mix" aria-label="Adaptive daily practice mix">
-          <span><b>10</b> Review</span>
-          <span><b>8</b> Weak</span>
-          <span><b>8</b> New</span>
-          <span><b>4</b> Challenge</span>
+          <span><b>${dailyComposition.review}</b> Review</span>
+          <span><b>${dailyComposition.weak}</b> Weak</span>
+          <span><b>${dailyComposition.new}</b> New</span>
+          <span><b>${dailyComposition.challenge}</b> Challenge</span>
         </div>
         <button class="daily-report-button" type="button" data-daily-report aria-expanded="${dailyReportOpen}" aria-controls="daily-report-panel">
           <span>${renderDashboardIcon('report')}<b>Daily report</b></span>
@@ -3133,10 +3150,16 @@ function renderQuestionBank() {
     state.bankQuery = event.target.value;
     state.bankVisibleCount = BANK_PAGE_SIZE;
     document.querySelector('#bank-search-clear').hidden = !state.bankQuery;
-    updateBankResults();
+    if (bankSearchTimer) window.clearTimeout(bankSearchTimer);
+    bankSearchTimer = window.setTimeout(() => {
+      bankSearchTimer = null;
+      updateBankResults();
+    }, 120);
   });
 
   document.querySelector('#bank-search-clear').addEventListener('click', () => {
+    if (bankSearchTimer) window.clearTimeout(bankSearchTimer);
+    bankSearchTimer = null;
     state.bankQuery = '';
     state.bankVisibleCount = BANK_PAGE_SIZE;
     searchInput.value = '';
@@ -3155,6 +3178,7 @@ function renderQuestionBank() {
   });
 
   bindBankLoadMore();
+  warmBankSearchIndex();
 }
 
 function renderBankQuestion(question, index) {
@@ -3190,14 +3214,14 @@ function renderBankQuestion(question, index) {
 }
 
 function getBankSubtests(battery) {
-  return [...new Set(battery.questions.map((question) => question.subtest))].sort();
+  return bankSubtestsByBattery.get(battery.key) ?? [];
 }
 
 function getBankQuestions() {
-  const battery = batteryMap.get(state.bankBattery) ?? batteryMap.get('all');
+  const batteryKey = bankQuestionsByBattery.has(state.bankBattery) ? state.bankBattery : 'all';
   let questions = state.bankSubtest === 'all'
-    ? battery.questions
-    : battery.questions.filter((question) => question.subtest === state.bankSubtest);
+    ? bankQuestionsByBattery.get(batteryKey)
+    : (bankQuestionsByBatterySubtest.get(`${batteryKey}|${state.bankSubtest}`) ?? []);
 
   if (state.bankDifficulty !== 'all') {
     questions = questions.filter((question) => getDifficulty(question) === state.bankDifficulty);
@@ -3218,7 +3242,7 @@ function getBankQuestions() {
     });
   }
 
-  return [...questions].sort((first, second) => String(first.id).localeCompare(String(second.id), undefined, { numeric: true }));
+  return questions;
 }
 
 const bankSearchCache = new WeakMap();
@@ -3247,6 +3271,22 @@ function getBankSearchText(question) {
     ].join(' ')));
   }
   return bankSearchCache.get(question);
+}
+
+function warmBankSearchIndex() {
+  if (bankSearchWarmIndex >= allQuestions.length) return;
+  const schedule = window.requestIdleCallback
+    ? (callback) => window.requestIdleCallback(callback, { timeout: 500 })
+    : (callback) => window.setTimeout(() => callback({ timeRemaining: () => 8 }), 16);
+  schedule((deadline) => {
+    let processed = 0;
+    while (bankSearchWarmIndex < allQuestions.length && (processed < 80 || deadline.timeRemaining() > 1)) {
+      getBankSearchText(allQuestions[bankSearchWarmIndex]);
+      bankSearchWarmIndex += 1;
+      processed += 1;
+    }
+    warmBankSearchIndex();
+  });
 }
 
 function getBankProgressStatus(question) {
@@ -3322,7 +3362,9 @@ function startDailyPractice() {
     state.battery = 'all';
     state.subtest = 'all';
     state.mode = 'all';
-    startPractice({ kind: 'extra', pool: selectDailyQuestions(state.dailyGoal), limit: state.dailyGoal });
+    const bonusPlan = createAdaptiveDailyPlan(`${getDateKey()}-bonus-${state.history.performanceLog.length}`);
+    state.dailyComposition = null;
+    startPractice({ kind: 'extra', pool: bonusPlan.questions, limit: state.dailyGoal, preserveOrder: true });
     return;
   }
 
@@ -3335,6 +3377,7 @@ function startDailyPractice() {
       state.answers = questions.map((question, index) => active.answers?.[index] ?? null);
       state.currentIndex = Math.min(Number(active.currentIndex ?? 0), questions.length - 1);
       state.checked = Boolean(active.checked);
+      state.dailyComposition = normalizeDailyComposition(active.composition);
       state.view = 'practice';
       state.message = '';
       practiceQuestionStartedAt = Date.now();
@@ -3343,10 +3386,12 @@ function startDailyPractice() {
     }
   }
 
-  startPractice({ kind: 'daily', pool: selectDailyQuestions(state.dailyGoal), limit: state.dailyGoal });
+  const plan = createAdaptiveDailyPlan();
+  state.dailyComposition = plan.composition;
+  startPractice({ kind: 'daily', pool: plan.questions, limit: state.dailyGoal, preserveOrder: true });
 }
 
-function startPractice({ kind = 'custom', pool = null, limit = QUESTION_LIMIT } = {}) {
+function startPractice({ kind = 'custom', pool = null, limit = QUESTION_LIMIT, preserveOrder = false } = {}) {
   const practicePool = pool ?? getPracticePool();
   if (!practicePool.length) {
     state.message = 'No questions match this filter yet.';
@@ -3355,7 +3400,7 @@ function startPractice({ kind = 'custom', pool = null, limit = QUESTION_LIMIT } 
   }
 
   state.sessionKind = kind;
-  state.questions = shuffle(practicePool).slice(0, Math.min(limit, practicePool.length));
+  state.questions = (preserveOrder ? [...practicePool] : shuffle(practicePool)).slice(0, Math.min(limit, practicePool.length));
   state.answers = new Array(state.questions.length).fill(null);
   state.currentIndex = 0;
   state.checked = false;
@@ -3369,76 +3414,47 @@ function startPractice({ kind = 'custom', pool = null, limit = QUESTION_LIMIT } 
   render();
 }
 
-function selectDailyQuestions(goal) {
-  const seen = new Set();
-  const selected = [];
-  const targetTotal = Math.min(goal, allQuestions.length);
-  const abilityMap = getAbilityMapData();
-  const weakSubtests = new Map(abilityMap.regions
-    .filter((ability) => ability.attempted > 0 && !ability.mastered)
-    .sort((first, second) => first.score - second.score)
-    .map((ability, index) => [ability.subtest, index]));
-
-  const addQuestions = (pool, count) => {
-    let added = 0;
-    pool.forEach((question) => {
-      const id = String(question.id);
-      if (selected.length >= targetTotal || added >= count || seen.has(id)) {
-        return;
-      }
-      seen.add(id);
-      selected.push(question);
-      added += 1;
-    });
-    return added;
-  };
-
-  const seenQuestions = allQuestions.filter((question) => state.history.stats[String(question.id)]);
-  const dueQuestions = shuffle(seenQuestions.filter(isQuestionDueForReview)).sort((first, second) => {
-    const firstStats = state.history.stats[String(first.id)];
-    const secondStats = state.history.stats[String(second.id)];
-    const resultDelta = Number(secondStats?.lastResult === 'wrong') - Number(firstStats?.lastResult === 'wrong');
-    return resultDelta || timestamp(firstStats?.updatedAt) - timestamp(secondStats?.updatedAt);
-  });
-  addQuestions(dueQuestions, DAILY_MIX_TARGETS.review);
-
-  const weakQuestions = shuffle(allQuestions.filter((question) => weakSubtests.has(question.subtest))).sort((first, second) => {
-    const firstWeak = isWeakQuestion(first) ? -1 : 0;
-    const secondWeak = isWeakQuestion(second) ? -1 : 0;
-    return firstWeak - secondWeak || weakSubtests.get(first.subtest) - weakSubtests.get(second.subtest);
-  });
-  addQuestions(weakQuestions, DAILY_MIX_TARGETS.weak);
-
-  const newQuestions = shuffle(allQuestions.filter((question) => !state.history.stats[String(question.id)]));
-  addQuestions(newQuestions, DAILY_MIX_TARGETS.new);
-
-  const challengeQuestions = shuffle(allQuestions.filter((question) => ['medium', 'very-hard'].includes(getDifficulty(question)))).sort((first, second) => {
-    const difficultyDelta = Number(getDifficulty(second) === 'very-hard') - Number(getDifficulty(first) === 'very-hard');
-    const newDelta = Number(!state.history.stats[String(second.id)]) - Number(!state.history.stats[String(first.id)]);
-    return difficultyDelta || newDelta;
-  });
-  addQuestions(challengeQuestions, DAILY_MIX_TARGETS.challenge);
-
-  [newQuestions, dueQuestions, weakQuestions, challengeQuestions, shuffle(allQuestions)].forEach((pool) => {
-    addQuestions(pool, targetTotal - selected.length);
-  });
-
-  return selected;
+function getRecentDailyQuestionIds(dayCount = 3) {
+  return Object.entries(state.history.daily)
+    .filter(([date, record]) => date !== getDateKey() && Array.isArray(record?.questionIds))
+    .sort(([first], [second]) => second.localeCompare(first))
+    .slice(0, dayCount)
+    .flatMap(([, record]) => record.questionIds.map(String));
 }
 
-function isQuestionDueForReview(question) {
-  const stats = state.history.stats[String(question.id)];
-  if (!stats) {
-    return false;
+function createAdaptiveDailyPlan(dateKey = getDateKey()) {
+  const abilityMap = getAbilityMapData();
+  const weakSubtests = abilityMap.regions
+    .filter((ability) => ability.attempted > 0 && !ability.mastered)
+    .sort((first, second) => first.score - second.score)
+    .map((ability) => ability.subtest);
+  return buildAdaptiveDailyPlan({
+    questions: allQuestions,
+    stats: state.history.stats,
+    weakSubtests,
+    recentQuestionIds: getRecentDailyQuestionIds(),
+    goal: state.dailyGoal,
+    dateKey,
+    now: Date.now(),
+    getDifficulty,
+  });
+}
+
+function normalizeDailyComposition(composition) {
+  if (!composition || typeof composition !== 'object') return null;
+  return Object.fromEntries(Object.keys(DAILY_MIX_TARGETS).map((key) => [key, Math.max(0, Number(composition[key] ?? 0))]));
+}
+
+function getDailyPlanComposition() {
+  const activeComposition = normalizeDailyComposition(state.history.activeSession?.composition);
+  if (hasStoredActiveDailySession() && activeComposition) return activeComposition;
+  const savedComposition = normalizeDailyComposition(state.history.daily[getDateKey()]?.composition);
+  if (savedComposition) return savedComposition;
+  const cacheKey = `${getDateKey()}|${state.history.updatedAt}|${allQuestions.length}`;
+  if (!dailyPlanPreviewCache || dailyPlanPreviewCache.key !== cacheKey) {
+    dailyPlanPreviewCache = { key: cacheKey, composition: createAdaptiveDailyPlan().composition };
   }
-  if (stats.lastResult === 'wrong') {
-    return true;
-  }
-  const attempts = Math.max(1, Number(stats.attempts ?? 1));
-  const accuracy = Number(stats.correct ?? 0) / attempts;
-  const intervalDays = accuracy < 0.7 ? 1 : attempts < 3 ? 2 : attempts < 5 ? 4 : 7;
-  const elapsedDays = Math.max(0, (Date.now() - timestamp(stats.updatedAt)) / 86400000);
-  return elapsedDays >= intervalDays;
+  return dailyPlanPreviewCache.composition;
 }
 
 function hasResumableDailySession() {
@@ -3460,6 +3476,7 @@ function persistActiveSession() {
     checked: state.checked,
     answeredCount: getActiveSessionCounts().answered,
     correctCount: getActiveSessionCounts().correct,
+    composition: normalizeDailyComposition(state.dailyComposition),
     updatedAt: new Date().toISOString(),
   };
   saveHistory();
@@ -3502,6 +3519,8 @@ function finishPracticeSession() {
       correct,
       total,
       batteries: summarizeDailyBatteries(state.questions, state.answers),
+      questionIds: state.questions.map((question) => String(question.id)),
+      composition: normalizeDailyComposition(state.dailyComposition),
       completed: true,
       completedAt,
     };
@@ -3844,6 +3863,7 @@ function getSubtests() {
 
 function recordAnswer(question, answer, { save = true, responseSeconds = null } = {}) {
   const id = String(question.id);
+  const answeredAt = new Date().toISOString();
   const previous = state.history.stats[id] ?? {
     id,
     battery: question.battery,
@@ -3854,17 +3874,21 @@ function recordAnswer(question, answer, { save = true, responseSeconds = null } 
   };
   const isCorrect = answer === getCorrectAnswer(question);
   const wasWrongBefore = Number(previous.wrong ?? 0) > 0 || previous.lastResult === 'wrong';
+  const correctStreak = isCorrect ? Number(previous.correctStreak ?? 0) + 1 : 0;
 
-  state.history.stats[id] = {
+  const updatedStats = {
     ...previous,
     attempts: previous.attempts + 1,
     correct: previous.correct + (isCorrect ? 1 : 0),
     wrong: previous.wrong + (isCorrect ? 0 : 1),
+    correctStreak,
     lastAnswer: answer,
     correctAnswer: getCorrectAnswer(question),
     lastResult: isCorrect ? 'correct' : 'wrong',
-    updatedAt: new Date().toISOString(),
+    updatedAt: answeredAt,
   };
+  updatedStats.nextReviewAt = getNextReviewAt(updatedStats, answeredAt);
+  state.history.stats[id] = updatedStats;
   const normalizedResponseSeconds = Number(responseSeconds);
   state.history.performanceLog = [{
     questionId: id,
@@ -3874,10 +3898,10 @@ function recordAnswer(question, answer, { save = true, responseSeconds = null } 
     responseSeconds: Number.isFinite(normalizedResponseSeconds) && normalizedResponseSeconds > 0
       ? Number(Math.min(600, normalizedResponseSeconds).toFixed(1))
       : null,
-    answeredAt: new Date().toISOString(),
+    answeredAt,
   }, ...(state.history.performanceLog ?? [])].slice(0, 1500);
   checkAndUnlockBadges({ type: 'answer', question, answer, isCorrect, wasWrongBefore });
-  state.history.updatedAt = new Date().toISOString();
+  state.history.updatedAt = answeredAt;
   if (save) {
     saveHistory();
   }
@@ -4108,9 +4132,11 @@ function normalizeHistory(input) {
       attempts: Number(record.attempts ?? 0),
       correct: Number(record.correct ?? 0),
       wrong: Number(record.wrong ?? 0),
+      correctStreak: Math.max(0, Number(record.correctStreak ?? (record.lastResult === 'correct' ? 1 : 0))),
       lastAnswer: record.lastAnswer ?? '',
       correctAnswer: record.correctAnswer ?? questionById.get(normalizedId)?.correctAnswer ?? '',
       lastResult: record.lastResult === 'wrong' ? 'wrong' : 'correct',
+      nextReviewAt: record.nextReviewAt ?? '',
       updatedAt: record.updatedAt ?? new Date().toISOString(),
     };
   });
@@ -4133,6 +4159,8 @@ function normalizeHistory(input) {
         }]))
         : null,
       completed: Boolean(record?.completed),
+      questionIds: Array.isArray(record?.questionIds) ? record.questionIds.map(String).filter((id) => questionById.has(id)) : [],
+      composition: normalizeDailyComposition(record?.composition),
       completedAt: record?.completedAt ?? '',
       updatedAt: record?.updatedAt ?? record?.completedAt ?? '',
     };
@@ -4156,6 +4184,7 @@ function normalizeHistory(input) {
       checked,
       answeredCount: Number(input.activeSession.answeredCount ?? inferredAnswered),
       correctCount: Number(input.activeSession.correctCount ?? inferredCorrect),
+      composition: normalizeDailyComposition(input.activeSession.composition),
       updatedAt: input.activeSession.updatedAt ?? '',
     };
   }

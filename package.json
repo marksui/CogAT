@@ -6,6 +6,8 @@
     "test": "node --test",
     "audit:number-analogies": "node scripts/audit-number-analogies.mjs",
     "audit:questions": "node scripts/audit-question-bank.mjs",
-    "quality": "npm test && npm run audit:questions"
+    "audit:quality-v2": "node scripts/audit-question-quality-v2.mjs",
+    "check:performance": "node scripts/check-performance-budget.mjs",
+    "quality": "npm test && npm run audit:questions && npm run audit:quality-v2 && npm run check:performance"
   }
 }

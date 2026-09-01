@@ -113,9 +113,9 @@ const analogyFamilies = [
   ['tool and purpose', [['compass', 'find direction'], ['thermometer', 'measure temperature'], ['scale', 'measure weight'], ['clock', 'tell time'], ['telescope', 'view distant objects'], ['microscope', 'view tiny objects']]],
   ['object and source', [['honey', 'bee'], ['wool', 'sheep'], ['silk', 'silkworm'], ['milk', 'cow'], ['maple syrup', 'maple tree'], ['paper', 'wood']]],
   ['cause and result', [['practice', 'improvement'], ['rain', 'puddles'], ['heat', 'melting'], ['wind', 'movement'], ['exercise', 'strength'], ['study', 'knowledge']]],
-  ['part and whole', [['petal', 'flower'], ['page', 'book'], ['brick', 'wall'], ['wheel', 'bicycle'], ['key', 'keyboard'], ['room', 'house']]],
+  ['part and whole', [['petal', 'flower'], ['chapter', 'novel'], ['brick', 'wall'], ['wheel', 'bicycle'], ['key', 'keyboard'], ['room', 'house']]],
   ['item and usual place', [['painting', 'gallery'], ['airplane', 'hangar'], ['book', 'library'], ['actor', 'stage'], ['ship', 'harbor'], ['judge', 'courtroom']]],
-  ['degree of intensity', [['warm', 'hot'], ['cool', 'cold'], ['tired', 'exhausted'], ['pleased', 'delighted'], ['concerned', 'alarmed'], ['breeze', 'gale']]],
+  ['degree of intensity', [['damp', 'soaked'], ['cool', 'cold'], ['tired', 'exhausted'], ['pleased', 'delighted'], ['concerned', 'alarmed'], ['breeze', 'gale']]],
   ['action and result', [['weave', 'cloth'], ['bake', 'bread'], ['sculpt', 'statue'], ['compose', 'music'], ['write', 'story'], ['build', 'shelter']]],
   ['sequence', [['seed', 'sprout'], ['dawn', 'morning'], ['caterpillar', 'butterfly'], ['draft', 'final copy'], ['question', 'answer'], ['practice', 'performance']]],
 ];
@@ -177,7 +177,7 @@ const numberAnalogyRuleSets = [
   { label: (k) => `Multiply by 4, then add ${k}`, values: [1, 2, 3, 5, 6], apply: (x, k) => (4 * x) + k, inputs: [2, 5, 8, 12] },
   { label: (k) => `Square the number, then add ${k}`, values: [1, 2, 4, 5, 7], apply: (x, k) => (x ** 2) + k, inputs: [2, 4, 6, 8] },
   { label: (k) => `Square the number, then subtract ${k}`, values: [1, 2, 3, 5, 6], apply: (x, k) => (x ** 2) - k, inputs: [4, 6, 8, 10] },
-  { label: (k) => `Multiply by ${k}, then subtract 1`, values: [2, 3, 5, 6, 7], apply: (x, k) => (k * x) - 1, inputs: [3, 6, 9, 12] },
+  { label: (k) => `Multiply by ${k}, then subtract 1`, values: [2, 3, 5, 6, 7], apply: (x, k) => (k * x) - 1, inputs: [5, 9, 13, 17] },
 ];
 
 const numberAnalogyQuestions = numberAnalogyRuleSets.flatMap((ruleSet, setIndex) => ruleSet.values.map((parameter, itemIndex) => {

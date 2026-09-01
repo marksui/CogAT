@@ -13,6 +13,7 @@ import { coreExpansionRound2Questions } from '../data/coreExpansionRound2Questio
 import { verbalExpansion200Questions } from '../data/verbalExpansion200Questions.js';
 import { expansion500Questions } from '../data/expansion500Questions.js';
 import { bonusQuestions } from '../data/bonusQuestions.js';
+import { auditQuestionQualityV2 } from '../lib/questionQualityV2.js';
 
 function options(answer, distractors = ['2', '3', '4', '5']) {
   return [answer, ...distractors].map((text, index) => ({ label: ['A', 'B', 'C', 'D', 'E'][index], text }));
@@ -240,4 +241,31 @@ test('the nine-subtest expansion adds exactly 500 validated questions', () => {
 test('the complete repository question bank passes every quality gate', () => {
   const report = auditQuestionBank(questionBankEntries, { assetExists: () => true });
   assert.equal(report.issues.length, 0, JSON.stringify(report.issues.slice(0, 20), null, 2));
+});
+
+test('quality 2.0 rejects visual format leaks and reports manual semantic review coverage', () => {
+  const malformed = question({
+    id: 'visual-format-leak',
+    battery: 'Nonverbal Battery',
+    subtest: 'Figure Classification',
+    question: '<svg role="img" aria-label="shape group"></svg>',
+    options: [
+      { label: 'A', text: '<svg></svg>' },
+      { label: 'B', text: '<svg></svg>' },
+      { label: 'C', text: 'Choice C' },
+      { label: 'D', text: '<svg></svg>' },
+      { label: 'E', text: '<svg></svg>' },
+    ],
+    correctAnswer: 'C',
+  });
+  const malformedReport = auditQuestionQualityV2([malformed]);
+  assert.ok(malformedReport.errors.some((issue) => issue.code === 'mixed-visual-options'));
+  assert.ok(malformedReport.errors.some((issue) => issue.code === 'placeholder-option'));
+  assert.ok(malformedReport.errors.some((issue) => issue.code === 'correct-option-format-outlier'));
+
+  const repositoryReport = auditQuestionQualityV2(questionBankEntries);
+  assert.equal(repositoryReport.errors.length, 0, JSON.stringify(repositoryReport.errors.slice(0, 20), null, 2));
+  assert.equal(repositoryReport.nearDuplicateGroups.length, 0, JSON.stringify(repositoryReport.nearDuplicateGroups, null, 2));
+  assert.ok(repositoryReport.reviewCoverage.semantic >= 400);
+  assert.ok(repositoryReport.warnings.some((warning) => warning.code === 'paper-folding-manual-review'));
 });

@@ -15,10 +15,10 @@ function makeOptions(correct, distractors, correctIndex) {
 }
 
 const verbalAnalogySeeds = [
-  ['Cat', 'Kitten', 'Dog', 'Puppy', ['Calf', 'Foal', 'Cub', 'Chick'], 'A kitten is a young cat. A puppy is a young dog.'],
-  ['Bird', 'Nest', 'Bee', 'Hive', ['Flower', 'Honey', 'Sting', 'Web'], 'A bird lives in a nest. A bee lives in a hive.'],
-  ['Book', 'Read', 'Song', 'Listen', ['Write', 'Dance', 'Draw', 'Speak'], 'You read a book. You listen to a song.'],
-  ['Seed', 'Plant', 'Egg', 'Bird', ['Nest', 'Shell', 'Hatch', 'Feather'], 'A seed can grow into a plant. An egg can grow into a bird.'],
+  ['Spider', 'Web', 'Beaver', 'Dam', ['River', 'Burrow', 'Stable', 'Pond'], 'A spider builds a web. A beaver builds a dam.'],
+  ['Robin', 'Flock', 'Wolf', 'Pack', ['Herd', 'School', 'Swarm', 'Pride'], 'A group of robins is a flock. A group of wolves is a pack.'],
+  ['Kettle', 'Heat', 'Freezer', 'Cool', ['Bake', 'Stir', 'Melt', 'Measure'], 'A kettle heats its contents. A freezer cools its contents.'],
+  ['Flour', 'Bread', 'Clay', 'Pottery', ['Paint', 'Stone', 'Sand', 'Water'], 'Flour can be made into bread. Clay can be made into pottery.'],
   ['Finger', 'Hand', 'Toe', 'Foot', ['Leg', 'Shoe', 'Arm', 'Knee'], 'A finger is part of a hand. A toe is part of a foot.'],
   ['Bark', 'Tree', 'Wool', 'Sheep', ['Fur', 'Grass', 'Cotton', 'Feather'], 'Bark comes from a tree. Wool comes from a sheep.'],
   ['Inch', 'Ruler', 'Ounce', 'Scale', ['Clock', 'Cup', 'Meter', 'Thermometer'], 'A ruler measures inches. A scale measures ounces.'],
@@ -31,10 +31,10 @@ const verbalAnalogySeeds = [
   ['Winter', 'Cold', 'Summer', 'Hot', ['Warm', 'Rain', 'Snow', 'Wind'], 'Winter is usually cold. Summer is usually hot.'],
   ['Clock', 'Time', 'Thermometer', 'Temperature', ['Weather', 'Heat', 'Hour', 'Medicine'], 'A clock tells time. A thermometer measures temperature.'],
   ['Nest', 'Bird', 'Den', 'Bear', ['Fox', 'Cave', 'Cub', 'Forest'], 'A nest is a home for a bird. A den is a home for a bear.'],
-  ['Teacher', 'School', 'Doctor', 'Hospital', ['Medicine', 'Patient', 'Nurse', 'Office'], 'A teacher works at a school. A doctor works at a hospital.'],
+  ['Librarian', 'Library', 'Mechanic', 'Garage', ['Engine', 'Wrench', 'Road', 'Factory'], 'A librarian works in a library. A mechanic works in a garage.'],
   ['Painter', 'Brush', 'Writer', 'Pen', ['Paper', 'Book', 'Pencil', 'Story'], 'A painter uses a brush. A writer uses a pen.'],
   ['River', 'Water', 'Road', 'Cars', ['Bridge', 'Travel', 'Wheels', 'Traffic'], 'A river carries water. A road carries cars.'],
-  ['Dawn', 'Morning', 'Dusk', 'Evening', ['Night', 'Sun', 'Dark', 'Noon'], 'Dawn begins the morning. Dusk begins the evening.'],
+  ['Noon', 'Day', 'Midnight', 'Night', ['Morning', 'Clock', 'Moon', 'Evening'], 'Noon occurs during the day. Midnight occurs during the night.'],
   ['Glove', 'Hand', 'Sock', 'Foot', ['Shoe', 'Leg', 'Toe', 'Hat'], 'A glove covers a hand. A sock covers a foot.'],
   ['Puppy', 'Bark', 'Kitten', 'Meow', ['Run', 'Purr', 'Climb', 'Scratch'], 'A puppy often barks. A kitten often meows.'],
   ['Honey', 'Bee', 'Milk', 'Cow', ['Farm', 'Calf', 'Grass', 'Goat'], 'Honey comes from a bee. Milk comes from a cow.'],
