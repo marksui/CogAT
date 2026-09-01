@@ -1012,7 +1012,7 @@ function renderQuestionFeedbackControl(question) {
     <div class="question-feedback-control ${isOpen ? 'is-open' : ''}">
       <button class="question-feedback-toggle" type="button" data-toggle-question-feedback aria-expanded="${isOpen}" aria-controls="question-feedback-panel">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4M6 5h11l-2 4 2 4H6"/></svg>
-        <span>${reports.length ? `${reports.length} issue${reports.length === 1 ? '' : 's'} marked` : 'Flag this question'}</span>
+        <span>${reports.length ? `${reports.length} marked` : 'Flag'}</span>
       </button>
       ${isOpen ? `
         <div class="question-feedback-panel" id="question-feedback-panel">
@@ -1044,7 +1044,10 @@ function renderPractice() {
           <span>${state.sessionKind === 'daily' ? 'Today · ' : ''}${state.currentIndex + 1}/${total}</span>
           <span class="difficulty-badge difficulty-${difficulty}">${formatDifficulty(difficulty)}</span>
         </div>
-        <span>${escapeHtml(question.battery.replace(' Battery', ''))} - ${escapeHtml(question.subtest)}</span>
+        <div class="practice-head-meta">
+          <span>${escapeHtml(question.battery.replace(' Battery', ''))} - ${escapeHtml(question.subtest)}</span>
+          ${renderQuestionFeedbackControl(question)}
+        </div>
       </div>
 
       <div class="meter" aria-hidden="true"><span style="width:${((state.currentIndex + 1) / total) * 100}%"></span></div>
@@ -1053,8 +1056,6 @@ function renderPractice() {
         <div>${question.question}</div>
         ${question.questionNote ? `<p>${question.questionNote}</p>` : ''}
       </div>
-
-      ${renderQuestionFeedbackControl(question)}
 
       <div class="options">
         ${question.options.map((option) => {
@@ -1196,6 +1197,7 @@ function saveQuestionFeedback(question, type) {
     state.history.updatedAt = new Date().toISOString();
     saveHistory();
   }
+  questionFeedbackOpen = '';
   questionFeedbackMessage = { questionId, text: existing ? 'This issue is already marked.' : 'Thanks — the issue was saved.' };
   renderPractice();
 }
@@ -2707,11 +2709,12 @@ function checkCollectionRewards() {
 
 function renderCompanionCharacter(id) {
   const characters = {
-    owl: '<svg viewBox="0 0 180 180" aria-hidden="true"><path class="companion-shadow" d="M42 148c18 19 78 19 96 0"/><path class="companion-body" d="M48 75c0-38 20-58 42-58s42 20 42 58v49c0 27-19 40-42 40s-42-13-42-40V75z"/><path class="companion-wing" d="M48 87c-21 9-23 37-8 52 8-11 15-27 18-45M132 87c21 9 23 37 8 52-8-11-15-27-18-45"/><circle class="companion-face" cx="70" cy="75" r="25"/><circle class="companion-face" cx="110" cy="75" r="25"/><circle class="companion-eye" cx="72" cy="76" r="8"/><circle class="companion-eye" cx="108" cy="76" r="8"/><path class="companion-accent" d="M83 91l7 8 7-8-7-5-7 5zM63 123l27 17 27-17"/></svg>',
-    fox: '<svg viewBox="0 0 180 180" aria-hidden="true"><path class="companion-shadow" d="M38 151c21 17 83 17 104 0"/><path class="companion-body" d="M50 92c0-38 18-62 40-62s40 24 40 62v35c0 25-18 38-40 38s-40-13-40-38V92z"/><path class="companion-body" d="M54 50L43 16l37 23M126 50l11-34-37 23"/><path class="companion-face" d="M55 70c10-18 60-18 70 0l-10 47-25 22-25-22-10-47z"/><circle class="companion-eye" cx="74" cy="83" r="6"/><circle class="companion-eye" cx="106" cy="83" r="6"/><path class="companion-accent" d="M84 101h12l-6 8-6-8zM68 124c13 10 31 10 44 0"/><path class="companion-wing" d="M126 123c35-9 38 26 7 33-16 4-28-4-35-12 13 2 24-3 28-21z"/></svg>',
-    robot: '<svg viewBox="0 0 180 180" aria-hidden="true"><path class="companion-shadow" d="M42 153c18 15 78 15 96 0"/><rect class="companion-body" x="48" y="45" width="84" height="83" rx="28"/><rect class="companion-face" x="59" y="58" width="62" height="46" rx="18"/><circle class="companion-eye" cx="77" cy="80" r="7"/><circle class="companion-eye" cx="103" cy="80" r="7"/><path class="companion-accent" d="M78 94h24M90 45V29M83 29h14"/><path class="companion-wing" d="M48 85H33v38h19M132 85h15v38h-19"/><rect class="companion-body" x="61" y="122" width="22" height="35" rx="9"/><rect class="companion-body" x="97" y="122" width="22" height="35" rx="9"/></svg>',
+    owl: 'assets/companions/ollie-owl.webp',
+    fox: 'assets/companions/fia-fox.webp',
+    robot: 'assets/companions/b4-robot.webp',
   };
-  return characters[id] ?? characters.owl;
+  const characterId = characters[id] ? id : 'owl';
+  return `<span class="companion-art companion-art-${characterId}" aria-hidden="true"><span class="companion-art-aura"></span><img src="${characters[characterId]}" alt="" decoding="async"><i></i><i></i><i></i></span>`;
 }
 
 function getCompanionProgress() {
