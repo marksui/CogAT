@@ -134,6 +134,21 @@ const BADGE_DEFINITIONS = [
   { id: 'treasure-star', name: 'Treasure Star', description: 'A treasure chest filled with learning rewards.', icon: 'star', artwork: 'treasure-star', category: 'Collectible', tier: 'advanced', price: 80 },
   { id: 'mind-orbit', name: 'Mind Orbit', description: 'A sparkling mental connection keepsake.', icon: 'brain', artwork: 'mind-orbit', category: 'Collectible', tier: 'advanced', price: 75 },
   { id: 'adventure-map', name: 'Adventure Map', description: 'A complete learning-world adventure keepsake.', icon: 'map', artwork: 'adventure-map', category: 'Collectible', tier: 'advanced', price: 90 },
+  { id: 'modern-orbit', name: 'Modern Orbit', description: 'A bold geometric art badge.', icon: 'pattern', artwork: 'modern-orbit.webp', category: 'Collectible', tier: 'medium', price: 55 },
+  { id: 'rose-court', name: 'Rose Court', description: 'An ornate garden art badge.', icon: 'crown', artwork: 'rose-court.webp', category: 'Collectible', tier: 'advanced', price: 75 },
+  { id: 'cubist-table', name: 'Cubist Table', description: 'A colorful still-life art badge.', icon: 'shapes', artwork: 'cubist-table.webp', category: 'Collectible', tier: 'advanced', price: 65 },
+  { id: 'painted-harvest', name: 'Painted Harvest', description: 'A bright fruit still-life badge.', icon: 'cards', artwork: 'painted-harvest.webp', category: 'Collectible', tier: 'medium', price: 50 },
+  { id: 'unicorn-tapestry', name: 'Unicorn Tapestry', description: 'A legendary garden tapestry badge.', icon: 'star', artwork: 'unicorn-tapestry.webp', category: 'Collectible', tier: 'advanced', price: 90 },
+  { id: 'orchard-day', name: 'Orchard Day', description: 'A warm countryside art badge.', icon: 'map', artwork: 'orchard-day.webp', category: 'Collectible', tier: 'medium', price: 60 },
+  { id: 'lily-dream', name: 'Lily Dream', description: 'A glowing water-garden badge.', icon: 'spark', artwork: 'lily-dream.webp', category: 'Collectible', tier: 'advanced', price: 70 },
+  { id: 'village-sun', name: 'Village Sun', description: 'A sunny village art badge.', icon: 'medal', artwork: 'village-sun.webp', category: 'Collectible', tier: 'advanced', price: 65 },
+  { id: 'great-wave', name: 'Great Wave', description: 'A powerful ocean art badge.', icon: 'return', artwork: 'great-wave.webp', category: 'Collectible', tier: 'advanced', price: 75 },
+  { id: 'imperial-garden', name: 'Imperial Garden', description: 'A richly detailed palace-garden badge.', icon: 'crown', artwork: 'imperial-garden.webp', category: 'Collectible', tier: 'advanced', price: 95 },
+  { id: 'starry-village', name: 'Starry Village', description: 'A luminous night-sky art badge.', icon: 'star', artwork: 'starry-village.webp', category: 'Collectible', tier: 'advanced', price: 85 },
+  { id: 'sunday-park', name: 'Sunday Park', description: 'A sparkling lakeside art badge.', icon: 'spark', artwork: 'sunday-park.webp', category: 'Collectible', tier: 'medium', price: 60 },
+  { id: 'crane-moon', name: 'Crane Moon', description: 'An elegant moonlit crane badge.', icon: 'medal', artwork: 'crane-moon.webp', category: 'Collectible', tier: 'advanced', price: 90 },
+  { id: 'jungle-moon', name: 'Jungle Moon', description: 'A moonlit tiger-jungle badge.', icon: 'bolt', artwork: 'jungle-moon.webp', category: 'Collectible', tier: 'advanced', price: 85 },
+  { id: 'moonlit-voyage', name: 'Moonlit Voyage', description: 'A dramatic night-sea badge.', icon: 'map', artwork: 'moonlit-voyage.webp', category: 'Collectible', tier: 'advanced', price: 100 },
 ];
 
 const BADGE_COLLECTIONS = [
@@ -144,6 +159,9 @@ const BADGE_COLLECTIONS = [
   { id: 'meadow-stories', name: 'Meadow Stories', detail: 'Finish the woodland story collection.', reward: 70, badgeIds: ['story-owl', 'trail-marker', 'acorn-friend', 'shape-garden', 'meadow-cards'] },
   { id: 'learning-tools', name: 'Learning Tools', detail: 'Collect colorful tools for words, numbers, and patterns.', reward: 80, badgeIds: ['shape-spinner', 'maze-seeker', 'word-star', 'number-spark', 'pencil-rocket'] },
   { id: 'brain-quest', name: 'Brain Quest', detail: 'Complete the ultimate thinking adventure.', reward: 90, badgeIds: ['logic-builder', 'brain-explorer', 'treasure-star', 'mind-orbit', 'adventure-map'] },
+  { id: 'modern-masters', name: 'Modern Masters', detail: 'Collect five bold art styles.', reward: 85, badgeIds: ['modern-orbit', 'cubist-table', 'painted-harvest', 'great-wave', 'sunday-park'] },
+  { id: 'golden-gardens', name: 'Golden Gardens', detail: 'Collect five bright garden scenes.', reward: 90, badgeIds: ['rose-court', 'orchard-day', 'lily-dream', 'village-sun', 'imperial-garden'] },
+  { id: 'mythic-nights', name: 'Mythic Nights', detail: 'Collect five legendary night scenes.', reward: 100, badgeIds: ['unicorn-tapestry', 'starry-village', 'crane-moon', 'jungle-moon', 'moonlit-voyage'] },
 ];
 
 const COMPANION_DEFINITIONS = [
@@ -638,7 +656,8 @@ function renderBuilderIcon(name) {
 }
 
 function renderBadgeArtwork(definition) {
-  return `<img src="assets/badges/${definition.artwork}.png" alt="" width="320" height="320" loading="lazy" decoding="async">`;
+  const artworkFile = definition.artwork.includes('.') ? definition.artwork : `${definition.artwork}.png`;
+  return `<img src="assets/badges/${artworkFile}" alt="" width="320" height="320" loading="lazy" decoding="async">`;
 }
 
 function renderShopIcon(name) {

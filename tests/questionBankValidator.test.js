@@ -13,6 +13,7 @@ import { coreExpansionRound2Questions } from '../data/coreExpansionRound2Questio
 import { verbalExpansion200Questions } from '../data/verbalExpansion200Questions.js';
 import { expansion500Questions } from '../data/expansion500Questions.js';
 import { bonusQuestions } from '../data/bonusQuestions.js';
+import { g4WorkbookQuestions } from '../data/g4WorkbookQuestions.js';
 import { auditQuestionQualityV2 } from '../lib/questionQualityV2.js';
 
 function options(answer, distractors = ['2', '3', '4', '5']) {
@@ -148,6 +149,21 @@ test('validates standard and multi-step Number Puzzles', () => {
     explanation: 'The triangle is 6, so the box must be 4.',
   });
   assert.deepEqual(validateNumberPuzzleQuestion(symbols), []);
+});
+
+test('G4 workbook Verbal and Quantitative questions are structured and machine-verifiable', () => {
+  const verbalAndQuantitative = g4WorkbookQuestions.filter((item) => item.battery !== 'Nonverbal Battery');
+  const nonverbal = g4WorkbookQuestions.filter((item) => item.battery === 'Nonverbal Battery');
+
+  assert.equal(verbalAndQuantitative.length, 60);
+  assert.equal(nonverbal.length, 30);
+  assert.ok(verbalAndQuantitative.every((item) => !/<img\b/i.test(item.question)));
+  assert.ok(nonverbal.every((item) => /<img\b/i.test(item.question)));
+  assert.ok(verbalAndQuantitative.every((item) => !/answer key marks/i.test(item.explanation)));
+
+  for (const item of verbalAndQuantitative) {
+    assert.deepEqual(validateQuestion(item), [], `${item.id} should pass structured validation`);
+  }
 });
 
 test('the core expansion adds 20 validated questions to each requested subtest', () => {
