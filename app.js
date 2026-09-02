@@ -402,7 +402,10 @@ function renderShell(content) {
                   <p>Preview reward states without changing question progress.</p>
                   <div class="about-admin-actions">
                     <button class="ghost" type="button" id="admin-add-coins">+100 coins</button>
+                    <button class="ghost" type="button" id="admin-add-many-coins">+1,000 coins</button>
                     <button class="ghost" type="button" id="admin-unlock-badges">Unlock badges</button>
+                    <button class="ghost" type="button" id="admin-unlock-shop">Unlock shop</button>
+                    <button class="ghost" type="button" id="admin-unlock-everything">Unlock everything</button>
                     <button class="ghost" type="button" id="admin-reset-rewards">Reset rewards</button>
                   </div>
                 </div>
@@ -476,7 +479,10 @@ function renderShell(content) {
     adminTestModeOpen = event.target.open;
   });
   document.querySelector('#admin-add-coins')?.addEventListener('click', adminAddCoins);
+  document.querySelector('#admin-add-many-coins')?.addEventListener('click', adminAddManyCoins);
   document.querySelector('#admin-unlock-badges')?.addEventListener('click', adminUnlockBadges);
+  document.querySelector('#admin-unlock-shop')?.addEventListener('click', adminUnlockShop);
+  document.querySelector('#admin-unlock-everything')?.addEventListener('click', adminUnlockEverything);
   document.querySelector('#admin-reset-rewards')?.addEventListener('click', adminResetRewards);
   document.querySelectorAll('[data-auth-mode]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -531,9 +537,7 @@ function adminAddCoins() {
   render();
 }
 
-function adminUnlockBadges() {
-  aboutMenuOpen = true;
-  adminTestModeOpen = true;
+function addAllAdminBadges() {
   BADGE_DEFINITIONS.forEach((definition) => {
     if (state.history.badges.some((badge) => badge.id === definition.id)) {
       return;
@@ -547,6 +551,50 @@ function adminUnlockBadges() {
       unlockedAt: new Date().toISOString(),
     });
   });
+}
+
+function ownAllAdminShopItems() {
+  state.history.shop = normalizeShop({
+    owned: SHOP_ITEMS.map((item) => item.id),
+    equipped: state.history.shop?.equipped ?? 'blue',
+    decor: state.history.shop?.decor ?? '',
+  });
+}
+
+function adminAddManyCoins() {
+  aboutMenuOpen = true;
+  adminTestModeOpen = true;
+  awardCoins(1000, 'admin', 'Admin full wallet');
+  saveHistory();
+  render();
+}
+
+function adminUnlockBadges() {
+  aboutMenuOpen = true;
+  adminTestModeOpen = true;
+  addAllAdminBadges();
+  checkCollectionRewards();
+  state.history.updatedAt = new Date().toISOString();
+  saveHistory();
+  render();
+}
+
+function adminUnlockShop() {
+  aboutMenuOpen = true;
+  adminTestModeOpen = true;
+  ownAllAdminShopItems();
+  state.history.updatedAt = new Date().toISOString();
+  saveHistory();
+  render();
+}
+
+function adminUnlockEverything() {
+  aboutMenuOpen = true;
+  adminTestModeOpen = true;
+  awardCoins(5000, 'admin', 'Admin complete rewards');
+  addAllAdminBadges();
+  ownAllAdminShopItems();
+  checkCollectionRewards();
   state.history.updatedAt = new Date().toISOString();
   saveHistory();
   render();
