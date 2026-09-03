@@ -176,12 +176,41 @@ const COMPANION_ACTIONS = [
   { id: 'celebrate', name: 'Celebrate', level: 7 },
 ];
 
-const COMPANION_ROOM_DECOR = [
-  { id: 'books', name: 'Book shelf', level: 2 },
-  { id: 'plant', name: 'Window plant', level: 4 },
-  { id: 'lamp', name: 'Star lamp', level: 6 },
-  { id: 'trophy', name: 'Mastery trophy', level: 8 },
-];
+const COMPANION_GROWTH_PATHS = {
+  owl: {
+    world: 'Midnight Library',
+    tagline: 'Books, constellations, and calm focus grow with Ollie.',
+    actions: { wave: 'Wing hello', focus: 'Study spell', celebrate: 'Star salute' },
+    decor: [
+      { id: 'books', name: 'Navigator Shelf', level: 2, icon: 'book' },
+      { id: 'plant', name: 'Moon Globe', level: 4, icon: 'map' },
+      { id: 'lamp', name: 'Constellation Lamp', level: 6, icon: 'star' },
+      { id: 'trophy', name: 'Scholar Crest', level: 8, icon: 'medal' },
+    ],
+  },
+  fox: {
+    world: 'Trail Camp',
+    tagline: 'Maps, woodland clues, and explorer gear grow with Fia.',
+    actions: { wave: 'Scout hello', focus: 'Pattern hunt', celebrate: 'Trail cheer' },
+    decor: [
+      { id: 'books', name: 'Trail Map', level: 2, icon: 'map' },
+      { id: 'plant', name: 'Forest Fern', level: 4, icon: 'spark' },
+      { id: 'lamp', name: 'Camp Lantern', level: 6, icon: 'star' },
+      { id: 'trophy', name: 'Golden Compass', level: 8, icon: 'medal' },
+    ],
+  },
+  robot: {
+    world: 'Logic Lab',
+    tagline: 'Holograms, power cores, and smart tools grow with B-4.',
+    actions: { wave: 'Hello signal', focus: 'Scan mode', celebrate: 'Victory lights' },
+    decor: [
+      { id: 'books', name: 'Data Console', level: 2, icon: 'numbers' },
+      { id: 'plant', name: 'Holo Shapes', level: 4, icon: 'shapes' },
+      { id: 'lamp', name: 'Energy Core', level: 6, icon: 'bolt' },
+      { id: 'trophy', name: 'Master Chip', level: 8, icon: 'brain' },
+    ],
+  },
+};
 
 const QUESTION_FEEDBACK_TYPES = [
   { id: 'answer', label: 'Answer may be wrong' },
@@ -323,6 +352,7 @@ let coinDisplayValue = null;
 let coinAnimationHandle = null;
 let practiceCheckpointHandle = null;
 let practiceQuestionStartedAt = Date.now();
+let similarRetryState = null;
 let dailyPlanPreviewCache = null;
 let bankSearchTimer = null;
 let bankSearchWarmIndex = 0;
@@ -1103,6 +1133,9 @@ function renderPractice() {
   const isCorrect = answer === getCorrectAnswer(question);
   const isVerbal = question.battery === 'Verbal Battery';
   const didNotKnow = answer === DONT_KNOW_ANSWER;
+  if (state.checked && !isCorrect && similarRetryState?.sourceQuestionId !== String(question.id)) {
+    similarRetryState = createSimilarRetryState(question);
+  }
 
   renderShell(`
     <section class="panel practice">
@@ -1166,12 +1199,16 @@ function renderPractice() {
         <div class="feedback ${isCorrect ? 'is-correct' : 'is-learning'}" role="status" aria-live="polite">
           <div class="feedback-heading"><span aria-hidden="true">${isCorrect ? '&check;' : '&times;'}</span><b>${isCorrect ? 'Correct! You earned 1 coin.' : didNotKnow ? 'That&rsquo;s okay &mdash; let&rsquo;s learn it.' : 'Good try &mdash; let&rsquo;s learn from it.'}</b></div>
           ${!isCorrect ? `<small>Correct answer: ${getCorrectAnswer(question)}</small>` : ''}
-          <span>${question.explanation}</span>
-          ${!isCorrect && isVerbal ? `
-            <div class="verbal-tip"><b>Tip</b><span>${escapeHtml(getVerbalHint(question))}</span></div>
-            ${renderWordMeaningGuide(question)}
-          ` : ''}
-          <div class="choice-reasoning"><b>Why the other choices are wrong</b><span>${escapeHtml(getOtherChoicesExplanation(question))}</span></div>
+          ${isCorrect ? `<span>${question.explanation}</span>` : `
+            <div class="learning-rule-card"><span>Rule</span><b>${escapeHtml(getLearningRule(question))}</b></div>
+            <div class="worked-answer"><b>How it works</b><span>${question.explanation}</span></div>
+            ${isVerbal ? `
+              <div class="verbal-tip"><b>Tip</b><span>${escapeHtml(getVerbalHint(question))}</span></div>
+              ${renderWordMeaningGuide(question)}
+            ` : ''}
+            ${renderOtherChoiceReasons(question, answer)}
+            ${renderSimilarRetry(question)}
+          `}
           <span class="coin-reward-pill">${renderCoinIcon()}+1 Coin</span>
         </div>
       ` : ''}
@@ -1216,6 +1253,21 @@ function renderPractice() {
     submitPracticeAnswer(question, DONT_KNOW_ANSWER, event.currentTarget);
   });
 
+  document.querySelectorAll('[data-similar-option]').forEach((button) => {
+    button.addEventListener('click', () => submitSimilarRetry(button.dataset.similarOption, button));
+  });
+
+  document.querySelector('[data-retry-similar]')?.addEventListener('click', () => {
+    if (!similarRetryState) {
+      return;
+    }
+    similarRetryState.answer = null;
+    similarRetryState.checked = false;
+    similarRetryState.startedAt = Date.now();
+    renderPractice();
+    window.requestAnimationFrame(() => document.querySelector('.similar-retry-card')?.scrollIntoView({ block: 'center' }));
+  });
+
   document.querySelector('#check').addEventListener('click', () => {
     if (!state.checked) {
       if (!answer) {
@@ -1233,6 +1285,7 @@ function renderPractice() {
       state.currentIndex += 1;
       state.checked = false;
       state.practiceCoinMessage = '';
+      similarRetryState = null;
       practiceQuestionStartedAt = Date.now();
       persistActiveSession();
     }
@@ -1273,6 +1326,7 @@ function submitPracticeAnswer(question, answer, rewardOrigin) {
   const isCorrect = answer === getCorrectAnswer(question);
   const responseSeconds = Math.min(300, Math.max(1, (Date.now() - practiceQuestionStartedAt) / 1000));
   state.checked = true;
+  similarRetryState = isCorrect ? null : createSimilarRetryState(question);
   state.practiceCoinMessage = isCorrect ? 'correct' : 'practice';
   recordAnswer(question, answer, { save: false, responseSeconds });
   awardCoins(1, 'practice', 'Practice answer', { animate: true, originElement: rewardOrigin });
@@ -1342,6 +1396,181 @@ function getOtherChoicesExplanation(question) {
     'Paper Folding': 'They do not mirror every fold and punched hole correctly.',
   };
   return explanations[question.subtest] ?? 'They do not follow the same rule as the correct choice.';
+}
+
+function getLearningRule(question) {
+  const explanationText = normalizeQuestionContent(String(question.explanation ?? '').replace(/<[^>]*>/g, ' '));
+  const firstSentence = explanationText.split(/(?<=[.!?])\s+/)[0];
+  if (firstSentence && firstSentence.length <= 120 && !/answer key|correct answer/i.test(firstSentence)) {
+    return firstSentence;
+  }
+  const rules = {
+    'Number Analogies': 'Use one number transformation that works for every example pair and the target pair.',
+    'Number Series': 'Find the repeating step or operation, then continue it exactly once.',
+    'Number Puzzles': 'Choose the value that keeps every side of the number statement equal.',
+    'Verbal Analogies': 'Name the relationship in the first word pair, then repeat that relationship.',
+    'Sentence Completion': 'Choose the word that makes the whole sentence clear, grammatical, and precise.',
+    'Verbal Classification': 'Find the shared category or feature, then choose the word that does not belong.',
+    'Figure Matrices': 'Apply the same visual change across each row or column.',
+    'Figure Classification': 'Find the visual feature shared by the group and choose the figure that breaks it.',
+    'Paper Folding': 'Reflect every punched hole across each fold line in reverse folding order.',
+  };
+  return rules[question.subtest] ?? 'Use the same relationship or pattern throughout the question.';
+}
+
+function getChoiceReason(question, option) {
+  const optionValue = getOptionValue(option);
+  const customReasons = question.choiceExplanations;
+  if (customReasons && typeof customReasons === 'object') {
+    return customReasons[option.label] ?? customReasons[optionValue] ?? getOtherChoicesExplanation(question);
+  }
+  const optionName = normalizeQuestionContent(String(option.text ?? optionValue).replace(/<[^>]*>/g, ' '));
+  const namedChoice = optionName && optionName.length <= 48 ? `“${optionName}”` : `Option ${option.label}`;
+  const reasons = {
+    'Number Analogies': `${namedChoice} does not come from applying the same number transformation to the target.`,
+    'Number Series': `${namedChoice} breaks the step-by-step pattern in the series.`,
+    'Number Puzzles': `${namedChoice} does not make both sides of the statement equal.`,
+    'Verbal Analogies': `${namedChoice} does not keep the same relationship as the first word pair.`,
+    'Sentence Completion': `${namedChoice} does not fit the sentence’s meaning as precisely as the correct choice.`,
+    'Verbal Classification': `${namedChoice} does not break the group rule in the same way as the correct choice.`,
+    'Figure Matrices': `Option ${option.label} does not complete the same row-and-column visual change.`,
+    'Figure Classification': `Option ${option.label} does not match the defining visual feature of the group.`,
+    'Paper Folding': `Option ${option.label} places one or more holes where the folds would not mirror them.`,
+  };
+  return reasons[question.subtest] ?? `${namedChoice} does not follow the same rule as the correct choice.`;
+}
+
+function renderOtherChoiceReasons(question, selectedAnswer) {
+  const incorrectOptions = question.options.filter((option) => getOptionValue(option) !== getCorrectAnswer(question));
+  return `
+    <div class="choice-reasoning">
+      <div class="choice-reasoning-head"><b>Why the other choices are wrong</b><span>${escapeHtml(getOtherChoicesExplanation(question))}</span></div>
+      <div class="choice-reason-grid">
+        ${incorrectOptions.map((option) => {
+          const selected = selectedAnswer === getOptionValue(option);
+          return `
+            <div class="choice-reason-item ${selected ? 'is-selected' : ''}">
+              <span>${escapeHtml(option.label)}</span>
+              <div><b>${selected ? 'Your choice' : `Choice ${escapeHtml(option.label)}`}</b><small>${escapeHtml(getChoiceReason(question, option))}</small></div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function getQuestionRuleFamily(question) {
+  const text = normalizeQuestionContent(`${question.question ?? ''} ${question.questionNote ?? ''} ${question.explanation ?? ''}`).toLowerCase();
+  const families = [
+    ['alternate', /alternat|repeat(?:ing)? step/],
+    ['multiply', /multiply|times|double|triple|×|&times;/],
+    ['divide', /divide|half|quarter|÷|&divide;/],
+    ['add', /\badd\b|\bplus\b|increase/],
+    ['subtract', /subtract|minus|decrease|difference/],
+    ['square', /square|squared/],
+    ['digit', /digit|reverse/],
+    ['opposite', /opposite|antonym/],
+    ['synonym', /synonym|same meaning|close in meaning/],
+    ['category', /kind of|category|group|does not belong/],
+    ['part-whole', /part of|contains|made of/],
+    ['cause', /cause|result/],
+    ['location', /lives|grows|place|located/],
+    ['use', /used to|tool for|purpose/],
+    ['rotation', /rotate|turn|clockwise/],
+    ['reflection', /reflect|mirror|fold/],
+  ];
+  return families.find(([, pattern]) => pattern.test(text))?.[0] ?? question.subtest;
+}
+
+function findSimilarPracticeQuestion(question) {
+  const currentIds = new Set(state.questions.map((item) => String(item.id)));
+  const sourceFamily = getQuestionRuleFamily(question);
+  const sourceDifficulty = getDifficulty(question);
+  const candidates = allQuestions
+    .filter((item) => String(item.id) !== String(question.id) && item.subtest === question.subtest)
+    .map((item) => ({
+      item,
+      score:
+        (getQuestionRuleFamily(item) === sourceFamily ? 6 : 0)
+        + (getDifficulty(item) === sourceDifficulty ? 3 : 0)
+        + (!currentIds.has(String(item.id)) ? 2 : 0)
+        + (!state.history.questions[String(item.id)] ? 1 : 0),
+    }))
+    .sort((first, second) => second.score - first.score || String(first.item.id).localeCompare(String(second.item.id), undefined, { numeric: true }));
+  return candidates[0]?.item ?? null;
+}
+
+function createSimilarRetryState(question) {
+  const similarQuestion = findSimilarPracticeQuestion(question);
+  if (!similarQuestion) {
+    return null;
+  }
+  return {
+    sourceQuestionId: String(question.id),
+    questionId: String(similarQuestion.id),
+    answer: null,
+    checked: false,
+    startedAt: Date.now(),
+  };
+}
+
+function renderSimilarRetry(sourceQuestion) {
+  if (!similarRetryState || similarRetryState.sourceQuestionId !== String(sourceQuestion.id)) {
+    return '';
+  }
+  const question = questionById.get(similarRetryState.questionId);
+  if (!question) {
+    return '';
+  }
+  const isCorrect = similarRetryState.checked && similarRetryState.answer === getCorrectAnswer(question);
+  return `
+    <section class="similar-retry-card ${similarRetryState.checked ? (isCorrect ? 'is-correct' : 'is-learning') : ''}" aria-label="Similar question retry">
+      <div class="similar-retry-head">
+        <div><span>Try one like this</span><b>Use the rule right away</b></div>
+        <small>${escapeHtml(question.subtest)} · ${formatDifficulty(getDifficulty(question))}</small>
+      </div>
+      <div class="similar-retry-question">${question.question}${question.questionNote ? `<small>${question.questionNote}</small>` : ''}</div>
+      <div class="similar-retry-options">
+        ${question.options.map((option) => {
+          const optionValue = getOptionValue(option);
+          const selected = similarRetryState.answer === optionValue;
+          const correct = similarRetryState.checked && optionValue === getCorrectAnswer(question);
+          const wrong = similarRetryState.checked && selected && !correct;
+          return `<button type="button" data-similar-option="${escapeHtml(optionValue)}" class="${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${wrong ? 'wrong' : ''}" ${similarRetryState.checked ? 'disabled' : ''}><b>${escapeHtml(option.label)}</b><span>${option.text}</span></button>`;
+        }).join('')}
+      </div>
+      ${similarRetryState.checked ? `
+        <div class="similar-retry-result" role="status">
+          <b>${isCorrect ? 'Nice recovery — you used the rule.' : `Almost. The answer is ${escapeHtml(getCorrectAnswer(question))}.`}</b>
+          <span>${question.explanation}</span>
+          ${!isCorrect ? '<button type="button" data-retry-similar>Try this question again</button>' : ''}
+        </div>
+      ` : '<small class="similar-retry-hint">Choose an answer. It checks immediately.</small>'}
+    </section>
+  `;
+}
+
+function submitSimilarRetry(answer, rewardOrigin) {
+  if (!similarRetryState || similarRetryState.checked) {
+    return;
+  }
+  const question = questionById.get(similarRetryState.questionId);
+  if (!question) {
+    return;
+  }
+  const responseSeconds = Math.min(300, Math.max(1, (Date.now() - similarRetryState.startedAt) / 1000));
+  const isCorrect = answer === getCorrectAnswer(question);
+  similarRetryState.answer = answer;
+  similarRetryState.checked = true;
+  recordAnswer(question, answer, { save: false, responseSeconds });
+  if (isCorrect) {
+    awardCoins(1, 'similar-retry', 'Similar question recovery', { animate: true, originElement: rewardOrigin });
+  }
+  state.history.updatedAt = new Date().toISOString();
+  saveHistory();
+  renderPractice();
+  window.requestAnimationFrame(() => document.querySelector('.similar-retry-card')?.scrollIntoView({ block: 'center' }));
 }
 
 function schedulePracticeCheckpointDismissal() {
@@ -2804,14 +3033,17 @@ function renderCompanionPanel() {
   const progress = getCompanionProgress();
   const selectedId = state.history.companion?.selected ?? 'owl';
   const selected = COMPANION_DEFINITIONS.find((companion) => companion.id === selectedId) ?? COMPANION_DEFINITIONS[0];
-  const unlockedDecor = COMPANION_ROOM_DECOR.filter((decor) => progress.level >= decor.level);
+  const growthPath = COMPANION_GROWTH_PATHS[selected.id] ?? COMPANION_GROWTH_PATHS.owl;
+  const unlockedDecor = growthPath.decor.filter((decor) => progress.level >= decor.level);
+  const nextDecor = growthPath.decor.find((decor) => progress.level < decor.level);
   return `
     <div class="game-section-head companion-section-head">
-      <div><span class="eyebrow">Growth companion</span><h2>${escapeHtml(selected.name)} · Level ${progress.level}</h2></div>
+      <div><span class="eyebrow">Growth companion</span><h2>${escapeHtml(selected.name)} · Level ${progress.level}</h2><p>${escapeHtml(growthPath.tagline)}</p></div>
       <span>${progress.xp} practice XP</span>
     </div>
     <div class="companion-layout">
       <section class="companion-room companion-${selected.id}">
+        <div class="buddy-world-title"><small>${escapeHtml(selected.species)} world</small><b>${escapeHtml(growthPath.world)}</b></div>
         <div class="companion-room-window" aria-hidden="true"><i></i><i></i></div>
         ${progress.level >= 2 ? '<div class="room-books" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}
         ${progress.level >= 4 ? '<div class="room-plant" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}
@@ -2820,13 +3052,17 @@ function renderCompanionPanel() {
         <div class="companion-character action-${companionAction}">${renderCompanionCharacter(selected.id)}</div>
         <div class="companion-nameplate"><span>${escapeHtml(selected.species)}</span><b>${escapeHtml(selected.name)}</b></div>
       </section>
-      <div class="companion-progress-card">
+      <div class="companion-progress-card companion-${selected.id}">
+        <div class="buddy-path-intro"><span>${renderBadgeIcon(selected.id === 'owl' ? 'book' : selected.id === 'fox' ? 'map' : 'brain')}</span><div><small>Current world</small><b>${escapeHtml(growthPath.world)}</b></div></div>
         <div class="companion-level-copy"><span>Level ${progress.level}</span><b>${progress.level === 10 ? 'Max level' : `${progress.levelXp}/${progress.levelGoal} to next level`}</b></div>
         <div class="companion-xp-meter" aria-label="${progress.percent}% to the next companion level"><span style="width:${progress.percent}%"></span></div>
         <div class="companion-actions">
-          ${COMPANION_ACTIONS.map((action) => `<button type="button" data-companion-action="${action.id}" ${progress.level < action.level ? 'disabled' : ''}><span>${renderBadgeIcon(action.id === 'focus' ? 'brain' : action.id === 'celebrate' ? 'star' : 'spark')}</span><b>${action.name}</b><small>${progress.level >= action.level ? 'Ready' : `Level ${action.level}`}</small></button>`).join('')}
+          ${COMPANION_ACTIONS.map((action) => `<button type="button" data-companion-action="${action.id}" ${progress.level < action.level ? 'disabled' : ''}><span>${renderBadgeIcon(action.id === 'focus' ? 'brain' : action.id === 'celebrate' ? 'star' : 'spark')}</span><b>${escapeHtml(growthPath.actions[action.id] ?? action.name)}</b><small>${progress.level >= action.level ? 'Ready' : `Level ${action.level}`}</small></button>`).join('')}
         </div>
-        <div class="room-unlocks"><b>Room collection</b><span>${unlockedDecor.length}/${COMPANION_ROOM_DECOR.length} unlocked</span><div>${COMPANION_ROOM_DECOR.map((decor) => `<small class="${progress.level >= decor.level ? 'is-unlocked' : ''}">${escapeHtml(decor.name)} · L${decor.level}</small>`).join('')}</div></div>
+        <div class="room-unlocks">
+          <div class="room-unlocks-head"><div><b>${escapeHtml(selected.name)}&rsquo;s upgrades</b><span>${unlockedDecor.length}/${growthPath.decor.length} unlocked</span></div>${nextDecor ? `<small>Next: ${escapeHtml(nextDecor.name)} · Level ${nextDecor.level}</small>` : '<small>World complete</small>'}</div>
+          <div class="buddy-reward-track">${growthPath.decor.map((decor) => `<div class="buddy-reward ${progress.level >= decor.level ? 'is-unlocked' : ''}"><span>${renderBadgeIcon(decor.icon)}</span><div><b>${escapeHtml(decor.name)}</b><small>${progress.level >= decor.level ? 'Unlocked' : `Level ${decor.level}`}</small></div></div>`).join('')}</div>
+        </div>
       </div>
     </div>
     <section class="companion-picker" aria-label="Choose a growth companion">
@@ -3474,6 +3710,7 @@ function startPractice({ kind = 'custom', pool = null, limit = QUESTION_LIMIT, p
   state.answers = new Array(state.questions.length).fill(null);
   state.currentIndex = 0;
   state.checked = false;
+  similarRetryState = null;
   state.practiceCheckpointMessage = '';
   state.view = 'practice';
   state.message = '';
@@ -3605,6 +3842,7 @@ function finishPracticeSession() {
 function goHome() {
   persistActiveSession();
   stopMockTimer();
+  similarRetryState = null;
   state.view = 'setup';
   state.examType = 'practice';
   customPracticeOpen = true;
@@ -3903,6 +4141,24 @@ function handleKeyboard(event) {
   if (key === 'i' && state.view === 'practice' && question?.battery === 'Verbal Battery' && !state.checked) {
     event.preventDefault();
     document.querySelector('[data-dont-know]')?.click();
+    return;
+  }
+  if (state.view === 'practice' && state.checked) {
+    if (optionIndex >= 0 && similarRetryState && !similarRetryState.checked) {
+      const retryQuestion = questionById.get(similarRetryState.questionId);
+      const retryOption = retryQuestion?.options?.[optionIndex];
+      if (retryOption) {
+        event.preventDefault();
+        [...document.querySelectorAll('[data-similar-option]')]
+          .find((button) => button.dataset.similarOption === getOptionValue(retryOption))
+          ?.click();
+      }
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      document.querySelector('#check')?.click();
+    }
     return;
   }
   if (optionIndex >= 0 && question?.options?.[optionIndex]) {
