@@ -452,9 +452,8 @@ function renderShell(content) {
                 </div>
               </details>
               <details class="about-admin about-analytics" ${adminAnalyticsOpen ? 'open' : ''}>
-                <summary><span>Visitor analytics</span><small>Private</small></summary>
+                <summary><span>Admin setup</span><small>Private</small></summary>
                 <div class="about-admin-body">
-                  <p>Private session duration, device, and IP records. The password is checked only by the server.</p>
                   <form class="analytics-login" id="analytics-login">
                     <label><span>Admin password</span><input id="analytics-password" type="password" autocomplete="current-password" required></label>
                     <button class="ghost" type="submit">View visits</button>
