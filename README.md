@@ -31,3 +31,14 @@ The site works locally without Supabase. To enable account-based sync:
 5. Sign in with the same email on each device to load the saved progress.
 
 Only the publishable/anon key belongs in this static frontend. Never put a `service_role` or `secret` key in this repository or browser code. The sync table uses Row Level Security so each signed-in user can read and write only their own progress snapshot.
+
+## Private visitor analytics
+
+The optional Supabase Edge Function records anonymous visit duration, device/browser details, and the request IP address. The raw table has RLS enabled with no browser policies; only the Edge Function service role can access it. The administrator report is available under **About → Visitor analytics**.
+
+1. Run the updated [`supabase/schema.sql`](./supabase/schema.sql).
+2. Set your chosen password as a server-side secret (do not put it in frontend code): `supabase secrets set ADMIN_ANALYTICS_PASSWORD=YOUR_PRIVATE_PASSWORD`.
+3. Set the allowed site origin if needed: `supabase secrets set ANALYTICS_ALLOWED_ORIGINS=https://marksui.github.io`.
+4. Deploy the public event endpoint: `supabase functions deploy visit-analytics --no-verify-jwt`.
+
+The site discloses this collection in the About panel. IP addresses are personal data in many jurisdictions; keep access private and define an appropriate retention policy for your deployment.

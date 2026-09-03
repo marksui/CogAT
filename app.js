@@ -31,6 +31,8 @@ const DONT_KNOW_ANSWER = '__dont_know__';
 const STORAGE_KEY = 'grade4-cogat-history-v2';
 const LEGACY_STORAGE_KEY = 'grade4-cogat-history-v1';
 const EYE_CARE_STORAGE_KEY = 'grade4-cogat-eye-care';
+const VISITOR_ID_STORAGE_KEY = 'grade4-cogat-visitor-id';
+const VISIT_HEARTBEAT_MS = 30_000;
 
 const rawQuestionSets = {
   verbal: [...verbalQuestions, ...verbalExtraQuestions, ...verbalVocabularyQuestions, ...verbalWorkbookQuestions, ...coreExpansionQuestions.filter((question) => question.battery === 'Verbal Battery'), ...coreExpansionRound2Questions.filter((question) => question.battery === 'Verbal Battery'), ...verbalExpansion200Questions, ...expansion500Questions.filter((question) => question.battery === 'Verbal Battery'), ...level10OriginalQuestions.filter((question) => question.battery === 'Verbal Battery'), ...g4WorkbookQuestions.filter((question) => question.battery === 'Verbal Battery'), ...bonusQuestions.filter((question) => question.battery === 'Verbal Battery')],
@@ -205,7 +207,7 @@ const COMPANION_GROWTH_PATHS = {
     actions: { wave: 'Hello signal', focus: 'Scan mode', celebrate: 'Victory lights' },
     decor: [
       { id: 'books', name: 'Data Console', level: 2, icon: 'numbers' },
-      { id: 'plant', name: 'Holo Shapes', level: 4, icon: 'shapes' },
+      { id: 'plant', name: 'Holo Shapes', level: 4, icon: 'pattern' },
       { id: 'lamp', name: 'Energy Core', level: 6, icon: 'bolt' },
       { id: 'trophy', name: 'Master Chip', level: 8, icon: 'brain' },
     ],
@@ -341,6 +343,7 @@ let authMode = 'signin';
 let authMenuOpen = false;
 let aboutMenuOpen = false;
 let adminTestModeOpen = false;
+let adminAnalyticsOpen = false;
 let customPracticeOpen = true;
 let builderFocusExpanded = false;
 let dailyReportOpen = false;
@@ -356,6 +359,14 @@ let similarRetryState = null;
 let dailyPlanPreviewCache = null;
 let bankSearchTimer = null;
 let bankSearchWarmIndex = 0;
+let visitHeartbeatHandle = null;
+let visitSessionId = '';
+let visitStartedAt = 0;
+const adminAnalyticsState = {
+  status: 'idle',
+  message: '',
+  rows: [],
+};
 const authState = {
   status: 'checking',
   user: null,
@@ -423,7 +434,7 @@ function renderShell(content) {
                 <span><b>Rewards</b><small>Coins, badges, and themes</small></span>
               </div>
               <div class="about-foot">
-                <span>Local progress · Optional sync · JSON backup</span>
+                <span>Local progress · Optional sync · Private visit analytics · JSON backup</span>
                 <a href="https://github.com/marksui/CogAT" target="_blank" rel="noopener noreferrer">View source</a>
               </div>
               <details class="about-admin" ${adminTestModeOpen ? 'open' : ''}>
@@ -438,6 +449,18 @@ function renderShell(content) {
                     <button class="ghost" type="button" id="admin-unlock-everything">Unlock everything</button>
                     <button class="ghost" type="button" id="admin-reset-rewards">Reset rewards</button>
                   </div>
+                </div>
+              </details>
+              <details class="about-admin about-analytics" ${adminAnalyticsOpen ? 'open' : ''}>
+                <summary><span>Visitor analytics</span><small>Private</small></summary>
+                <div class="about-admin-body">
+                  <p>Private session duration, device, and IP records. The password is checked only by the server.</p>
+                  <form class="analytics-login" id="analytics-login">
+                    <label><span>Admin password</span><input id="analytics-password" type="password" autocomplete="current-password" required></label>
+                    <button class="ghost" type="submit">View visits</button>
+                  </form>
+                  ${adminAnalyticsState.message ? `<small class="analytics-message ${adminAnalyticsState.status === 'error' ? 'is-error' : ''}">${escapeHtml(adminAnalyticsState.message)}</small>` : ''}
+                  ${renderAdminAnalyticsRows()}
                 </div>
               </details>
             </div>
@@ -461,6 +484,7 @@ function renderShell(content) {
     authMenuOpen = false;
     aboutMenuOpen = false;
     adminTestModeOpen = false;
+    adminAnalyticsOpen = false;
     goHome();
   });
 
@@ -468,6 +492,7 @@ function renderShell(content) {
     authMenuOpen = false;
     aboutMenuOpen = false;
     adminTestModeOpen = false;
+    adminAnalyticsOpen = false;
     persistActiveSession();
     stopMockTimer();
     state.view = 'bank';
@@ -481,6 +506,7 @@ function renderShell(content) {
       authMenuOpen = false;
       aboutMenuOpen = false;
       adminTestModeOpen = false;
+      adminAnalyticsOpen = false;
       persistActiveSession();
       stopMockTimer();
       state.view = 'game-shop';
@@ -508,12 +534,16 @@ function renderShell(content) {
   document.querySelector('.about-admin')?.addEventListener('toggle', (event) => {
     adminTestModeOpen = event.target.open;
   });
+  document.querySelector('.about-analytics')?.addEventListener('toggle', (event) => {
+    adminAnalyticsOpen = event.target.open;
+  });
   document.querySelector('#admin-add-coins')?.addEventListener('click', adminAddCoins);
   document.querySelector('#admin-add-many-coins')?.addEventListener('click', adminAddManyCoins);
   document.querySelector('#admin-unlock-badges')?.addEventListener('click', adminUnlockBadges);
   document.querySelector('#admin-unlock-shop')?.addEventListener('click', adminUnlockShop);
   document.querySelector('#admin-unlock-everything')?.addEventListener('click', adminUnlockEverything);
   document.querySelector('#admin-reset-rewards')?.addEventListener('click', adminResetRewards);
+  document.querySelector('#analytics-login')?.addEventListener('submit', loadAdminAnalytics);
   document.querySelectorAll('[data-auth-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       authMode = button.dataset.authMode;
@@ -527,6 +557,64 @@ function renderShell(content) {
 function renderCoinButton() {
   const coins = coinDisplayValue ?? state.history.currentCoins ?? 0;
   return `<button class="coin-button" type="button" data-game-center aria-label="Open reward shop, ${coins} coins">${renderCoinIcon()}<span data-coin-count>${coins}</span></button>`;
+}
+
+function renderAdminAnalyticsRows() {
+  if (!adminAnalyticsState.rows.length) {
+    return '';
+  }
+  return `
+    <div class="analytics-table-wrap">
+      <table class="analytics-table">
+        <thead><tr><th>Last seen</th><th>Time</th><th>Device</th><th>Browser / OS</th><th>IP</th></tr></thead>
+        <tbody>
+          ${adminAnalyticsState.rows.map((row) => `
+            <tr>
+              <td>${escapeHtml(formatAnalyticsDate(row.last_seen_at))}</td>
+              <td>${escapeHtml(formatVisitDuration(row.duration_seconds))}</td>
+              <td>${escapeHtml(row.device_type || 'Unknown')}<small>${escapeHtml(row.screen || '')}</small></td>
+              <td>${escapeHtml([row.browser, row.os].filter(Boolean).join(' · ') || 'Unknown')}</td>
+              <td><code>${escapeHtml(row.ip_address || 'Unavailable')}</code></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function formatAnalyticsDate(value) {
+  const date = new Date(value ?? '');
+  return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString();
+}
+
+function formatVisitDuration(value) {
+  const totalSeconds = Math.max(0, Math.round(Number(value) || 0));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
+async function loadAdminAnalytics(event) {
+  event.preventDefault();
+  const password = document.querySelector('#analytics-password')?.value ?? '';
+  if (!password) {
+    return;
+  }
+  adminAnalyticsOpen = true;
+  adminAnalyticsState.status = 'loading';
+  adminAnalyticsState.message = 'Loading visits…';
+  try {
+    const result = await callVisitAnalytics({ action: 'report', password });
+    adminAnalyticsState.rows = Array.isArray(result.sessions) ? result.sessions : [];
+    adminAnalyticsState.status = 'ready';
+    adminAnalyticsState.message = `${adminAnalyticsState.rows.length} recent sessions`;
+  } catch (error) {
+    adminAnalyticsState.rows = [];
+    adminAnalyticsState.status = 'error';
+    adminAnalyticsState.message = error.message || 'Could not load visitor analytics.';
+  }
+  render();
 }
 
 function renderEyeCareButton() {
@@ -4659,6 +4747,112 @@ function saveHistory({ queueSync = true } = {}) {
   }
 }
 
+function getAnalyticsEndpoint() {
+  if (!supabaseConfig.url) {
+    return '';
+  }
+  return `${supabaseConfig.url.replace(/\/$/, '')}/functions/v1/visit-analytics`;
+}
+
+async function callVisitAnalytics(payload, options = {}) {
+  const endpoint = getAnalyticsEndpoint();
+  if (!endpoint) {
+    throw new Error('Visitor analytics is not configured.');
+  }
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: supabaseConfig.publishableKey,
+    },
+    body: JSON.stringify(payload),
+    keepalive: Boolean(options.keepalive),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.error || 'Visitor analytics request failed.');
+  }
+  return result;
+}
+
+function getVisitorId() {
+  try {
+    const stored = window.localStorage.getItem(VISITOR_ID_STORAGE_KEY);
+    if (stored) {
+      return stored;
+    }
+    const created = window.crypto?.randomUUID?.() ?? `visitor-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    window.localStorage.setItem(VISITOR_ID_STORAGE_KEY, created);
+    return created;
+  } catch {
+    return `visitor-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+function getDeviceDetails() {
+  const userAgent = navigator.userAgent || '';
+  const deviceType = /iPad|Tablet/i.test(userAgent)
+    ? 'Tablet'
+    : /Mobi|Android|iPhone/i.test(userAgent)
+      ? 'Mobile'
+      : 'Desktop';
+  const browser = /Edg\//.test(userAgent) ? 'Edge'
+    : /Chrome\//.test(userAgent) ? 'Chrome'
+      : /Safari\//.test(userAgent) && !/Chrome\//.test(userAgent) ? 'Safari'
+        : /Firefox\//.test(userAgent) ? 'Firefox' : 'Other';
+  const os = /Windows/i.test(userAgent) ? 'Windows'
+    : /iPhone|iPad/i.test(userAgent) ? 'iOS'
+      : /Mac OS X|Macintosh/i.test(userAgent) ? 'macOS'
+        : /Android/i.test(userAgent) ? 'Android'
+          : /Linux/i.test(userAgent) ? 'Linux' : 'Other';
+  return {
+    deviceType,
+    browser,
+    os,
+    screen: `${window.screen?.width || 0}×${window.screen?.height || 0}`,
+  };
+}
+
+function sendVisitUpdate(action, keepalive = false) {
+  if (!visitSessionId) {
+    return Promise.resolve();
+  }
+  const durationSeconds = Math.max(0, Math.round((Date.now() - visitStartedAt) / 1000));
+  return callVisitAnalytics({
+    action,
+    sessionId: visitSessionId,
+    visitorId: getVisitorId(),
+    durationSeconds,
+    pagePath: `${window.location.pathname}${window.location.search}`,
+    ...getDeviceDetails(),
+  }, { keepalive });
+}
+
+function initializeVisitAnalytics() {
+  if (!getAnalyticsEndpoint() || /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) {
+    return;
+  }
+  visitSessionId = window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  visitStartedAt = Date.now();
+  sendVisitUpdate('start').catch(() => {});
+  visitHeartbeatHandle = window.setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      sendVisitUpdate('heartbeat').catch(() => {});
+    }
+  }, VISIT_HEARTBEAT_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      sendVisitUpdate('heartbeat').catch(() => {});
+    }
+  });
+  window.addEventListener('pagehide', () => {
+    if (visitHeartbeatHandle) {
+      window.clearInterval(visitHeartbeatHandle);
+    }
+    sendVisitUpdate('end', true).catch(() => {});
+  }, { once: true });
+}
+
 async function initializeCloudSync() {
   if (!supabaseConfig.url || !supabaseConfig.publishableKey) {
     authState.status = 'local';
@@ -4936,6 +5130,7 @@ document.addEventListener('keydown', handleKeyboard);
 async function boot() {
   await initializeCloudSync();
   render();
+  initializeVisitAnalytics();
 }
 
 boot();
