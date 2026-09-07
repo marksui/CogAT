@@ -349,6 +349,7 @@ let adminAnalyticsOpen = false;
 let customPracticeOpen = true;
 let builderFocusExpanded = false;
 let dailyReportOpen = false;
+let overallReportOpen = false;
 let questionFeedbackOpen = '';
 let questionFeedbackMessage = null;
 let companionAction = 'idle';
@@ -853,7 +854,6 @@ function renderSetup() {
   const dailyPercent = Math.min(100, Math.round((daily.answered / dailyGoal) * 100));
   const dailyReport = getDailyReport();
   const summary = getProgressSummary();
-  const abilityMap = getAbilityMapData();
   const hasActiveDaily = hasResumableDailySession();
   const dailyComplete = daily.completed;
   const selectedBattery = batteryMap.get(state.battery) ?? batteryMap.get('all');
@@ -891,8 +891,20 @@ function renderSetup() {
           <span>${renderDashboardIcon('report')}<b>Daily report</b></span>
           <strong>${dailyReport.answered} today</strong>
         </button>
+        <button class="daily-report-button" type="button" data-overall-report aria-expanded="${overallReportOpen}" aria-controls="overall-report-panel">
+          <span>${renderDashboardIcon('balance')}<b>Overall report</b></span>
+          <strong>${summary.totalAnswered} total</strong>
+        </button>
         <div class="home-decoration" aria-hidden="true">${renderShopIcon(getActiveDecor()?.icon ?? 'spark-card')}</div>
       </aside>
+      <div class="hero-quick-start home-quick-panel">
+        <div class="home-section-heading compact"><div><h2>Quick start</h2></div></div>
+        <div class="quick-actions">
+          <button class="quick-action" type="button" data-quick-mode="missed" ${summary.missed === 0 ? 'disabled' : ''}><span class="quick-action-icon">${renderDashboardIcon('missed')}</span><span><b>Missed</b><small>${summary.missed ? `${summary.missed} questions` : 'None yet'}</small></span><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
+          <button class="quick-action" type="button" data-quick-mode="new" ${newQuestionCount === 0 ? 'disabled' : ''}><span class="quick-action-icon">${renderDashboardIcon('new')}</span><span><b>New</b><small>${newQuestionCount} questions</small></span><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
+          <button class="quick-action" type="button" data-quick-mock><span class="quick-action-icon">${renderDashboardIcon('mock')}</span><span><b>Mock</b><small>Timed test</small></span><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
+        </div>
+      </div>
     </section>
 
     ${dailyReportOpen ? `
@@ -919,59 +931,31 @@ function renderSetup() {
       </section>
     ` : ''}
 
-    <section class="panel home-overall-report" aria-labelledby="overall-report-title">
-      <div class="home-section-heading compact">
-        <div><span class="eyebrow">Progress</span><h2 id="overall-report-title">Overall report</h2></div>
-      </div>
-      <div class="home-stat-grid" aria-label="Learning summary">
-        <div class="home-stat"><span>Day streak</span><strong>${summary.streak}</strong><small>${summary.streak === 1 ? 'day in a row' : 'days in a row'}</small></div>
-        <div class="home-stat"><span>Total answered</span><strong>${summary.totalAnswered}</strong><small>all practice</small></div>
-        <div class="home-stat"><span>Recent score</span><strong>${summary.lastAccuracy === null ? '—' : `${summary.lastAccuracy}%`}</strong><small>${summary.lastAccuracy === null ? 'finish a set' : 'last completed set'}</small></div>
-        <button class="home-stat home-coin-stat" type="button" data-game-center><span>Reward coins</span><strong>${state.history.currentCoins}</strong><small>Open shop ${renderDashboardIcon('arrow')}</small></button>
-      </div>
-      <div class="overall-battery-heading"><span class="eyebrow">Batteries</span><h3>Pick one</h3></div>
-      <div class="battery-progress-grid">
-        ${batteryProgress.map((battery) => `
-          <button class="battery-progress-card battery-${battery.key}" type="button" data-home-battery="${battery.key}">
-            <span class="battery-progress-icon">${renderBatteryIcon(battery.key)}</span>
-            <span class="battery-progress-copy"><b>${battery.label}</b><small>${battery.progress.attempted} answered</small></span>
-            <strong>${battery.progress.accuracy === null ? 'Ready' : `${battery.progress.accuracy}%`}</strong>
-            <span class="battery-card-arrow">${renderDashboardIcon('arrow')}</span>
-          </button>
-        `).join('')}
-      </div>
-    </section>
-
-    <section class="home-section adventure-gateway" aria-labelledby="adventure-title">
-      <div class="adventure-gateway-copy">
-        <span class="eyebrow">Play & grow</span>
-        <h2 id="adventure-title">Adventure</h2>
-        <p>${abilityMap.explored}/9 regions · ${state.history.badges.length} badges</p>
-      </div>
-      <div class="adventure-door-grid">
-        <button class="adventure-door door-map" type="button" data-game-page="map">
-          <span>${renderBadgeIcon('map')}</span><b>Map</b><small>${abilityMap.story.progress}</small><i>${renderDashboardIcon('arrow')}</i>
-        </button>
-        <button class="adventure-door door-companion" type="button" data-game-page="companion">
-          <span>${renderCompanionCharacter(state.history.companion?.selected ?? 'owl')}</span><b>Buddy</b><small>Level ${getCompanionProgress().level}</small><i>${renderDashboardIcon('arrow')}</i>
-        </button>
-        <button class="adventure-door door-collections" type="button" data-game-page="collections">
-          <span>${renderBadgeIcon('medal')}</span><b>Badges</b><small>${state.history.badges.length}/${BADGE_DEFINITIONS.length}</small><i>${renderDashboardIcon('arrow')}</i>
-        </button>
-        <button class="adventure-door door-shop" type="button" data-game-page="shop">
-          <span>${renderCoinIcon()}</span><b>Shop</b><small>${state.history.currentCoins} coins</small><i>${renderDashboardIcon('arrow')}</i>
-        </button>
-      </div>
-    </section>
-
-    <section class="panel quick-panel home-quick-panel quick-start-bar">
-      <div class="home-section-heading compact"><div><h2>Quick start</h2></div></div>
-      <div class="quick-actions">
-        <button class="quick-action" type="button" data-quick-mode="missed" ${summary.missed === 0 ? 'disabled' : ''}><span class="quick-action-icon">${renderDashboardIcon('missed')}</span><span><b>Missed</b><small>${summary.missed ? `${summary.missed} questions` : 'None yet'}</small></span><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
-        <button class="quick-action" type="button" data-quick-mode="new" ${newQuestionCount === 0 ? 'disabled' : ''}><span class="quick-action-icon">${renderDashboardIcon('new')}</span><span><b>New</b><small>${newQuestionCount} questions</small></span><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
-        <button class="quick-action" type="button" data-quick-mock><span class="quick-action-icon">${renderDashboardIcon('mock')}</span><span><b>Mock</b><small>Timed test</small></span><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
-      </div>
-    </section>
+    ${overallReportOpen ? `
+      <section class="panel home-overall-report" id="overall-report-panel" aria-labelledby="overall-report-title">
+        <div class="daily-report-head">
+          <div><span class="eyebrow">Progress</span><h2 id="overall-report-title">Overall report</h2></div>
+          <button type="button" data-close-overall-report aria-label="Close overall report">${renderDashboardIcon('close')}</button>
+        </div>
+        <div class="home-stat-grid" aria-label="Learning summary">
+          <div class="home-stat"><span>Day streak</span><strong>${summary.streak}</strong><small>${summary.streak === 1 ? 'day in a row' : 'days in a row'}</small></div>
+          <div class="home-stat"><span>Total answered</span><strong>${summary.totalAnswered}</strong><small>all practice</small></div>
+          <div class="home-stat"><span>Recent score</span><strong>${summary.lastAccuracy === null ? '—' : `${summary.lastAccuracy}%`}</strong><small>${summary.lastAccuracy === null ? 'finish a set' : 'last completed set'}</small></div>
+          <button class="home-stat home-coin-stat" type="button" data-game-center><span>Reward coins</span><strong>${state.history.currentCoins}</strong><small>Open shop ${renderDashboardIcon('arrow')}</small></button>
+        </div>
+        <div class="overall-battery-heading"><span class="eyebrow">Batteries</span><h3>Pick one</h3></div>
+        <div class="battery-progress-grid">
+          ${batteryProgress.map((battery) => `
+            <button class="battery-progress-card battery-${battery.key}" type="button" data-home-battery="${battery.key}">
+              <span class="battery-progress-icon">${renderBatteryIcon(battery.key)}</span>
+              <span class="battery-progress-copy"><b>${battery.label}</b><small>${battery.progress.attempted} answered</small></span>
+              <strong>${battery.progress.accuracy === null ? 'Ready' : `${battery.progress.accuracy}%`}</strong>
+              <span class="battery-card-arrow">${renderDashboardIcon('arrow')}</span>
+            </button>
+          `).join('')}
+        </div>
+      </section>
+    ` : ''}
 
     <section class="panel custom-practice home-advanced">
       <details id="custom-practice-details" ${customPracticeOpen ? 'open' : ''}>
@@ -1074,10 +1058,20 @@ function renderSetup() {
   document.querySelector('[data-start-daily]').addEventListener('click', startDailyPractice);
   document.querySelector('[data-daily-report]').addEventListener('click', () => {
     dailyReportOpen = !dailyReportOpen;
+    if (dailyReportOpen) overallReportOpen = false;
     render();
   });
   document.querySelector('[data-close-daily-report]')?.addEventListener('click', () => {
     dailyReportOpen = false;
+    render();
+  });
+  document.querySelector('[data-overall-report]').addEventListener('click', () => {
+    overallReportOpen = !overallReportOpen;
+    if (overallReportOpen) dailyReportOpen = false;
+    render();
+  });
+  document.querySelector('[data-close-overall-report]')?.addEventListener('click', () => {
+    overallReportOpen = false;
     render();
   });
   document.querySelectorAll('[data-quick-mode]').forEach((button) => {

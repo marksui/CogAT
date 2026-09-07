@@ -6934,14 +6934,19 @@ summary:focus-visible {
   padding: 22px;
 }
 
-.quick-start-bar {
+.hero-quick-start {
+  z-index: 1;
+  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: minmax(120px, 0.24fr) minmax(0, 1fr);
   align-items: center;
   gap: 18px;
+  margin: 0;
+  border-top: 1px solid var(--line);
+  padding: 22px 0 0;
 }
 
-.quick-start-bar .home-section-heading {
+.hero-quick-start .home-section-heading {
   margin: 0;
 }
 
@@ -7535,6 +7540,10 @@ summary:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .hero-quick-start .quick-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .ability-map-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -7571,12 +7580,16 @@ summary:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .quick-start-bar {
+  .hero-quick-start {
     grid-template-columns: 1fr;
   }
 
-  .quick-start-bar .home-section-heading {
+  .hero-quick-start .home-section-heading {
     margin-bottom: 0;
+  }
+
+  .hero-quick-start .quick-actions {
+    grid-template-columns: 1fr;
   }
 
   .mock-section-picker-head {
