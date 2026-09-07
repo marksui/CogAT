@@ -1287,7 +1287,65 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: #ffffff;
+  color: var(--ink);
   padding: 9px;
+  text-align: left;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.mock-section-pill:hover {
+  border-color: color-mix(in srgb, var(--blue) 45%, var(--line));
+  transform: translateY(-1px);
+}
+
+.mock-section-pill.selected {
+  border-color: color-mix(in srgb, var(--blue) 62%, var(--line));
+  background: color-mix(in srgb, var(--blue) 7%, #ffffff);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 10%, transparent);
+}
+
+.mock-section-pill.selected > span {
+  background: var(--blue);
+  color: #ffffff;
+}
+
+.mock-section-picker-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mock-section-picker-head > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.mock-section-picker-head b {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.mock-section-picker-head span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.mock-section-picker-head > div:last-child {
+  display: flex;
+  gap: 7px;
+}
+
+.mock-section-picker-head button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--ink);
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 850;
 }
 
 .mock-section-pill span,
@@ -6238,6 +6296,32 @@ summary:focus-visible {
   margin-top: 14px;
 }
 
+.home-overall-report {
+  display: grid;
+  gap: 18px;
+  margin-top: 14px;
+  padding: 22px;
+}
+
+.home-overall-report .home-section-heading,
+.home-overall-report .home-stat-grid {
+  margin: 0;
+}
+
+.overall-battery-heading {
+  display: grid;
+  gap: 3px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.overall-battery-heading h3 {
+  margin: 0;
+  font-family: Nunito, Inter, sans-serif;
+  font-size: 22px;
+}
+
 .home-stat {
   display: grid;
   min-width: 0;
@@ -6850,6 +6934,17 @@ summary:focus-visible {
   padding: 22px;
 }
 
+.quick-start-bar {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.24fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.quick-start-bar .home-section-heading {
+  margin: 0;
+}
+
 .home-quick-panel .quick-actions {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
@@ -6860,7 +6955,7 @@ summary:focus-visible {
   align-items: center;
   align-content: center;
   gap: 11px;
-  min-height: 82px;
+  min-height: 68px;
   border-color: var(--line);
   padding: 12px;
 }
@@ -7474,6 +7569,19 @@ summary:focus-visible {
   .daily-report-stats,
   .daily-report-batteries {
     grid-template-columns: 1fr;
+  }
+
+  .quick-start-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-start-bar .home-section-heading {
+    margin-bottom: 0;
+  }
+
+  .mock-section-picker-head {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .ability-map-grid {

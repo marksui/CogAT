@@ -26,7 +26,7 @@ import { supabaseConfig } from './supabase-config.js';
 
 const QUESTION_LIMIT = 30;
 const BANK_PAGE_SIZE = 24;
-const DEFAULT_DAILY_GOAL = 30;
+const DEFAULT_DAILY_GOAL = 50;
 const DONT_KNOW_ANSWER = '__dont_know__';
 const STORAGE_KEY = 'grade4-cogat-history-v2';
 const LEGACY_STORAGE_KEY = 'grade4-cogat-history-v1';
@@ -78,7 +78,7 @@ const batteries = [
   { key: 'nonverbal', label: 'Nonverbal', kidLabel: 'Nonverbal', questions: questionSets.nonverbal },
 ];
 
-const mockParts = [
+const MOCK_PART_CATALOG = [
   { key: 'verbal', battery: 'Verbal Battery', subtest: 'Verbal Analogies', label: 'Verbal Analogies', minutes: 10, questionCount: 24 },
   { key: 'verbal', battery: 'Verbal Battery', subtest: 'Sentence Completion', label: 'Sentence Completion', minutes: 10, questionCount: 20 },
   { key: 'verbal', battery: 'Verbal Battery', subtest: 'Verbal Classification', label: 'Verbal Classification', minutes: 10, questionCount: 20 },
@@ -89,6 +89,7 @@ const mockParts = [
   { key: 'nonverbal', battery: 'Nonverbal Battery', subtest: 'Paper Folding', label: 'Paper Folding', minutes: 10, questionCount: 16 },
   { key: 'nonverbal', battery: 'Nonverbal Battery', subtest: 'Figure Classification', label: 'Figure Classification', minutes: 10, questionCount: 22 },
 ];
+let mockParts = MOCK_PART_CATALOG;
 
 const MOCK_FORM_ID = 'level-10-form-a';
 const MOCK_DIFFICULTY_ORDER = ['easy', 'medium', 'hard', 'very-hard'];
@@ -316,6 +317,7 @@ const state = {
   mockSubmittedEarly: false,
   mockExitConfirm: false,
   mockMode: 'sheet',
+  mockSelectedPartIndexes: [],
   gameCenterTab: 'badges',
   practiceCoinMessage: '',
   practiceCheckpointMessage: '',
@@ -429,7 +431,7 @@ function renderShell(content) {
               </div>
               <p>Grade 4 verbal, quantitative, and nonverbal practice.</p>
               <div class="about-points">
-                <span><b>Practice</b><small>30-question daily sets</small></span>
+                <span><b>Practice</b><small>50-question daily sets</small></span>
                 <span><b>Mock</b><small>Timed section practice</small></span>
                 <span><b>Rewards</b><small>Coins, badges, and themes</small></span>
               </div>
@@ -866,9 +868,9 @@ function renderSetup() {
     <section class="panel home-hero ${dailyComplete ? 'is-complete' : ''}">
       <div class="home-hero-copy">
         <span class="eyebrow home-eyebrow">Today</span>
-        <h1>${dailyComplete ? '30 done!' : hasActiveDaily ? 'Keep going.' : 'Ready?'}</h1>
+        <h1>${dailyComplete ? `${dailyGoal} done!` : hasActiveDaily ? 'Keep going.' : 'Ready?'}</h1>
         <div class="home-hero-actions">
-          <button class="primary daily-cta" type="button" data-start-daily>${dailyComplete ? 'Practice 30 more' : hasActiveDaily ? `Continue · ${daily.answered}/${dailyGoal}` : 'Start 30'}</button>
+          <button class="primary daily-cta" type="button" data-start-daily>${dailyComplete ? `Practice ${dailyGoal} more` : hasActiveDaily ? `Continue · ${daily.answered}/${dailyGoal}` : `Start ${dailyGoal}`}</button>
           <span>No timer <i aria-hidden="true"></i> Auto-save</span>
         </div>
       </div>
@@ -887,7 +889,7 @@ function renderSetup() {
         </div>
         <button class="daily-report-button" type="button" data-daily-report aria-expanded="${dailyReportOpen}" aria-controls="daily-report-panel">
           <span>${renderDashboardIcon('report')}<b>Daily report</b></span>
-          <strong>${daily.answered} done</strong>
+          <strong>${dailyReport.answered} today</strong>
         </button>
         <div class="home-decoration" aria-hidden="true">${renderShopIcon(getActiveDecor()?.icon ?? 'spark-card')}</div>
       </aside>
@@ -917,11 +919,27 @@ function renderSetup() {
       </section>
     ` : ''}
 
-    <section class="home-stat-grid" aria-label="Learning summary">
-      <div class="home-stat"><span>Day streak</span><strong>${summary.streak}</strong><small>${summary.streak === 1 ? 'day in a row' : 'days in a row'}</small></div>
-      <div class="home-stat"><span>Total answered</span><strong>${summary.totalAnswered}</strong><small>all practice</small></div>
-      <div class="home-stat"><span>Recent score</span><strong>${summary.lastAccuracy === null ? '—' : `${summary.lastAccuracy}%`}</strong><small>${summary.lastAccuracy === null ? 'finish a set' : 'last completed set'}</small></div>
-      <button class="home-stat home-coin-stat" type="button" data-game-center><span>Reward coins</span><strong>${state.history.currentCoins}</strong><small>Open shop ${renderDashboardIcon('arrow')}</small></button>
+    <section class="panel home-overall-report" aria-labelledby="overall-report-title">
+      <div class="home-section-heading compact">
+        <div><span class="eyebrow">Progress</span><h2 id="overall-report-title">Overall report</h2></div>
+      </div>
+      <div class="home-stat-grid" aria-label="Learning summary">
+        <div class="home-stat"><span>Day streak</span><strong>${summary.streak}</strong><small>${summary.streak === 1 ? 'day in a row' : 'days in a row'}</small></div>
+        <div class="home-stat"><span>Total answered</span><strong>${summary.totalAnswered}</strong><small>all practice</small></div>
+        <div class="home-stat"><span>Recent score</span><strong>${summary.lastAccuracy === null ? '—' : `${summary.lastAccuracy}%`}</strong><small>${summary.lastAccuracy === null ? 'finish a set' : 'last completed set'}</small></div>
+        <button class="home-stat home-coin-stat" type="button" data-game-center><span>Reward coins</span><strong>${state.history.currentCoins}</strong><small>Open shop ${renderDashboardIcon('arrow')}</small></button>
+      </div>
+      <div class="overall-battery-heading"><span class="eyebrow">Batteries</span><h3>Pick one</h3></div>
+      <div class="battery-progress-grid">
+        ${batteryProgress.map((battery) => `
+          <button class="battery-progress-card battery-${battery.key}" type="button" data-home-battery="${battery.key}">
+            <span class="battery-progress-icon">${renderBatteryIcon(battery.key)}</span>
+            <span class="battery-progress-copy"><b>${battery.label}</b><small>${battery.progress.attempted} answered</small></span>
+            <strong>${battery.progress.accuracy === null ? 'Ready' : `${battery.progress.accuracy}%`}</strong>
+            <span class="battery-card-arrow">${renderDashboardIcon('arrow')}</span>
+          </button>
+        `).join('')}
+      </div>
     </section>
 
     <section class="home-section adventure-gateway" aria-labelledby="adventure-title">
@@ -946,23 +964,7 @@ function renderSetup() {
       </div>
     </section>
 
-    <section class="home-section">
-      <div class="home-section-heading">
-        <div><span class="eyebrow">Batteries</span><h2>Pick one</h2></div>
-      </div>
-      <div class="battery-progress-grid">
-        ${batteryProgress.map((battery) => `
-          <button class="battery-progress-card battery-${battery.key}" type="button" data-home-battery="${battery.key}">
-            <span class="battery-progress-icon">${renderBatteryIcon(battery.key)}</span>
-            <span class="battery-progress-copy"><b>${battery.label}</b><small>${battery.progress.attempted} answered</small></span>
-            <strong>${battery.progress.accuracy === null ? 'Ready' : `${battery.progress.accuracy}%`}</strong>
-            <span class="battery-card-arrow">${renderDashboardIcon('arrow')}</span>
-          </button>
-        `).join('')}
-      </div>
-    </section>
-
-    <section class="panel quick-panel home-quick-panel">
+    <section class="panel quick-panel home-quick-panel quick-start-bar">
       <div class="home-section-heading compact"><div><h2>Quick start</h2></div></div>
       <div class="quick-actions">
         <button class="quick-action" type="button" data-quick-mode="missed" ${summary.missed === 0 ? 'disabled' : ''}><span class="quick-action-icon">${renderDashboardIcon('missed')}</span><span><b>Missed</b><small>${summary.missed ? `${summary.missed} questions` : 'None yet'}</small></span><span class="arrow">${renderDashboardIcon('arrow')}</span></button>
@@ -989,7 +991,7 @@ function renderSetup() {
             <div class="mock-preview">
               <div class="builder-step-title"><span>Full test</span><div><b>9 timed sections</b><small>Work through each Battery with scheduled checkpoints.</small></div></div>
               <div class="mock-parts">
-                ${mockParts.map((part, index) => `<div class="mock-part"><span>${index + 1}</span><div><b>${part.label}</b><small>${part.minutes} minutes · ${part.questionCount} questions</small></div></div>`).join('')}
+                ${MOCK_PART_CATALOG.map((part, index) => `<div class="mock-part"><span>${index + 1}</span><div><b>${part.label}</b><small>${part.minutes} minutes · ${part.questionCount} questions</small></div></div>`).join('')}
               </div>
             </div>
             <aside class="builder-summary mock-builder-summary"><span>Your activity</span><h3>Full mock exam</h3><p>176 questions across all three Batteries.</p><button class="primary" type="submit">Review exam setup</button></aside>
@@ -1260,7 +1262,7 @@ function renderPractice() {
         }).join('')}
       </div>
 
-      ${isVerbal && !state.checked ? `
+      ${(state.sessionKind === 'daily' || isVerbal) && !state.checked ? `
         <button class="dont-know-option" type="button" data-dont-know>
           <span aria-hidden="true">?</span>
           <b>I don&rsquo;t know</b>
@@ -1674,8 +1676,10 @@ function schedulePracticeCheckpointDismissal() {
 }
 
 function renderMockIntro() {
-  const totalQuestions = mockParts.reduce((sum, part) => sum + part.questionCount, 0);
-  const totalMinutes = mockParts.reduce((sum, part) => sum + part.minutes, 0);
+  const selectedIndexes = new Set(state.mockSelectedPartIndexes);
+  const selectedParts = MOCK_PART_CATALOG.filter((_, index) => selectedIndexes.has(index));
+  const totalQuestions = selectedParts.reduce((sum, part) => sum + part.questionCount, 0);
+  const totalMinutes = selectedParts.reduce((sum, part) => sum + part.minutes, 0);
 
   renderShell(`
     <section class="panel mock-launch">
@@ -1683,7 +1687,7 @@ function renderMockIntro() {
         <span class="eyebrow">Mock exam</span>
         <h1>Level 10 Form A</h1>
         <div class="mock-exam-stats" aria-label="Mock exam summary">
-          <span><b>${mockParts.length}</b> parts</span>
+          <span><b>${selectedParts.length}</b> parts</span>
           <span><b>${totalQuestions}</b> questions</span>
           <span><b>${totalMinutes}</b> minutes</span>
         </div>
@@ -1710,13 +1714,20 @@ function renderMockIntro() {
         </button>
       </div>
 
-      <div class="mock-section-strip" aria-label="Exam parts">
-        ${mockParts.map((part, index) => `<div class="mock-section-pill"><span>${index + 1}</span><b>${part.label}</b><small>${part.minutes}m - ${part.questionCount}q</small></div>`).join('')}
+      <div class="mock-section-picker-head">
+        <div><b>Choose exam sections</b><span>Pick one section or combine several.</span></div>
+        <div><button type="button" data-mock-select-all>Select all</button><button type="button" data-mock-clear>Clear</button></div>
+      </div>
+      <div class="mock-section-strip" role="group" aria-label="Choose exam sections">
+        ${MOCK_PART_CATALOG.map((part, index) => {
+          const selected = selectedIndexes.has(index);
+          return `<button class="mock-section-pill ${selected ? 'selected' : ''}" type="button" data-mock-part="${index}" aria-pressed="${selected}"><span>${index + 1}</span><b>${part.label}</b><small>${part.minutes}m - ${part.questionCount}q</small></button>`;
+        }).join('')}
       </div>
 
       <div class="footer-actions">
         <button class="ghost" type="button" id="mock-cancel">Back</button>
-        <button class="primary" type="button" id="mock-start">Start exam</button>
+        <button class="primary" type="button" id="mock-start" ${selectedParts.length ? '' : 'disabled'}>${selectedParts.length ? `Start ${selectedParts.length === 1 ? 'section' : `${selectedParts.length} sections`}` : 'Choose a section'}</button>
       </div>
     </section>
   `);
@@ -1726,6 +1737,24 @@ function renderMockIntro() {
       state.mockMode = button.dataset.mockMode;
       renderMockIntro();
     });
+  });
+  document.querySelectorAll('[data-mock-part]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number(button.dataset.mockPart);
+      const next = new Set(state.mockSelectedPartIndexes);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      state.mockSelectedPartIndexes = [...next].sort((first, second) => first - second);
+      renderMockIntro();
+    });
+  });
+  document.querySelector('[data-mock-select-all]').addEventListener('click', () => {
+    state.mockSelectedPartIndexes = MOCK_PART_CATALOG.map((_, index) => index);
+    renderMockIntro();
+  });
+  document.querySelector('[data-mock-clear]').addEventListener('click', () => {
+    state.mockSelectedPartIndexes = [];
+    renderMockIntro();
   });
   document.querySelector('#mock-start').addEventListener('click', startMockExam);
   document.querySelector('#mock-cancel').addEventListener('click', () => {
@@ -2478,6 +2507,11 @@ function startMockIntro() {
 }
 
 function startMockExam() {
+  const selectedIndexes = new Set(state.mockSelectedPartIndexes);
+  mockParts = MOCK_PART_CATALOG.filter((_, index) => selectedIndexes.has(index));
+  if (!mockParts.length) {
+    return;
+  }
   stopMockTimer();
   state.mockPartIndex = 0;
   state.mockResults = [];
@@ -4378,17 +4412,29 @@ function summarizeDailyBatteries(questions, answers, isAnswered = (_, index) => 
 }
 
 function getDailyReport() {
-  const progress = getDailyProgress();
+  const todayKey = getDateKey();
+  const todayAttempts = (state.history.performanceLog ?? []).filter((attempt) => {
+    const answeredAt = new Date(attempt.answeredAt);
+    return !Number.isNaN(answeredAt.getTime()) && getDateKey(answeredAt) === todayKey;
+  });
   const record = state.history.daily[getDateKey()] ?? {};
-  const active = hasStoredActiveDailySession() ? state.history.activeSession : null;
-  let batterySummary = record.batteries ?? null;
-
-  if (active) {
-    const questions = active.questionIds.map((id) => questionById.get(String(id)));
-    batterySummary = summarizeDailyBatteries(questions, active.answers, (_, index) => (
-      index < active.currentIndex || (index === active.currentIndex && active.checked)
-    ));
-  }
+  const useLegacyDailyRecord = todayAttempts.length === 0 && Number(record.answered ?? 0) > 0;
+  const batterySummary = useLegacyDailyRecord ? record.batteries : todayAttempts.reduce((summary, attempt) => {
+    const key = String(attempt.battery ?? '').replace(' Battery', '').toLowerCase();
+    if (summary[key]) {
+      summary[key].answered += 1;
+      summary[key].correct += attempt.correct ? 1 : 0;
+    }
+    return summary;
+  }, {
+    verbal: { answered: 0, correct: 0 },
+    quantitative: { answered: 0, correct: 0 },
+    nonverbal: { answered: 0, correct: 0 },
+  });
+  const answered = useLegacyDailyRecord ? Number(record.answered ?? 0) : todayAttempts.length;
+  const correct = useLegacyDailyRecord
+    ? Number(record.correct ?? 0)
+    : todayAttempts.reduce((count, attempt) => count + (attempt.correct ? 1 : 0), 0);
 
   const batteries = [
     { key: 'verbal', label: 'Verbal' },
@@ -4401,9 +4447,9 @@ function getDailyReport() {
   }));
 
   return {
-    answered: progress.answered,
-    correct: progress.correct,
-    accuracy: progress.answered ? Math.round((progress.correct / progress.answered) * 100) : null,
+    answered,
+    correct,
+    accuracy: answered ? Math.round((correct / answered) * 100) : null,
     batteries,
     hasBatteryDetails: Boolean(batterySummary),
   };
