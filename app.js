@@ -1584,7 +1584,7 @@ function findSimilarPracticeQuestion(question) {
         (getQuestionRuleFamily(item) === sourceFamily ? 6 : 0)
         + (getDifficulty(item) === sourceDifficulty ? 3 : 0)
         + (!currentIds.has(String(item.id)) ? 2 : 0)
-        + (!state.history.questions[String(item.id)] ? 1 : 0),
+        + (!state.history.stats[String(item.id)] ? 1 : 0),
     }))
     .sort((first, second) => second.score - first.score || String(first.item.id).localeCompare(String(second.item.id), undefined, { numeric: true }));
   return candidates[0]?.item ?? null;
